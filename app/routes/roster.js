@@ -40,9 +40,8 @@ async function getValidAccessToken() {
   return currentTokens.access_token;
 }
 
-router.get('/sync-roster', async (req, res) => {
-  console.log('=== SYNC ROSTER DEBUG ===');
-  
+router.post('/sync-roster', async (req, res) => {
+ 
   try {
     const accessToken = await getValidAccessToken();
     const yahoo = new Yahoo();
@@ -57,19 +56,15 @@ router.get('/sync-roster', async (req, res) => {
 });
 
 router.get('/my-roster', async (req, res) => {
-    console.log('=== MY ROSTER DEBUG ===');
-    console.log('Route hit: /my-roster');
-    
+
     try {
       const team = new Team();
       const result = await team.getMyRoster();
-      console.log('Roster result:', result);
       res.json(result);
     } catch (error) {
       console.error('Error in /my-roster:', error);
       res.status(500).json({ error: 'Failed to get roster', details: error.message });
     }
-  });
+});
   
-
 module.exports = router;

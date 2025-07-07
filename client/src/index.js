@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import TokenStatus from './components/TokenStatus';
 import OAuthSuccess from './components/OAuthSuccess';
 import AuthRedirect from './components/AuthRedirect';
+import MyTeam from './components/MyTeam';
 
 // Main App Component
 function App() {
@@ -14,7 +15,7 @@ function App() {
         <Route path="/auth/redirect" element={<AuthRedirect />} />
         <Route path="/auth/*" element={<AuthRedirect />} />
         <Route path="/oauth-success" element={<OAuthSuccess />} />
-        <Route path="/my-team" element={<div>My Team Page (Coming Soon)</div>} />
+        <Route path="/my-team" element={<MyTeam />} />
         <Route path="*" element={<div>404 - Page not found</div>} />
       </Routes>
     </Router>

@@ -38,6 +38,28 @@ async function runMigrations() {
     FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
   )`);
 
+  // Add new columns if they don't exist
+  try {
+    await db.query(`ALTER TABLE players ADD COLUMN eligible_positions TEXT`);
+  } catch (error) {
+    // Column already exists, ignore error
+    console.log('eligible_positions column already exists');
+  }
+
+  try {
+    await db.query(`ALTER TABLE players ADD COLUMN selected_position VARCHAR(50)`);
+  } catch (error) {
+    // Column already exists, ignore error
+    console.log('selected_position column already exists');
+  }
+
+  try {
+    await db.query(`ALTER TABLE players ADD COLUMN headshot_url VARCHAR(500)`);
+  } catch (error) {
+    // Column already exists, ignore error
+    console.log('headshot_url column already exists');
+  }
+
   await db.query(`CREATE TABLE IF NOT EXISTS recommendations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     player_id INT NOT NULL,

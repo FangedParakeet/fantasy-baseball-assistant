@@ -1,4 +1,5 @@
 const axios = require('axios');
+const xml2js = require('xml2js');
 
 class Yahoo {
     constructor() {
@@ -37,11 +38,15 @@ class Yahoo {
             const response = await axios.get(`${this.baseApiUrl}/${endpoint}`, {
                 headers: {
                     'Authorization': `Bearer ${accessToken}`,
-                    'Accept': 'application/json'
+                    'Accept': 'application/xml'
                 },
                 params: params
             });
-            return response.data;
+            
+            // Parse XML response to JSON
+            const parser = new xml2js.Parser({ explicitArray: false, ignoreAttrs: true });
+            const result = await parser.parseStringPromise(response.data);
+            return result;
         } catch (error) {
             console.error('API request failed:', error.response?.data || error.message);
             throw error;
@@ -50,6 +55,10 @@ class Yahoo {
 
     async getUserLeagues(accessToken) {
         return this.apiRequest(accessToken, '/users;use_login=1/games;game_codes=mlb/leagues');
+    }
+
+    async getLeague(accessToken, leagueKey) {
+        return this.apiRequest(accessToken, `/league/${leagueKey}/standings`);
     }
 
     async getTeamRoster(accessToken, teamKey, date = null) {
