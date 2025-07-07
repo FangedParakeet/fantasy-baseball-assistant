@@ -1,20 +1,29 @@
 const express = require('express');
 const cors = require('cors');
-const session = require('express-session');
-const mysql = require('mysql2/promise');
 require('dotenv').config();
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(session({ secret: 'your_secret_key', resave: false, saveUninitialized: true }));
+const { runMigrations } = require('./db');
+const authRoutes = require('./routes/auth');
+const rosterRoutes = require('./routes/roster');
 
-// Placeholder route
-app.get('/api/hello', (req, res) => {
-  res.json({ message: 'Fantasy Baseball Assistant backend is running.' });
+const app = express();
+app.use(cors({
+  origin: true, // Allow all origins for debugging
+  credentials: true
+}));
+app.use(express.json());
+
+// Simple request logging middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
 });
 
-const PORT = process.env.PORT || 8888;
-app.listen(PORT, () => {
+app.use('/auth', authRoutes);
+app.use('/api', rosterRoutes);
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, async () => {
+  await runMigrations();
   console.log(`Server running on port ${PORT}`);
 });

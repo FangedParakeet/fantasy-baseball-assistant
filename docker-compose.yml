@@ -1,0 +1,54 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: fantasy_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: fantasy_baseball
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  app:
+    build: ./app
+    container_name: fantasy_app
+    restart: always
+    depends_on:
+      - mysql
+    volumes:
+      - ./app:/usr/src/app
+    env_file:
+      - .env
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: fantasy_baseball
+      PORT: 3001
+
+  client:
+    build: ./client
+    container_name: fantasy_client
+    restart: always
+    depends_on:
+      - app
+    volumes:
+      - ./client:/usr/src/client
+    environment:
+      - CI=true
+      - REACT_APP_API_URL=http://app:3001
+
+  nginx:
+    image: nginx:alpine
+    container_name: fantasy_nginx
+    restart: always
+    ports:
+      - '80:80'
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - client
+      - app
+
+volumes:
+  mysql_data:
