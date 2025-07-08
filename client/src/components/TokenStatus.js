@@ -110,15 +110,14 @@ function TokenStatus() {
           <li style={{ marginBottom: '10px' }}>
             <button 
               onClick={() => window.location.href = '/my-team'}
-              disabled={!tokenStatus?.hasValidToken}
               style={{ 
                 width: '100%', 
                 padding: '8px', 
-                backgroundColor: tokenStatus?.hasValidToken ? '#007bff' : '#6c757d', 
+                backgroundColor: '#6c757d', 
                 color: 'white', 
                 border: 'none', 
                 borderRadius: '4px',
-                opacity: tokenStatus?.hasValidToken ? 1 : 0.6
+                opacity: 1
               }}
             >
               My Team
