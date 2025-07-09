@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import api, { handleApiResponse, handleApiError } from '../utils/api';
 
 function TokenStatus() {
   const [tokenStatus, setTokenStatus] = useState(null);
@@ -11,11 +12,11 @@ function TokenStatus() {
 
   const fetchTokenStatus = async () => {
     try {
-      const response = await fetch('/auth/token-status');
-      const data = await response.json();
+      const response = await api.get('/auth/token-status');
+      const data = handleApiResponse(response);
       setTokenStatus(data);
     } catch (err) {
-      setError('Failed to fetch token status');
+      setError(handleApiError(err));
     } finally {
       setLoading(false);
     }
@@ -27,18 +28,10 @@ function TokenStatus() {
 
   const handleRefreshToken = async () => {
     try {
-      const response = await fetch('/auth/refresh-token', {
-        method: 'POST',
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        fetchTokenStatus(); // Refresh the status
-      } else {
-        setError('Failed to refresh token');
-      }
+      await api.post('/auth/refresh-token');
+      fetchTokenStatus(); // Refresh the status
     } catch (err) {
-      setError('Network error');
+      setError(handleApiError(err));
     }
   };
 
@@ -113,7 +106,7 @@ function TokenStatus() {
               style={{ 
                 width: '100%', 
                 padding: '8px', 
-                backgroundColor: '#6c757d', 
+                backgroundColor: '#007bff', 
                 color: 'white', 
                 border: 'none', 
                 borderRadius: '4px',
@@ -121,6 +114,14 @@ function TokenStatus() {
               }}
             >
               My Team
+            </button>
+          </li>
+          <li style={{ marginBottom: '10px' }}>
+            <button 
+              onClick={() => window.location.href = '/league-teams'}
+              style={{ width: '100%', padding: '8px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
+            >
+              League Teams
             </button>
           </li>
           <li style={{ marginBottom: '10px' }}>

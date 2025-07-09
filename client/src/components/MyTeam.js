@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import api, { handleApiResponse, handleApiError } from '../utils/api';
 
 function MyTeam() {
   const [players, setPlayers] = useState([]);
@@ -13,16 +14,12 @@ function MyTeam() {
   const fetchMyRoster = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/my-roster');
-      const data = await response.json();
+      const response = await api.get('/my-roster');
+      const data = handleApiResponse(response);
       console.log(data);
-      if (response.ok) {
-        setPlayers(data.players || []);
-      } else {
-        setError(data.error || 'Failed to fetch roster');
-      }
+      setPlayers(data.players || []);
     } catch (err) {
-      setError('Network error');
+      setError(handleApiError(err));
     } finally {
       setLoading(false);
     }
@@ -31,19 +28,11 @@ function MyTeam() {
   const handleSyncRoster = async () => {
     try {
       setSyncing(true);
-      const response = await fetch('/api/sync-roster', {
-        method: 'POST'
-      });
-      
-      if (response.ok) {
-        // Refresh the roster after successful sync
-        await fetchMyRoster();
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to sync roster');
-      }
+      await api.post('/sync-roster');
+      // Refresh the roster after successful sync
+      await fetchMyRoster();
     } catch (err) {
-      setError('Network error during sync');
+      setError(handleApiError(err));
     } finally {
       setSyncing(false);
     }

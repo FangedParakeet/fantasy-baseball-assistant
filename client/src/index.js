@@ -5,6 +5,7 @@ import TokenStatus from './components/TokenStatus';
 import OAuthSuccess from './components/OAuthSuccess';
 import AuthRedirect from './components/AuthRedirect';
 import MyTeam from './components/MyTeam';
+import LeagueTeams from './components/LeagueTeams';
 
 // Main App Component
 function App() {
@@ -16,6 +17,7 @@ function App() {
         <Route path="/auth/*" element={<AuthRedirect />} />
         <Route path="/oauth-success" element={<OAuthSuccess />} />
         <Route path="/my-team" element={<MyTeam />} />
+        <Route path="/league-teams" element={<LeagueTeams />} />
         <Route path="*" element={<div>404 - Page not found</div>} />
       </Routes>
     </Router>

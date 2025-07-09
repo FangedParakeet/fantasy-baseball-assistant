@@ -2,12 +2,13 @@ const axios = require('axios');
 const xml2js = require('xml2js');
 
 class Yahoo {
-    constructor() {
+    constructor( accessToken = null ) {
         this.baseLoginUrl = 'https://api.login.yahoo.com/oauth2';
         this.baseApiUrl = 'https://fantasysports.yahooapis.com/fantasy/v2';
         this.clientId = process.env.YAHOO_CLIENT_ID;
         this.clientSecret = process.env.YAHOO_CLIENT_SECRET;
         this.redirectUri = `https://${process.env.SITE_DOMAIN}/auth/redirect`;
+        this.accessToken = accessToken;
     }
 
     async getAuthUrl() {
@@ -33,11 +34,11 @@ class Yahoo {
         }
     }
 
-    async apiRequest(accessToken, endpoint, params = {}) {
+    async apiRequest(endpoint, params = {}) {
         try {
             const response = await axios.get(`${this.baseApiUrl}/${endpoint}`, {
                 headers: {
-                    'Authorization': `Bearer ${accessToken}`,
+                    'Authorization': `Bearer ${this.accessToken}`,
                     'Accept': 'application/xml'
                 },
                 params: params
@@ -53,22 +54,22 @@ class Yahoo {
         }
     }
 
-    async getUserLeagues(accessToken) {
-        return this.apiRequest(accessToken, '/users;use_login=1/games;game_codes=mlb/leagues');
+    async getUserLeagues() {
+        return this.apiRequest('/users;use_login=1/games;game_codes=mlb/leagues');
     }
 
-    async getLeague(accessToken, leagueKey) {
-        return this.apiRequest(accessToken, `/league/${leagueKey}/standings`);
+    async getLeague(leagueKey) {
+        return this.apiRequest(`/league/${leagueKey}/standings`);
     }
 
-    async getTeamRoster(accessToken, teamKey, date = null) {
+    async getTeamRoster(teamKey, date = null) {
         let endpoint = `/team/${teamKey}/roster`;
         if (date) endpoint += `;date=${date}`;
-        return this.apiRequest(accessToken, endpoint);
+        return this.apiRequest(endpoint);
      }
 
-    async getLeaguePlayers(accessToken, leagueKey, status = 'FA') {
-        return this.apiRequest(accessToken, `/league/${leagueKey}/players;status=${status}`);
+    async getAvailablePlayersForPosition(leagueKey, position ) {
+        return this.apiRequest(`/league/${leagueKey}/players;status=FA;position=${position}`);
     }
 
     async getTokens(code) {

@@ -5,6 +5,7 @@ require('dotenv').config();
 const { runMigrations } = require('./db');
 const authRoutes = require('./routes/auth');
 const rosterRoutes = require('./routes/roster');
+const aiRoutes = require('./routes/ai');
 
 const app = express();
 app.use(cors({
@@ -19,8 +20,9 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use('/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api', rosterRoutes);
+app.use('/api', aiRoutes);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {

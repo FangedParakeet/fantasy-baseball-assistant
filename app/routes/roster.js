@@ -2,50 +2,14 @@ const express = require('express');
 const router = express.Router();
 const Team = require('../classes/team');
 const Yahoo = require('../classes/yahoo');
-const Token = require('../classes/token');
-
-
-async function getValidAccessToken() {
-  const token = new Token();
-  const yahoo = new Yahoo();
-  
-  // Check token status
-  const status = await token.status();
-  
-  if (!status.hasToken) {
-    throw new Error('No token found. Please authenticate with Yahoo first.');
-  }
-  
-  if (!status.hasValidToken) {
-    // Token is expired, refresh it
-    console.log('Token expired, refreshing...');
-    const currentTokens = await token.get();
-    
-    if (!currentTokens.refresh_token) {
-      throw new Error('No refresh token available. Please re-authenticate with Yahoo.');
-    }
-    
-    try {
-      const newTokens = await yahoo.refreshTokens(currentTokens.refresh_token);
-      await token.set(newTokens);
-      return newTokens.access_token;
-    } catch (error) {
-      console.error('Failed to refresh token:', error);
-      throw new Error('Failed to refresh token. Please re-authenticate with Yahoo.');
-    }
-  }
-  
-  // Token is valid, return current access token
-  const currentTokens = await token.get();
-  return currentTokens.access_token;
-}
+const { getValidAccessToken } = require('../utils');
 
 router.post('/sync-roster', async (req, res) => {
  
   try {
     const accessToken = await getValidAccessToken();
-    const yahoo = new Yahoo();
-    const team = new Team(yahoo, accessToken);
+    const yahoo = new Yahoo(accessToken);
+    const team = new Team(yahoo);
     
     const result = await team.syncMyRoster();
     res.json(result);
@@ -66,5 +30,42 @@ router.get('/my-roster', async (req, res) => {
       res.status(500).json({ error: 'Failed to get roster', details: error.message });
     }
 });
-  
+
+router.get('/league-teams', async (req, res) => {
+  try {
+    const accessToken = await getValidAccessToken();
+    const yahoo = new Yahoo(accessToken);
+    const team = new Team(yahoo);
+    const result = await team.getAllLeagueTeams();
+    res.json(result);
+  } catch (error) {
+    console.error('Error in /league-teams:', error);
+    res.status(500).json({ error: 'Failed to get league teams', details: error.message });
+  }
+});
+
+router.get('/league-teams/:teamId', async (req, res) => {
+  try {
+    const team = new Team();
+    const result = await team.getRosterForTeam(req.params.teamId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error in /league-teams/:teamId:', error);
+    res.status(500).json({ error: 'Failed to get league teams', details: error.message });
+  }
+});
+
+router.post('/league-teams/:teamId/sync-roster', async (req, res) => {
+  try {
+    const accessToken = await getValidAccessToken();
+    const yahoo = new Yahoo(accessToken);
+    const team = new Team(yahoo);
+    const result = await team.syncRosterForLeagueTeam(req.params.teamId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error in /league-teams/:teamId/sync-roster:', error);
+    res.status(500).json({ error: 'Failed to sync roster', details: error.message });
+  }
+});
+
 module.exports = router;
