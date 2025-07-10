@@ -126,6 +126,14 @@ function TokenStatus() {
           </li>
           <li style={{ marginBottom: '10px' }}>
             <button 
+              onClick={() => window.location.href = '/two-start-pitchers'}
+              style={{ width: '100%', padding: '8px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
+            >
+              Two-Start Pitchers
+            </button>
+          </li>
+          <li style={{ marginBottom: '10px' }}>
+            <button 
               disabled
               style={{ width: '100%', padding: '8px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', opacity: 0.6 }}
             >
@@ -138,6 +146,14 @@ function TokenStatus() {
               style={{ width: '100%', padding: '8px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', opacity: 0.6 }}
             >
               Trade Analyzer (Coming Soon)
+            </button>
+          </li>
+          <li style={{ marginTop: '20px', borderTop: '1px solid #dee2e6', paddingTop: '20px' }}>
+            <button 
+              onClick={() => window.location.href = '/settings'}
+              style={{ width: '100%', padding: '8px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px' }}
+            >
+              Settings
             </button>
           </li>
         </ul>

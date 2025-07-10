@@ -1,15 +1,28 @@
 // File: app/classes/ai.js
-const { OpenAI } = require('openai');
-const db = require('../db');
+const axios = require('axios');
+const { db } = require('../db');
 
 class AI {
   constructor() {
-    this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    this.apiKey = process.env.OPENAI_API_KEY;
+    this.client = axios.create({
+      baseURL: 'https://api.openai.com/v1',
+      timeout: 30000, // 30 seconds
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
   }
 
   async getContext(key) {
     const [rows] = await db.query('SELECT content FROM ai_context WHERE key_name = ?', [key]);
     return rows[0]?.content || '';
+  }
+
+  async getContexts() {
+    const [rows] = await db.query('SELECT key_name, content FROM ai_context');
+    return rows;
   }
 
   async setContext(key, content) {
@@ -23,7 +36,7 @@ class AI {
     const context = contextKey ? await this.getContext(contextKey) : '';
     const fullPrompt = context ? `${context}\n\n${prompt}` : prompt;
 
-    const chat = await this.client.chat.completions.create({
+    const response = await this.client.post('/chat/completions', {
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: 'You are a fantasy baseball expert providing strategic advice.' },
@@ -31,7 +44,7 @@ class AI {
       ],
     });
 
-    return chat.choices[0].message.content.trim();
+    return response.data.choices[0].message.content.trim();
   }
 }
 

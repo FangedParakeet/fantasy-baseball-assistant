@@ -6,6 +6,8 @@ import OAuthSuccess from './components/OAuthSuccess';
 import AuthRedirect from './components/AuthRedirect';
 import MyTeam from './components/MyTeam';
 import LeagueTeams from './components/LeagueTeams';
+import Settings from './components/Settings';
+import TwoStartPitchers from './components/TwoStartPitchers';
 
 // Main App Component
 function App() {
@@ -18,6 +20,8 @@ function App() {
         <Route path="/oauth-success" element={<OAuthSuccess />} />
         <Route path="/my-team" element={<MyTeam />} />
         <Route path="/league-teams" element={<LeagueTeams />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/two-start-pitchers" element={<TwoStartPitchers />} />
         <Route path="*" element={<div>404 - Page not found</div>} />
       </Routes>
     </Router>

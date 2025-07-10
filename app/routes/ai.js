@@ -17,7 +17,7 @@ router.post('/ai/opponent-analysis', async (req, res) => {
     try {
         const team = new Team();
         const opponentRoster = await team.getRosterForTeam(teamId);
-        if (!opponentRoster.players?.length) {
+        if (!opponentRoster.players.length) {
             return res.status(404).json({ error: 'No players found for this team' });
         }
 
@@ -39,6 +39,13 @@ router.post('/ai/opponent-analysis', async (req, res) => {
         res.json({ result });
     } catch (err) {
         console.error('Opponent analysis error:', err);
+        if (err.code === 'ECONNABORTED') {
+            return res.status(504).json({ error: 'AI request timed out. Please try again shortly.' });
+        } else if (err.response?.data?.error?.message) {
+            return res.status(500).json({ error: `AI request failed: ${err.response.data.error.message}` });
+        } else if (err.message) {
+            return res.status(500).json({ error: `AI request failed: ${err.message}` });
+        }
         res.status(500).json({ error: 'Failed to generate opponent analysis' });
     }
 });
@@ -60,19 +67,26 @@ router.post('/ai/two-start-pitchers', async (req, res) => {
         const pitcherLines = rosteredPitchers.map(p => `${p.name} (${p.mlb_team})`).join('\n');
   
         const prompt = `
-  Gameweek starting on ${weekStart}. The following pitchers are already rostered in our fantasy league and are NOT available:
-  
-  ${pitcherLines}
-  
-  Please identify which other starting pitchers (not in this list) are projected to make two starts during this week. Based on expected matchups, team strength, and likelihood of contributing in QS, ERA, WHIP, and strikeouts, recommend at least five of the best two-start pitchers.
-  
-  Return your recommendations in bullet points with a short justification for each pick.
-      `;
+            Gameweek starting on ${weekStart}. The following pitchers are already rostered in our fantasy league and are NOT available:
+            
+            ${pitcherLines}
+            
+            Please identify which other starting pitchers (not in this list) are projected to make two starts during this week. Based on expected matchups, team strength, and likelihood of contributing in QS, ERA, WHIP, and strikeouts, recommend at least five of the best two-start pitchers.
+            
+            Return your recommendations in bullet points with a short justification for each pick.
+        `;
   
         const result = await ai.getCompletion(prompt, 'two_start_pitchers');
         res.json({ result });
     } catch (err) {
         console.error('Two-start pitcher error:', err);
+        if (err.code === 'ECONNABORTED') {
+            return res.status(504).json({ error: 'AI request timed out. Please try again shortly.' });
+        } else if (err.response?.data?.error?.message) {
+            return res.status(500).json({ error: `AI request failed: ${err.response.data.error.message}` });
+        } else if (err.message) {
+            return res.status(500).json({ error: `AI request failed: ${err.message}` });
+        }
         res.status(500).json({ error: 'Failed to generate two-start pitcher recommendations' });
     }
 });
@@ -93,21 +107,28 @@ router.post('/ai/daily-streamers', async (req, res) => {
 
         const pitcherLines = rosteredPitchers.map(p => `${p.name} (${p.mlb_team})`).join('\n');
         const prompt = `
-The fantasy baseball gameweek begins on ${weekStart}. The following pitchers are already rostered in our league and are NOT available for streaming:
+            The fantasy baseball gameweek begins on ${weekStart}. The following pitchers are already rostered in our league and are NOT available for streaming:
 
-${pitcherLines}
+            ${pitcherLines}
 
-From the remaining pool of available starting pitchers in the league, identify which ones are projected to start each day this week.
+            From the remaining pool of available starting pitchers in the league, identify which ones are projected to start each day this week.
 
-Prioritise pitchers who are likely to earn a **Quality Start (QS)**. Secondarily, consider ERA, WHIP, and strikeouts.
+            Prioritise pitchers who are likely to earn a **Quality Start (QS)**. Secondarily, consider ERA, WHIP, and strikeouts.
 
-Return at least **three recommended streamers per day**, with each day clearly labelled. Include a short justification for each pitcher based on matchup, projected performance, and team strength.
-`;
+            Return at least **three recommended streamers per day**, with each day clearly labelled. Include a short justification for each pitcher based on matchup, projected performance, and team strength.
+        `;
 
         const result = await ai.getCompletion(prompt, 'daily_streamers');
         res.json({ result });
     } catch (err) {
         console.error('Daily streamer error:', err);
+        if (err.code === 'ECONNABORTED') {
+            return res.status(504).json({ error: 'AI request timed out. Please try again shortly.' });
+        } else if (err.response?.data?.error?.message) {
+            return res.status(500).json({ error: `AI request failed: ${err.response.data.error.message}` });
+        } else if (err.message) {
+            return res.status(500).json({ error: `AI request failed: ${err.message}` });
+        }
         res.status(500).json({ error: 'Failed to generate daily streamer recommendations' });
     }
 });
@@ -148,22 +169,29 @@ router.post('/ai/positional-add-drop', async (req, res) => {
         const posText = eligiblePositions.join(', ');
 
         const prompt = `
-Gameweek beginning ${weekStart}. 
-The following players are NOT available:
+            Gameweek beginning ${weekStart}. 
+            The following players are NOT available:
 
-${playerList}
+            ${playerList}
 
-Return at least **five** free agent player recommendations who are eligible at **${posText}** and could be strong adds.
+            Return at least **five** free agent player recommendations who are eligible at **${posText}** and could be strong adds.
 
-If a specific player is being evaluated, compare them to these options and suggest whether a drop is worthwhile.
+            If a specific player is being evaluated, compare them to these options and suggest whether a drop is worthwhile.
 
-Prioritise **HR and SB** for hitters and **QS and SVH** for pitchers, but include general value across all categories.
+            Prioritise **HR and SB** for hitters and **QS and SVH** for pitchers, but include general value across all categories.
         `;
   
         const result = await ai.getCompletion(prompt, 'positional_add_drop');
         res.json({ result });  
     } catch (err) {
         console.error('Positional add/drop error:', err);
+        if (err.code === 'ECONNABORTED') {
+            return res.status(504).json({ error: 'AI request timed out. Please try again shortly.' });
+        } else if (err.response?.data?.error?.message) {
+            return res.status(500).json({ error: `AI request failed: ${err.response.data.error.message}` });
+        } else if (err.message) {
+            return res.status(500).json({ error: `AI request failed: ${err.message}` });
+        }
         res.status(500).json({ error: 'Failed to generate positional recommendations' });
     }
   });
@@ -175,6 +203,15 @@ router.post('/ai/context', async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: 'Failed to store context' });
+    }
+});
+
+router.get('/ai/context', async (req, res) => {
+    try {
+        const contexts = await ai.getContexts();
+        res.json({ contexts });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to retrieve contexts' });
     }
 });
 

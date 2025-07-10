@@ -36,7 +36,7 @@ async function getValidAccessToken() {
 }
 
 const parseEligiblePositions = (eligiblePositions) => {
-  const positions = JSON.parse(eligible_positions);
+  const positions = JSON.parse(eligiblePositions);
   if (Array.isArray(positions)) {
     // If array of objects with 'position' key
     if (positions.length > 0 && typeof positions[0] === 'object' && positions[0] !== null && 'position' in positions[0]) {

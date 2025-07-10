@@ -4,10 +4,14 @@ import api, { handleApiResponse, handleApiError } from '../utils/api';
 function LeagueTeams() {
   const [teams, setTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
   const [players, setPlayers] = useState([]);
+  const [analysis, setAnalysis] = useState('');
   const [loading, setLoading] = useState(true);
   const [teamsLoading, setTeamsLoading] = useState(true);
+  const [analysing, setAnalysing] = useState(false);
   const [error, setError] = useState('');
+  const [validationError, setValidationError] = useState('');
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
@@ -67,7 +71,45 @@ function LeagueTeams() {
 
   const handleTeamChange = (event) => {
     setSelectedTeamId(event.target.value);
+    setValidationError('');
   };
+
+  const handleDateChange = (event) => {
+    setSelectedDate(event.target.value);
+    setValidationError('');
+  };
+
+  const handleAnalyzeTeam = async () => {
+    if (!selectedTeamId || !selectedDate) {
+      setValidationError('Please select both a team and a date to analyze.');
+      return;
+    }
+
+    try {
+      setAnalysing(true);
+      setError('');
+      setValidationError('');
+      
+      const response = await api.post('/ai/opponent-analysis', {
+        teamId: selectedTeamId,
+        weekStart: selectedDate
+      });
+      
+      const data = handleApiResponse(response);
+      setAnalysis(data.result);
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setAnalysing(false);
+    }
+  };
+
+  // Helper to format AI response with bold tags
+  function formatAIResponse(text) {
+    if (!text) return '';
+    // Replace **text** with <b>text</b>
+    return text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+  }
 
   if (teamsLoading) return <div style={{ textAlign: 'center', padding: '50px' }}>Loading teams...</div>;
   if (error) return <div style={{ color: 'red', textAlign: 'center', padding: '20px' }}>{error}</div>;
@@ -98,26 +140,106 @@ function LeagueTeams() {
         borderRadius: '8px', 
         marginBottom: '20px' 
       }}>
-        <h3>Select Team</h3>
-        <select 
-          value={selectedTeamId} 
-          onChange={handleTeamChange}
-          style={{ 
-            padding: '8px 12px', 
-            fontSize: '16px', 
+        <h3>Team Analysis</h3>
+        
+        {validationError && (
+          <div style={{ 
+            backgroundColor: '#f8d7da', 
+            color: '#721c24', 
+            padding: '10px', 
             borderRadius: '4px', 
-            border: '1px solid #ced4da',
-            width: '100%',
-            maxWidth: '300px'
+            marginBottom: '15px',
+            border: '1px solid #f5c6cb'
+          }}>
+            {validationError}
+          </div>
+        )}
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(180px, 320px) minmax(140px, 180px) auto',
+            gap: '24px',
+            alignItems: 'end',
+            marginBottom: '10px',
+            // Responsive: stack vertically on small screens
+            gridAutoFlow: 'row',
           }}
         >
-          <option value="">Select a team...</option>
-          {teams.map(team => (
-            <option key={team.id} value={team.id}>
-              {team.team_name}
-            </option>
-          ))}
-        </select>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              Select Team:
+            </label>
+            <select
+              value={selectedTeamId}
+              onChange={handleTeamChange}
+              style={{
+                padding: '8px 12px',
+                fontSize: '16px',
+                borderRadius: '4px',
+                border: '1px solid #ced4da',
+                width: '100%',
+                maxWidth: '320px',
+                minWidth: '180px',
+                boxSizing: 'border-box',
+              }}
+            >
+              <option value="">Select a team...</option>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.team_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              Week Start Date (Monday):
+            </label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={handleDateChange}
+              style={{
+                padding: '8px 12px',
+                fontSize: '16px',
+                borderRadius: '4px',
+                border: '1px solid #ced4da',
+                width: '100%',
+                maxWidth: '180px',
+                minWidth: '140px',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'end', height: '100%' }}>
+            <button
+              onClick={handleAnalyzeTeam}
+              disabled={analysing || !selectedTeamId || !selectedDate}
+              style={{
+                padding: '10px 20px',
+                backgroundColor:
+                  analysing || !selectedTeamId || !selectedDate ? '#6c757d' : '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor:
+                  analysing || !selectedTeamId || !selectedDate
+                    ? 'not-allowed'
+                    : 'pointer',
+                fontWeight: 'bold',
+                whiteSpace: 'nowrap',
+                width: '100%',
+                minWidth: '120px',
+                boxSizing: 'border-box',
+              }}
+            >
+              {analysing ? 'Analysing...' : 'Analyse Team'}
+            </button>
+          </div>
+        </div>
       </div>
 
       {selectedTeamId && (
@@ -134,6 +256,25 @@ function LeagueTeams() {
               }}>
                 <h3>Roster Summary</h3>
                 <p>Total Players: {players.length}</p>
+                
+                {analysis && (
+                  <div style={{ 
+                    marginTop: '15px', 
+                    padding: '15px', 
+                    backgroundColor: 'white', 
+                    borderRadius: '6px', 
+                    border: '1px solid #dee2e6' 
+                  }}>
+                    <h4 style={{ margin: '0 0 10px 0', color: '#495057' }}>AI Analysis</h4>
+                    <div style={{ 
+                      whiteSpace: 'pre-wrap', 
+                      lineHeight: '1.6',
+                      fontSize: '14px'
+                    }}
+                      dangerouslySetInnerHTML={{ __html: formatAIResponse(analysis) }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div style={{ 

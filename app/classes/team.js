@@ -47,8 +47,8 @@ class Team {
         throw new Error(`Failed to get all league teams: ${teams.details}`);
       }
       if (await this.isSyncStale()) {
-        for (const team of teams) {
-          await this.syncRosterForTeam(team.id);
+        for (const team of teams.teams) {
+          await this.syncRosterForTeam(team.yahoo_team_id);
         }
         await this.storeSyncTimestamp();
         teams = await this.getAllLeagueTeams();
@@ -62,7 +62,7 @@ class Team {
     }
 
     async getAllLeagueTeams() {
-      let [teams] = await db.query('SELECT id, team_name FROM teams');
+      let [teams] = await db.query('SELECT id, yahoo_team_id, team_name FROM teams');
       if (teams.length < 10) {
         const leagueKey = await this.getMyLeagueKey();
         const leagueTeams = await this.getMyLeagueTeams( leagueKey );
@@ -81,7 +81,7 @@ class Team {
           );
         }
       }
-      [teams] = await db.query('SELECT id, team_name FROM teams');
+      [teams] = await db.query('SELECT id, yahoo_team_id, team_name FROM teams');
       return { success: true, teams };
     }
 
@@ -157,9 +157,9 @@ class Team {
           }
         });
 
-        console.log('Inserting player:', {
-          playerId, teamId, name, mlbTeam, eligiblePositions, selectedPosition, headshotUrl, positionFlags
-        });
+        // console.log('Inserting player:', {
+        //   playerId, teamId, name, mlbTeam, eligiblePositions, selectedPosition, headshotUrl, positionFlags
+        // });
   
         await db.query(
           `INSERT INTO players (yahoo_player_id, team_id, name, mlb_team, eligible_positions, selected_position, headshot_url, status, is_c, is_1b, is_2b, is_3b, is_ss, is_of, is_util, is_sp, is_rp)
