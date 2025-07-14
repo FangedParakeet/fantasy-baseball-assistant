@@ -34,8 +34,8 @@ class Team {
           const [teamResult] = await db.query(
             `INSERT INTO teams (yahoo_team_id, team_name, is_user_team)
              VALUES (?, ?, true)
-             ON DUPLICATE KEY UPDATE team_name = VALUES(team_name)`,
-            [teamKey, teamName]
+             ON DUPLICATE KEY UPDATE team_name = VALUES(team_name), is_user_team = true`,
+            [teamKey, teamName, true]
           );
         }
         return this.syncRosterForTeam(teamKey);
