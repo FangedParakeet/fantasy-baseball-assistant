@@ -1,0 +1,18 @@
+{
+    "name": "fantasy-baseball-assistant",
+    "version": "1.0.0",
+    "scripts": {
+      "sync:all": "docker exec pybaseball python main.py all",
+      "sync:player_stats": "docker exec pybaseball python main.py player_stats",
+      "sync:player_advanced": "docker exec pybaseball python main.py player_advanced",
+      "sync:player_logs": "docker exec pybaseball python main.py player_logs",
+      "sync:team_logs": "docker exec pybaseball python main.py team_logs",
+      "sync:team_stats": "docker exec pybaseball python main.py team_stats",
+      "sync:probable_pitchers": "docker exec pybaseball python main.py probable_pitchers",
+      "up": "docker compose up -d",
+      "up:build": "docker compose up -d --build",
+      "up:log": "docker compose up --build",
+      "down": "docker compose down"
+    }
+  }
+  

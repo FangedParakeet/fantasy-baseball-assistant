@@ -25,6 +25,8 @@ services:
       DB_PASSWORD: root
       DB_NAME: fantasy_baseball
       PORT: 3001
+    networks:
+      - fantasy_network
 
   client:
     build: ./client
@@ -37,6 +39,26 @@ services:
     environment:
       - CI=true
       - REACT_APP_API_URL=http://app:3001
+    networks:
+      - fantasy_network
+
+  pybaseball:
+    build: ./pybaseball
+    container_name: pybaseball
+    restart: always
+    depends_on:
+      - mysql
+    volumes:
+      - ./pybaseball:/usr/src/pybaseball
+    env_file:
+      - .env
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: fantasy_baseball
+    networks:
+      - fantasy_network
 
   nginx:
     image: nginx:alpine
@@ -49,6 +71,12 @@ services:
     depends_on:
       - client
       - app
+    networks:
+      - fantasy_network
 
 volumes:
   mysql_data:
+
+networks:
+  fantasy_network:
+    driver: bridge

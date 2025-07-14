@@ -1,6 +1,6 @@
 const { db } = require('../db');
 const util = require('util');
-const { positionMap } = require('../utils/constants');
+const { positionMap, normalisedName } = require('../utils');
 
 class Team {
     constructor(yahooInstance) {
@@ -162,9 +162,9 @@ class Team {
         // });
   
         await db.query(
-          `INSERT INTO players (yahoo_player_id, team_id, name, mlb_team, eligible_positions, selected_position, headshot_url, status, is_c, is_1b, is_2b, is_3b, is_ss, is_of, is_util, is_sp, is_rp)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [playerId, teamId, name, mlbTeam, eligiblePositions, selectedPosition, headshotUrl, 'rostered', positionFlags.is_c, positionFlags.is_1b, positionFlags.is_2b, positionFlags.is_3b, positionFlags.is_ss, positionFlags.is_of, positionFlags.is_util, positionFlags.is_sp, positionFlags.is_rp]
+          `INSERT INTO players (yahoo_player_id, team_id, name, normalised_name, mlb_team, eligible_positions, selected_position, headshot_url, status, is_c, is_1b, is_2b, is_3b, is_ss, is_of, is_util, is_sp, is_rp)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [playerId, teamId, name, normalisedName(name), mlbTeam, eligiblePositions, selectedPosition, headshotUrl, 'rostered', positionFlags.is_c, positionFlags.is_1b, positionFlags.is_2b, positionFlags.is_3b, positionFlags.is_ss, positionFlags.is_of, positionFlags.is_util, positionFlags.is_sp, positionFlags.is_rp]
         );
       }
 

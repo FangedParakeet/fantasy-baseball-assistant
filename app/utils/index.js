@@ -48,8 +48,16 @@ const parseEligiblePositions = (eligiblePositions) => {
   return positions;
 }
 
+const normalisedName = (name) => {
+  return name
+  .normalize("NFD").replace(/[\u0300-\u036f]/g, "")  // Remove accents
+  .replace(/[^\w\s]/gi, '')                          // Remove punctuation
+  .toLowerCase()
+  .trim();
+}
   
   module.exports = {
     getValidAccessToken,
-    parseEligiblePositions
+    parseEligiblePositions,
+    normalisedName
   };

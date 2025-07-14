@@ -98,6 +98,16 @@ async function runMigrations() {
     console.log('headshot_url column already exists');
   }
 
+  try {
+    await db.query(`
+      ALTER TABLE players ADD COLUMN normalised_name VARCHAR(100),
+      ADD INDEX idx_normalised_name_ps (normalised_name)
+    `);
+  } catch (error) {
+    // Column already exists, ignore error
+    console.log('normalised_name column already exists');
+  }
+
   await db.query(`CREATE TABLE IF NOT EXISTS recommendations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     player_id INT NOT NULL,
@@ -152,6 +162,239 @@ async function runMigrations() {
     );
   }
 
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS player_stats (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      player_id INT NOT NULL,
+      stat_period ENUM('season', '7d', '14d', '28d') NOT NULL,
+      games INT,
+      avg FLOAT,
+      obp FLOAT,
+      slg FLOAT,
+      ops FLOAT,
+      hr INT,
+      r INT,
+      rbi INT,
+      sb INT,
+      k INT,
+      bb INT,
+      era FLOAT,
+      whip FLOAT,
+      qs INT,
+      ip FLOAT,
+      sv INT,
+      hld INT,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+      UNIQUE KEY unique_player_period (player_id, stat_period)
+    )
+  `);
+
+  await db.query(`
+    ALTER TABLE player_stats
+      ADD COLUMN bats CHAR(1),
+      ADD COLUMN throws CHAR(1);
+  `);
+
+  await db.query(`
+    ALTER TABLE player_stats
+      ADD COLUMN sf INT DEFAULT 0;
+  `);
+
+  await db.query(`
+    ALTER TABLE player_stats
+      ADD COLUMN normalised_name VARCHAR(100),
+      ADD INDEX idx_normalised_name_ps (normalised_name);
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS player_stats_advanced (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      player_id INT NOT NULL,
+      stat_period ENUM('season', '7d', '14d', '28d') NOT NULL,
+      babip FLOAT,
+      fip FLOAT,
+      era_minus FLOAT,
+      woba FLOAT,
+      wrc_plus FLOAT,
+      k_perc FLOAT,
+      bb_perc FLOAT,
+      hr_per_9 FLOAT,
+      qs_perc FLOAT,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+      UNIQUE KEY unique_player_period (player_id, stat_period)
+    );
+  `); 
+
+  await db.query(`
+    ALTER TABLE player_stats_advanced
+      ADD COLUMN normalised_name VARCHAR(100),
+      ADD INDEX idx_normalised_name_ps (normalised_name);
+  `);
+  
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS player_game_logs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      player_id INT NOT NULL,
+      game_date DATE NOT NULL,
+      opponent VARCHAR(10),
+      is_home BOOLEAN,
+      position VARCHAR(10),
+      ab INT,
+      h INT,
+      r INT,
+      rbi INT,
+      hr INT,
+      sb INT,
+      bb INT,
+      k INT,
+      ip FLOAT,
+      er INT,
+      hits_allowed INT,
+      walks_allowed INT,
+      strikeouts INT,
+      qs BOOLEAN,
+      sv BOOLEAN,
+      hld BOOLEAN,
+      fantasy_points FLOAT,
+      FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+      UNIQUE KEY unique_player_game (player_id, game_date)
+    )
+  `);
+
+  await db.query(`
+    ALTER TABLE player_game_logs
+      ADD COLUMN normalised_name VARCHAR(100),
+      ADD INDEX idx_normalised_name_ps (normalised_name);
+  `);
+
+  try {
+    await db.query(`ALTER TABLE player_game_logs ADD COLUMN opponent_hand CHAR(1)`);
+  } catch (error) {
+    console.log('opponent_hand column already exists');
+  }
+  
+  try {
+    await db.query(`ALTER TABLE player_game_logs ADD COLUMN bats CHAR(1)`);
+  } catch (error) {
+    console.log('bats column already exists');
+  }  
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS team_stats (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      team_abbr VARCHAR(10) NOT NULL,
+      period_days INT NOT NULL,
+      vs_hand ENUM('LHP', 'RHP') DEFAULT NULL,
+      is_home BOOLEAN DEFAULT NULL,
+      games INT,
+      runs_scored INT,
+      runs_allowed INT,
+      avg FLOAT,
+      obp FLOAT,
+      slg FLOAT,
+      ops FLOAT,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_team_stat (team_abbr, period_days, vs_hand, is_home)
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS player_rolling_stats (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      player_id INT NOT NULL,
+      span_days INT NOT NULL,
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      games INT DEFAULT 0,
+      rbi INT DEFAULT 0,
+      runs INT DEFAULT 0,
+      hr INT DEFAULT 0,
+      sb INT DEFAULT 0,
+      hits INT DEFAULT 0,
+      abs INT DEFAULT 0,
+      avg DECIMAL(4,3) DEFAULT 0.000,
+      k INT DEFAULT 0,
+      ip DECIMAL(5,2) DEFAULT 0.00,
+      er INT DEFAULT 0,
+      qs INT DEFAULT 0,
+      whip DECIMAL(4,2) DEFAULT 0.00,
+      era DECIMAL(5,2) DEFAULT 0.00,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_player_span (player_id, span_days, end_date),
+      FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
+  await db.query(`
+    ALTER TABLE player_rolling_stats
+      ADD COLUMN normalised_name VARCHAR(100),
+      ADD INDEX idx_normalised_name_ts (normalised_name);
+  `);
+  
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS team_game_logs (
+      team VARCHAR(10),
+      game_date DATE,
+      opponent VARCHAR(10),
+      is_home BOOLEAN,
+      is_win BOOLEAN,
+      runs_scored INT,
+      runs_allowed INT,
+      pitcher_hand CHAR(1),
+      PRIMARY KEY (team, game_date)
+    )
+  `);
+  
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS team_rolling_stats (
+      team VARCHAR(10),
+      split_type VARCHAR(10),
+      window_days INT,
+      games_played INT,
+      runs_scored INT,
+      runs_allowed INT,
+      run_diff INT,
+      avg_runs_scored DECIMAL(4,2),
+      avg_runs_allowed DECIMAL(4,2),
+      PRIMARY KEY (team, split_type, window_days)
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS probable_pitchers (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      game_id VARCHAR(50) NOT NULL,
+      game_date DATE NOT NULL,
+      team VARCHAR(5) NOT NULL,
+      opponent VARCHAR(5) NOT NULL,
+      pitcher_id INT,
+      pitcher_name VARCHAR(100),
+      throws VARCHAR(5),
+      home BOOLEAN,
+      UNIQUE KEY unique_game_team (game_id, team)
+    )
+  `);  
+
+  await db.query(`
+    ALTER TABLE probable_pitchers
+      ADD COLUMN normalised_name VARCHAR(100),
+      ADD INDEX idx_normalised_name_pp (normalised_name);
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS sync_status (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      sync_name VARCHAR(100) UNIQUE,
+      status ENUM('pending', 'success', 'error') DEFAULT 'pending',
+      message TEXT,
+      last_run DATETIME,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+    
   // Add unique constraint to yahoo_team_id in teams table
   try {
     await db.query('ALTER TABLE teams ADD UNIQUE (yahoo_team_id)');
