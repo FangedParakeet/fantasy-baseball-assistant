@@ -8,6 +8,7 @@
         "down": "docker compose down",
         "logs:client": "docker compose logs -f client",
         "logs:app": "docker compose logs -f app",
+        "logs:pybaseball": "docker compose logs -f pybaseball",
         "mysql": "docker exec -it fantasy_mysql mysql -u root -proot fantasy_baseball",
         "sync:all": "docker exec pybaseball python main.py all",
         "sync:player_stats": "docker exec pybaseball python main.py player_stats",

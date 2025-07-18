@@ -190,22 +190,40 @@ async function runMigrations() {
     )
   `);
 
-  await db.query(`
-    ALTER TABLE player_stats
-      ADD COLUMN bats CHAR(1),
-      ADD COLUMN throws CHAR(1);
-  `);
+  try {
+    await db.query(`ALTER TABLE player_stats ADD COLUMN bats CHAR(1)`);
+  } catch (error) {
+    // Column already exists, ignore error
+    console.log('bats column already exists');
+  }
 
-  await db.query(`
-    ALTER TABLE player_stats
-      ADD COLUMN sf INT DEFAULT 0;
-  `);
+  try {
+    await db.query(`ALTER TABLE player_stats ADD COLUMN throws CHAR(1)`);
+  } catch (error) {
+    // Column already exists, ignore error
+    console.log('throws column already exists');
+  }
 
-  await db.query(`
-    ALTER TABLE player_stats
-      ADD COLUMN normalised_name VARCHAR(100),
-      ADD INDEX idx_normalised_name_ps (normalised_name);
-  `);
+  try {
+    await db.query(`ALTER TABLE player_stats ADD COLUMN sf INT DEFAULT 0`);
+  } catch (error) {
+    // Column already exists, ignore error
+    console.log('sf column already exists');
+  }
+
+  try {
+    await db.query(`ALTER TABLE player_stats ADD COLUMN normalised_name VARCHAR(100)`);
+  } catch (error) {
+    // Column already exists, ignore error
+    console.log('normalised_name column already exists in player_stats');
+  }
+
+  try {
+    await db.query(`CREATE INDEX idx_normalised_name_ps ON player_stats (normalised_name)`);
+  } catch (error) {
+    // Index already exists, ignore error
+    console.log('idx_normalised_name_ps index already exists');
+  }
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS player_stats_advanced (
@@ -227,11 +245,19 @@ async function runMigrations() {
     );
   `); 
 
-  await db.query(`
-    ALTER TABLE player_stats_advanced
-      ADD COLUMN normalised_name VARCHAR(100),
-      ADD INDEX idx_normalised_name_ps (normalised_name);
-  `);
+  try {
+    await db.query(`ALTER TABLE player_stats_advanced ADD COLUMN normalised_name VARCHAR(100)`);
+  } catch (error) {
+    // Column already exists, ignore error
+    console.log('normalised_name column already exists in player_stats_advanced');
+  }
+
+  try {
+    await db.query(`CREATE INDEX idx_normalised_name_ps_advanced ON player_stats_advanced (normalised_name)`);
+  } catch (error) {
+    // Index already exists, ignore error
+    console.log('idx_normalised_name_ps_advanced index already exists');
+  }
   
   await db.query(`
     CREATE TABLE IF NOT EXISTS player_game_logs (
@@ -263,11 +289,19 @@ async function runMigrations() {
     )
   `);
 
-  await db.query(`
-    ALTER TABLE player_game_logs
-      ADD COLUMN normalised_name VARCHAR(100),
-      ADD INDEX idx_normalised_name_ps (normalised_name);
-  `);
+  try {
+    await db.query(`ALTER TABLE player_game_logs ADD COLUMN normalised_name VARCHAR(100)`);
+  } catch (error) {
+    // Column already exists, ignore error
+    console.log('normalised_name column already exists in player_game_logs');
+  }
+
+  try {
+    await db.query(`CREATE INDEX idx_normalised_name_ps_logs ON player_game_logs (normalised_name)`);
+  } catch (error) {
+    // Index already exists, ignore error
+    console.log('idx_normalised_name_ps_logs index already exists');
+  }
 
   try {
     await db.query(`ALTER TABLE player_game_logs ADD COLUMN opponent_hand CHAR(1)`);
@@ -328,11 +362,19 @@ async function runMigrations() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
-  await db.query(`
-    ALTER TABLE player_rolling_stats
-      ADD COLUMN normalised_name VARCHAR(100),
-      ADD INDEX idx_normalised_name_ts (normalised_name);
-  `);
+  try {
+    await db.query(`ALTER TABLE player_rolling_stats ADD COLUMN normalised_name VARCHAR(100)`);
+  } catch (error) {
+    // Column already exists, ignore error
+    console.log('normalised_name column already exists in player_rolling_stats');
+  }
+
+  try {
+    await db.query(`CREATE INDEX idx_normalised_name_ts ON player_rolling_stats (normalised_name)`);
+  } catch (error) {
+    // Index already exists, ignore error
+    console.log('idx_normalised_name_ts index already exists');
+  }
   
   await db.query(`
     CREATE TABLE IF NOT EXISTS team_game_logs (
@@ -378,11 +420,19 @@ async function runMigrations() {
     )
   `);  
 
-  await db.query(`
-    ALTER TABLE probable_pitchers
-      ADD COLUMN normalised_name VARCHAR(100),
-      ADD INDEX idx_normalised_name_pp (normalised_name);
-  `);
+  try {
+    await db.query(`ALTER TABLE probable_pitchers ADD COLUMN normalised_name VARCHAR(100)`);
+  } catch (error) {
+    // Column already exists, ignore error
+    console.log('normalised_name column already exists in probable_pitchers');
+  }
+
+  try {
+    await db.query(`CREATE INDEX idx_normalised_name_pp ON probable_pitchers (normalised_name)`);
+  } catch (error) {
+    // Index already exists, ignore error
+    console.log('idx_normalised_name_pp index already exists');
+  }
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS sync_status (

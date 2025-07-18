@@ -8,6 +8,8 @@ services:
       MYSQL_DATABASE: fantasy_baseball
     volumes:
       - mysql_data:/var/lib/mysql
+    networks:
+      - fantasy_network
 
   app:
     build: ./app
