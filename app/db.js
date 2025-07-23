@@ -313,6 +313,27 @@ async function runMigrations() {
     await db.query(`ALTER TABLE player_game_logs ADD COLUMN bats CHAR(1)`);
   } catch (error) {
     console.log('bats column already exists');
+  }
+
+  // Add team column to player_game_logs
+  try {
+    await db.query(`ALTER TABLE player_game_logs ADD COLUMN team VARCHAR(10)`);
+  } catch (error) {
+    console.log('team column already exists');
+  }
+
+  // Remove foreign key constraint on player_id to allow statcast IDs
+  try {
+    await db.query(`ALTER TABLE player_game_logs DROP FOREIGN KEY player_game_logs_ibfk_1`);
+  } catch (error) {
+    console.log('Foreign key constraint already removed or does not exist');
+  }
+
+  // Remove foreign key constraint on player_rolling_stats to allow statcast IDs
+  try {
+    await db.query(`ALTER TABLE player_rolling_stats DROP FOREIGN KEY player_rolling_stats_ibfk_1`);
+  } catch (error) {
+    console.log('Foreign key constraint already removed or does not exist');
   }  
 
   await db.query(`
@@ -452,6 +473,23 @@ async function runMigrations() {
     // Constraint already exists, ignore error
     console.log('Unique constraint on yahoo_team_id already exists');
   }
+
+  // Create player lookup table for MLB API data
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS player_lookup (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      player_id INT NOT NULL UNIQUE,
+      normalised_name VARCHAR(100) NOT NULL,
+      first_name VARCHAR(50),
+      last_name VARCHAR(50),
+      team VARCHAR(10),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_player_id (player_id),
+      INDEX idx_normalised_name (normalised_name),
+      INDEX idx_team (team)
+    )
+  `);
 }
 
 module.exports = { db, runMigrations };

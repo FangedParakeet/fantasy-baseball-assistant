@@ -11,6 +11,7 @@
         "logs:pybaseball": "docker compose logs -f pybaseball",
         "mysql": "docker exec -it fantasy_mysql mysql -u root -proot fantasy_baseball",
         "sync:all": "docker exec pybaseball python main.py all",
+        "sync:create_player_lookup": "docker exec pybaseball python main.py create_player_lookup",
         "sync:player_stats": "docker exec pybaseball python main.py player_stats",
         "sync:player_advanced": "docker exec pybaseball python main.py player_advanced",
         "sync:player_logs": "docker exec pybaseball python main.py player_logs",

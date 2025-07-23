@@ -24,7 +24,7 @@ router.get('/my-roster', async (req, res) => {
     try {
       const team = new Team();
       const result = await team.getMyRoster();
-      res.json(result);
+      res.json(result)
     } catch (error) {
       console.error('Error in /my-roster:', error);
       res.status(500).json({ error: 'Failed to get roster', details: error.message });

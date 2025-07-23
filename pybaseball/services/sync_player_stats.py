@@ -31,22 +31,21 @@ def upsert_stats(conn, data, stat_period, handedness_map):
     rows = []
 
     for _, row in data.iterrows():
-        try:
-            player_name = row['Name']
-            player_id = int(row.get('IDfg') or row.get('playerid'))
-            if not player_id:
-                continue
+        player_name = row['Name']
+        player_id = int(row.get('IDfg') or row.get('playerid'))
+        if not player_id:
+            continue
 
-            bats, throws = handedness_map.get(player_id, (None, None))
-            normalised_name = normalise_name(player_name) if player_name else None
-            rows.append((
-                player_id, stat_period,
-                row.get('G', 0), row.get('AVG', 0.0), row.get('OBP', 0.0), row.get('SLG', 0.0), row.get('OPS', 0.0),
-                row.get('HR', 0), row.get('R', 0), row.get('RBI', 0), row.get('SB', 0), row.get('SO', 0),
-                row.get('BB', 0), row.get('SF', 0), row.get('ERA', 0.0), row.get('WHIP', 0.0),
-                row.get('QS', 0), row.get('IP', 0.0), row.get('SV', 0), row.get('HLD', 0),
-                bats, throws, normalised_name
-            ))
+        bats, throws = handedness_map.get(player_id, (None, None))
+        normalised_name = normalise_name(player_name) if player_name else None
+        rows.append((
+            player_id, stat_period,
+            row.get('G', 0), row.get('AVG', 0.0), row.get('OBP', 0.0), row.get('SLG', 0.0), row.get('OPS', 0.0),
+            row.get('HR', 0), row.get('R', 0), row.get('RBI', 0), row.get('SB', 0), row.get('SO', 0),
+            row.get('BB', 0), row.get('SF', 0), row.get('ERA', 0.0), row.get('WHIP', 0.0),
+            row.get('QS', 0), row.get('IP', 0.0), row.get('SV', 0), row.get('HLD', 0),
+            bats, throws, normalised_name
+        ))
 
     insert_query = """
         INSERT INTO player_stats (player_id, stat_period, games, avg, obp, slg, ops, hr, r, rbi, sb, k, bb, sf, era, whip, qs, ip, sv, hld, bats, throws, normalised_name)
@@ -56,14 +55,14 @@ def upsert_stats(conn, data, stat_period, handedness_map):
     """
 
     with conn.cursor() as cursor:
-        try:
-            for batch in chunked(rows, BATCH_SIZE):
+        for batch in chunked(rows, BATCH_SIZE):
+            try:
                 cursor.executemany(insert_query, batch)
-        except Exception as e:
-            logger.warning(f"Failed to insert batch: {e}")
-            conn.rollback()
-        finally:
-            conn.commit()
+            except Exception as e:
+                logger.warning(f"Failed to insert batch: {e}")
+                conn.rollback()
+            finally:
+                conn.commit()
 
 
 def main():
@@ -77,7 +76,6 @@ def main():
     all_ids = set(batting['IDfg'].dropna().astype(int)).union(set(pitching['IDfg'].dropna().astype(int)))
     all_ids = list(all_ids)
     handedness_map = get_player_handedness(list(map(int, all_ids)))
-
 
     upsert_stats(conn, batting, 'season', handedness_map)
     upsert_stats(conn, pitching, 'season', handedness_map)

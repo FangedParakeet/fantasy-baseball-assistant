@@ -4,20 +4,7 @@ from datetime import datetime, timedelta
 from models.db import get_db_connection
 from models.logger import logger
 from utils.functions import normalise_name
-
-MLB_API_URL = "https://statsapi.mlb.com/api/v1/schedule"
-
-def fetch_probable_pitchers(start_date, end_date):
-    logger.info(f"Fetching probable pitchers from {start_date} to {end_date}")
-    params = {
-        "sportId": 1,
-        "startDate": start_date,
-        "endDate": end_date,
-        "hydrate": "probablePitcher,team,linescore,game(content(summary))"
-    }
-    response = requests.get(MLB_API_URL, params=params)
-    response.raise_for_status()
-    return response.json()
+from models.mlb_api import MlbApi
 
 def parse_games(data):
     records = []
@@ -74,7 +61,8 @@ def main():
     next_week_end = (monday + timedelta(days=13)).strftime("%Y-%m-%d")
 
     try:
-        data = fetch_probable_pitchers(week_start, next_week_end)
+        mlb_api = MlbApi()
+        data = mlb_api.get_probable_pitchers(week_start, next_week_end)
         records = parse_games(data)
         upsert_probable_pitchers(conn, records)
         logger.info("Probable pitchers sync complete.")

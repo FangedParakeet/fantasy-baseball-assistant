@@ -64,18 +64,18 @@ def compute_rolling_stats(conn):
 
             cursor.execute(f"""
                 INSERT INTO team_rolling_stats (
-                    team, window_days, date_start, date_end,
-                    avg_runs_scored, avg_runs_allowed, vs_lhp_runs, vs_rhp_runs
+                    team, split_type, window_days, games_played, runs_scored, runs_allowed, run_diff, avg_runs_scored, avg_runs_allowed
                 )
                 SELECT
                     team,
+                    'overall' AS split_type,
                     %s AS window_days,
-                    MIN(game_date),
-                    MAX(game_date),
-                    ROUND(AVG(runs_scored), 2),
-                    ROUND(AVG(runs_allowed), 2),
-                    ROUND(AVG(CASE WHEN pitcher_hand = 'L' THEN runs_scored ELSE NULL END), 2),
-                    ROUND(AVG(CASE WHEN pitcher_hand = 'R' THEN runs_scored ELSE NULL END), 2)
+                    COUNT(*) AS games_played,
+                    SUM(runs_scored) AS runs_scored,
+                    SUM(runs_allowed) AS runs_allowed,
+                    SUM(runs_scored - runs_allowed) AS run_diff,
+                    ROUND(AVG(runs_scored), 2) AS avg_runs_scored,
+                    ROUND(AVG(runs_allowed), 2) AS avg_runs_allowed
                 FROM team_game_logs
                 WHERE game_date >= CURDATE() - INTERVAL %s DAY
                 GROUP BY team
@@ -85,18 +85,18 @@ def compute_rolling_stats(conn):
         cursor.execute("DELETE FROM team_rolling_stats WHERE window_days = 0")
         cursor.execute("""
             INSERT INTO team_rolling_stats (
-                team, window_days, date_start, date_end,
-                avg_runs_scored, avg_runs_allowed, vs_lhp_runs, vs_rhp_runs
+                team, split_type, window_days, games_played, runs_scored, runs_allowed, run_diff, avg_runs_scored, avg_runs_allowed
             )
             SELECT
                 team,
+                'overall' AS split_type,
                 0 AS window_days,
-                MIN(game_date),
-                MAX(game_date),
-                ROUND(AVG(runs_scored), 2),
-                ROUND(AVG(runs_allowed), 2),
-                ROUND(AVG(CASE WHEN pitcher_hand = 'L' THEN runs_scored ELSE NULL END), 2),
-                ROUND(AVG(CASE WHEN pitcher_hand = 'R' THEN runs_scored ELSE NULL END), 2)
+                COUNT(*) AS games_played,
+                SUM(runs_scored) AS runs_scored,
+                SUM(runs_allowed) AS runs_allowed,
+                SUM(runs_scored - runs_allowed) AS run_diff,
+                ROUND(AVG(runs_scored), 2) AS avg_runs_scored,
+                ROUND(AVG(runs_allowed), 2) AS avg_runs_allowed
             FROM team_game_logs
             GROUP BY team
         """)

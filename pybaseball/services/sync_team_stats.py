@@ -35,12 +35,13 @@ def main():
         from collections import defaultdict
         team_data = defaultdict(list)
         for row in rows:
-            team = row['mlb_team']
-            team_data[team].append(row)
+            team = row['team']
+            if team:  # Only include rows with team data
+                team_data[team].append(row)
 
         for team, logs in team_data.items():
             total_runs = sum([r['r'] or 0 for r in logs])
-            total_games = len(set((r['game_date'], r['mlb_team']) for r in logs))
+            total_games = len(set((r['game_date'], r['team']) for r in logs))
 
             home_games = [r for r in logs if r['is_home']]
             away_games = [r for r in logs if not r['is_home']]
@@ -59,23 +60,30 @@ def main():
             lhb_ratio = lhb_pa / total_batters if total_batters else 0
             rhb_ratio = rhb_pa / total_batters if total_batters else 0
 
+            # Handle period_days - convert label to integer
+            if label == 'season':
+                period_days = 365  # Use 365 for season
+            else:
+                period_days = int(label.replace('d', ''))
+            
             insert_cursor.execute("""
                 INSERT INTO team_stats (
-                    mlb_team, stat_period, games, runs, home_runs, away_runs,
-                    runs_vs_lhp, runs_vs_rhp, lhb_ratio, rhb_ratio
+                    team_abbr, period_days, games, runs_scored, runs_allowed,
+                    avg, obp, slg, ops
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
                 ON DUPLICATE KEY UPDATE
-                    games=VALUES(games), runs=VALUES(runs),
-                    home_runs=VALUES(home_runs), away_runs=VALUES(away_runs),
-                    runs_vs_lhp=VALUES(runs_vs_lhp), runs_vs_rhp=VALUES(runs_vs_rhp),
-                    lhb_ratio=VALUES(lhb_ratio), rhb_ratio=VALUES(rhb_ratio)
+                    games=VALUES(games), runs_scored=VALUES(runs_scored),
+                    runs_allowed=VALUES(runs_allowed), avg=VALUES(avg),
+                    obp=VALUES(obp), slg=VALUES(slg), ops=VALUES(ops)
             """, (
-                team, label, total_games, total_runs,
-                home_runs, away_runs,
-                runs_vs_lhp, runs_vs_rhp,
-                lhb_ratio, rhb_ratio
+                team, period_days, total_games, total_runs,
+                0,  # runs_allowed - would need to calculate from opponent data
+                0.0,  # avg - would need to calculate from batting data
+                0.0,  # obp - would need to calculate from batting data
+                0.0,  # slg - would need to calculate from batting data
+                0.0   # ops - would need to calculate from batting data
             ))
 
     conn.commit()
