@@ -383,6 +383,14 @@ async function runMigrations() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
+  // Add split_type column to player_rolling_stats
+  try {
+    await db.query(`ALTER TABLE player_rolling_stats ADD COLUMN split_type VARCHAR(10) DEFAULT 'overall'`);
+  } catch (error) {
+    // Column already exists, ignore error
+    console.log('split_type column already exists in player_rolling_stats');
+  }
+
   try {
     await db.query(`ALTER TABLE player_rolling_stats ADD COLUMN normalised_name VARCHAR(100)`);
   } catch (error) {
@@ -410,6 +418,24 @@ async function runMigrations() {
       PRIMARY KEY (team, game_date)
     )
   `);
+
+  try {
+    await db.query(`
+      ALTER TABLE team_game_logs
+        ADD COLUMN avg FLOAT,
+        ADD COLUMN obp FLOAT,
+        ADD COLUMN slg FLOAT,
+        ADD COLUMN ops FLOAT,
+        ADD COLUMN er INT,
+        ADD COLUMN whip FLOAT,
+        ADD COLUMN strikeouts INT,
+        ADD COLUMN walks INT,
+        ADD COLUMN ip FLOAT,
+        ADD COLUMN hits_allowed INT;
+    `);
+  } catch (error) {
+    console.log('team_game_logs columns already exist');
+  }
   
   await db.query(`
     CREATE TABLE IF NOT EXISTS team_rolling_stats (
@@ -425,6 +451,32 @@ async function runMigrations() {
       PRIMARY KEY (team, split_type, window_days)
     )
   `);
+
+  // Rename window_days to span_days for consistency
+  try {
+    await db.query(`ALTER TABLE team_rolling_stats CHANGE COLUMN window_days span_days INT`);
+  } catch (error) {
+    // Column already renamed or doesn't exist, ignore error
+    console.log('window_days column already renamed to span_days or table does not exist');
+  }
+
+  try {
+    await db.query(`
+      ALTER TABLE team_rolling_stats
+        ADD COLUMN avg FLOAT,
+        ADD COLUMN obp FLOAT,
+        ADD COLUMN slg FLOAT,
+        ADD COLUMN ops FLOAT,
+        ADD COLUMN er INT,
+        ADD COLUMN whip FLOAT,
+        ADD COLUMN strikeouts INT,
+        ADD COLUMN walks INT,
+        ADD COLUMN ip FLOAT,
+        ADD COLUMN hits_allowed INT;
+    `);
+  } catch (error) {
+    console.log('team_rolling_stats columns already exist');
+  }
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS probable_pitchers (
@@ -488,6 +540,19 @@ async function runMigrations() {
       INDEX idx_player_id (player_id),
       INDEX idx_normalised_name (normalised_name),
       INDEX idx_team (team)
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS game_pitchers (
+      game_id VARCHAR(20) PRIMARY KEY,
+      home_team VARCHAR(10),
+      away_team VARCHAR(10),
+      home_pitcher_id INT,
+      home_pitcher_throws CHAR(1),
+      away_pitcher_id INT,
+      away_pitcher_throws CHAR(1),
+      game_date DATE
     )
   `);
 }

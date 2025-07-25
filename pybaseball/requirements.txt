@@ -1,4 +1,3 @@
-pybaseball
 mysql-connector-python
 requests
 pandas

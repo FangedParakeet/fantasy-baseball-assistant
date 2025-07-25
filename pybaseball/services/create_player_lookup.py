@@ -6,7 +6,7 @@ def main():
     conn = get_db_connection()
     mlb_api = MlbApi()
     player_lookup = PlayerLookup(conn, mlb_api)
-    player_lookup.create_player_lookup_table_mlb_api()
+    player_lookup.create_player_lookup_table()
 
 if __name__ == "__main__":
     main() 

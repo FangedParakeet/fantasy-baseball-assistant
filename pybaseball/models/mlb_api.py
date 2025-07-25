@@ -51,7 +51,7 @@ class MlbApi:
         }
         return self.request("schedule", params)
 
-    def get_game_logs(self, start_date: str, end_date: str) -> dict:
+    def get_schedule(self, start_date: str, end_date: str) -> dict:
         params = {
             "sportId": 1,
             "startDate": start_date,
@@ -62,6 +62,9 @@ class MlbApi:
 
     def get_box_score(self, game_id: int) -> dict:
         return self.request(f"game/{game_id}/boxscore")
+
+    def get_line_score(self, game_id: int) -> dict:
+        return self.request(f"game/{game_id}/linescore")
 
     def get_team_roster(self, team_id: int) -> dict:
         return self.request(f"teams/{team_id}/roster")

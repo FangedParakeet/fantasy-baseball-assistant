@@ -12,11 +12,7 @@
         "mysql": "docker exec -it fantasy_mysql mysql -u root -proot fantasy_baseball",
         "sync:all": "docker exec pybaseball python main.py all",
         "sync:create_player_lookup": "docker exec pybaseball python main.py create_player_lookup",
-        "sync:player_stats": "docker exec pybaseball python main.py player_stats",
-        "sync:player_advanced": "docker exec pybaseball python main.py player_advanced",
-        "sync:player_logs": "docker exec pybaseball python main.py player_logs",
-        "sync:team_logs": "docker exec pybaseball python main.py team_logs",
-        "sync:team_stats": "docker exec pybaseball python main.py team_stats",
+        "sync:game_logs": "docker exec pybaseball python main.py game_logs",
         "sync:probable_pitchers": "docker exec pybaseball python main.py probable_pitchers"
     }
   }

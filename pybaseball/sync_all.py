@@ -1,15 +1,10 @@
 import subprocess
-import os
 from utils.sync_status import update_sync_status
 
 SCRIPTS = [
-    "create_player_lookup_mlb_api.py",
-    "sync_player_stats.py",
-    "sync_player_advanced_stats.py",
-    "sync_player_game_logs_mlb_api.py",
-    "sync_team_stats.py",
-    "sync_team_game_logs.py",
-    "sync_probable_pitchers.py"
+    "create_player_lookup.py",
+    "sync_probable_pitchers.py",
+    "sync_game_logs.py",
 ]
 
 def main():

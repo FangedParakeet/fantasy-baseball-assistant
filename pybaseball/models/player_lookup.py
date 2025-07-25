@@ -1,15 +1,13 @@
-from typing import Any
-from models.mlb_api import MlbApi
 from models.logger import logger
 from utils.constants import MLB_TEAM_IDS
 from utils.functions import normalise_name
 
 class PlayerLookup:
-    def __init__(self, conn: Any, mlb_api: MlbApi):
-        self.mlb_api = mlb_api
+    def __init__(self, conn, mlb_api):
         self.conn = conn
+        self.mlb_api = mlb_api
 
-    def create_player_lookup_table_mlb_api(self):
+    def create_player_lookup_table(self):
         """Create a player lookup table using MLB Stats API"""
         
         try:        
@@ -21,8 +19,7 @@ class PlayerLookup:
             for team_code, team_id in MLB_TEAM_IDS.items():
                 logger.info(f"Getting roster for {team_code} (ID: {team_id})...")
                 
-                mlb_api = MlbApi()
-                roster_data = mlb_api.get_team_roster(team_id)
+                roster_data = self.mlb_api.get_team_roster(team_id)
                 
                 if roster_data and 'roster' in roster_data:
                     roster = roster_data['roster']
@@ -104,12 +101,13 @@ class PlayerLookup:
                 # Create temp table
                 cursor.execute("""
                     CREATE TEMPORARY TABLE temp_player_ids (
-                        player_id INT PRIMARY KEY
+                        player_id INT
                     )
                 """)
                 
-                # Insert player IDs
-                for player_id in player_ids:
+                # Insert player IDs (remove duplicates)
+                unique_player_ids = list(set(player_ids))
+                for player_id in unique_player_ids:
                     cursor.execute("INSERT INTO temp_player_ids (player_id) VALUES (%s)", (player_id,))
                 
                 # Join with player_lookup table
