@@ -21,7 +21,7 @@ class ProbablePitcher(DB_Recorder):
         self.purge_old_records(self.probable_pitchers_table)
         self.purge_old_records(self.game_pitchers_table)
 
-    def upsert_probable_pitchers(self, games):
+    def upsert_all_pitchers(self, games):
         probable_pitcher_rows, game_pitcher_rows = self.process_games(games)
         self.upsert_probable_pitchers(probable_pitcher_rows)
         self.upsert_game_pitchers(game_pitcher_rows)
@@ -97,6 +97,10 @@ class ProbablePitcher(DB_Recorder):
         return probable_pitcher_rows, game_pitcher_rows
 
     def upsert_probable_pitchers(self, rows):
+        if len(rows) == 0:
+            logger.info("No probable pitchers to insert")
+            return
+        
         logger.info(f"Upserting {len(rows)} probable pitchers")
         insert_query = """
             INSERT INTO {self.probable_pitchers_table} (game_id, game_date, team, opponent, pitcher_id, pitcher_name, throws, home, normalised_name)
@@ -112,6 +116,10 @@ class ProbablePitcher(DB_Recorder):
         self.batch_upsert(insert_query, rows)
 
     def upsert_game_pitchers(self, rows):
+        if len(rows) == 0:
+            logger.info("No game pitchers to insert")
+            return
+        
         logger.info(f"Upserting {len(rows)} game pitchers")
         insert_query = """
             INSERT INTO {self.game_pitchers_table} (

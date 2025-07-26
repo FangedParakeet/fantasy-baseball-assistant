@@ -47,7 +47,7 @@ class MlbApi:
             "sportId": 1,
             "startDate": start_date,
             "endDate": end_date,
-            "fields": "probablePitcher,team,linescore,game(content(summary))"
+            "fields": "dates,games,gamePk,gameDate,teams,away,home,team,id,name,probablePitcher,fullName,pitchHand,code"
         }
         return self.request("schedule", params)
 

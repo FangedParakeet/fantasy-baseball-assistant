@@ -9,7 +9,7 @@ def main():
 
     probable_pitcher.purge_old_pitcher_games()
     games = probable_pitcher.fetch_probable_pitchers()
-    probable_pitcher.upsert_probable_pitchers(games)
+    probable_pitcher.upsert_all_pitchers(games)
 
 if __name__ == "__main__":
     main()

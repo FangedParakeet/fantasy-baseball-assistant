@@ -85,7 +85,13 @@ class LeagueGameLog():
             
             try:
                 box_score_data = self.mlb_api.get_box_score(game['game_pk'])
-                line_score_data = self.mlb_api.get_line_score(game['game_pk'])
+                
+                # Try to get line score data, but don't fail if it's not available
+                try:
+                    line_score_data = self.mlb_api.get_line_score(game['game_pk'])
+                except Exception as e:
+                    logger.warning(f"Failed to get line score for game {game['game_pk']}: {e}")
+                    line_score_data = None
                 
                 # Check if we have valid data
                 if not box_score_data or not line_score_data:
@@ -105,9 +111,15 @@ class LeagueGameLog():
                     
                     # Safely get runs from line score
                     try:
-                        runs_scored = line_score_data["teams"][team_type]["runs"]
-                        opponent_runs = line_score_data["teams"][opponent_team_type]["runs"]
-                        is_win = runs_scored > opponent_runs
+                        if line_score_data and "teams" in line_score_data:
+                            runs_scored = line_score_data["teams"][team_type]["runs"]
+                            opponent_runs = line_score_data["teams"][opponent_team_type]["runs"]
+                            is_win = runs_scored > opponent_runs
+                        else:
+                            logger.warning(f"No line score data available for game {game['game_pk']}")
+                            runs_scored = 0
+                            opponent_runs = 0
+                            is_win = False
                     except (KeyError, TypeError) as e:
                         logger.warning(f"Failed to get runs for game {game['game_pk']}: {e}")
                         runs_scored = 0
