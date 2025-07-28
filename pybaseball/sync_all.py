@@ -5,6 +5,7 @@ SCRIPTS = [
     "create_player_lookup.py",
     "sync_probable_pitchers.py",
     "sync_game_logs.py",
+    "hydrate_player_data.py",
 ]
 
 def main():

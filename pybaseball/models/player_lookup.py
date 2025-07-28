@@ -1,8 +1,9 @@
 from models.logger import logger
+from models.db_recorder import DB_Recorder
 from utils.constants import MLB_TEAM_IDS
 from utils.functions import normalise_name
 
-class PlayerLookup:
+class PlayerLookup(DB_Recorder):
     def __init__(self, conn, mlb_api):
         self.conn = conn
         self.mlb_api = mlb_api
@@ -36,13 +37,13 @@ class PlayerLookup:
                             first_name = name_parts[0] if len(name_parts) > 0 else ''
                             last_name = name_parts[1] if len(name_parts) > 1 else ''
                             
-                            all_players.append({
-                                'player_id': player_id,
-                                'normalised_name': normalise_name(full_name),
-                                'first_name': first_name,
-                                'last_name': last_name,
-                                'team': team_code
-                            })
+                            all_players.append((
+                                player_id,
+                                normalise_name(full_name),
+                                first_name,
+                                last_name,
+                                team_code
+                            ))
                             
                             # logger.info(f"    {full_name} (ID: {player_id})")
                 else:
@@ -63,20 +64,7 @@ class PlayerLookup:
                     updated_at = CURRENT_TIMESTAMP
                 """
                 
-                with self.conn.cursor() as cursor:
-                    for player in all_players:
-                        try:
-                            cursor.execute(insert_query, (
-                                player['player_id'],
-                                player['normalised_name'],
-                                player['first_name'],
-                                player['last_name'],
-                                player['team']
-                            ))
-                        except Exception as e:
-                            logger.error(f"Error inserting player {player}: {e}")
-                    
-                    self.conn.commit()
+                self.batch_upsert(insert_query, all_players)
                 
                 logger.info("Player lookup table created successfully")
                 

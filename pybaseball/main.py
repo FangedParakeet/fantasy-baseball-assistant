@@ -5,12 +5,13 @@ scripts = {
     "create_player_lookup": "services/create_player_lookup.py",
     "game_logs": "services/sync_game_logs.py",
     "probable_pitchers": "services/sync_probable_pitchers.py",
+    "hydrate_player_data": "services/hydrate_player_data.py",
     "all": "sync_all.py"
 }
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python main.py [create_player_lookup|game_logs|probable_pitchers|all]")
+        print("Usage: python main.py [create_player_lookup|game_logs|probable_pitchers|hydrate_player_data|all]")
         sys.exit(1)
 
     key = sys.argv[1]
@@ -23,4 +24,6 @@ if __name__ == "__main__":
     if key == "all":
         subprocess.run(["python", script])
     else:
-        subprocess.run(["python", "-c", f"import sys; sys.path.insert(0, '.'); exec(open('{script}').read())"])
+        # Pass all arguments after the script name
+        args = sys.argv[2:] if len(sys.argv) > 2 else []
+        subprocess.run(["python", "-c", f"import sys; sys.argv = ['{script}'] + {args}; sys.path.insert(0, '.'); exec(open('{script}').read())"])

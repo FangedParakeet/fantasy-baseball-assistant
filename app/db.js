@@ -543,6 +543,21 @@ async function runMigrations() {
     )
   `);
 
+  try {
+    await db.query(`
+      ALTER TABLE player_lookup
+      ADD COLUMN bats CHAR(1),
+      ADD COLUMN throws CHAR(1),
+      ADD COLUMN status VARCHAR(50),
+      ADD COLUMN last_updated DATETIME,
+      ADD INDEX idx_status (status),
+      ADD INDEX idx_last_updated (last_updated)
+    `);
+  } catch (error) {
+    // Column already exists, ignore error
+    console.log('columns already exist in player_lookup');
+  }
+
   await db.query(`
     CREATE TABLE IF NOT EXISTS game_pitchers (
       game_id VARCHAR(20) PRIMARY KEY,
