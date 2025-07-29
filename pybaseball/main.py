@@ -11,7 +11,7 @@ scripts = {
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python main.py [create_player_lookup|game_logs|probable_pitchers|hydrate_player_data|all]")
+        print("Usage: python main.py [create_player_lookup|game_logs|probable_pitchers|hydrate_player_data|all] [--force]")
         sys.exit(1)
 
     key = sys.argv[1]
@@ -22,7 +22,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if key == "all":
-        subprocess.run(["python", script])
+        # Pass all arguments after "all" to sync_all.py
+        args = sys.argv[2:] if len(sys.argv) > 2 else []
+        subprocess.run(["python", script] + args)
     else:
         # Pass all arguments after the script name
         args = sys.argv[2:] if len(sys.argv) > 2 else []

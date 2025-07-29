@@ -18,7 +18,6 @@ def main():
 
     games = league_game_log.fetch_game_logs()
     league_game_log.upsert_game_logs(games)
-    league_game_log.compute_rolling_stats()
     
     logger.info("MLB Stats API game logs sync complete.")
 

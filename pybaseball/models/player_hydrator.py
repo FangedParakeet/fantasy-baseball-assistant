@@ -8,6 +8,7 @@ from utils.functions import normalise_name
 class PlayerHydrator(DB_Recorder):
     SYNC_NAME = "hydrate_player_lookup"
     MAX_GAME_AGE_DAYS = 7
+    MAX_STALE_DAYS = 1
 
     def __init__(self, conn, mlb_api: MlbApi, sync_status: SyncStatus):
         super().__init__(conn)
@@ -65,6 +66,9 @@ class PlayerHydrator(DB_Recorder):
 
     def get_unique_player_ids(self) -> list[int]:
         with self.conn.cursor() as cursor:
+            # Calculate the stale date threshold
+            stale_date = datetime.now(timezone.utc) - timedelta(days=self.MAX_STALE_DAYS)
+            
             # Subquery 1: From player_game_logs
             cursor.execute("""
                 SELECT DISTINCT pgl.player_id
@@ -73,7 +77,8 @@ class PlayerHydrator(DB_Recorder):
                 WHERE pl.status IS NULL OR pl.status IN ('', 'unknown', 'N/A', 'Unk')
                     OR pl.bats IS NULL OR pl.bats IN ('', 'unknown', 'N/A', 'Unk')
                     OR pl.throws IS NULL OR pl.throws IN ('', 'unknown', 'N/A', 'Unk')
-            """)
+                    OR pl.last_updated IS NULL OR pl.last_updated < %s
+            """, (stale_date,))
             ids_game_log = [row[0] for row in cursor.fetchall()]
 
             # Subquery 2: From probable_pitchers in last N days
@@ -85,18 +90,20 @@ class PlayerHydrator(DB_Recorder):
                     pl.status IS NULL OR pl.status IN ('', 'unknown', 'N/A', 'Unk')
                     OR pl.bats IS NULL OR pl.bats IN ('', 'unknown', 'N/A', 'Unk')
                     OR pl.throws IS NULL OR pl.throws IN ('', 'unknown', 'N/A', 'Unk')
+                    OR pl.last_updated IS NULL OR pl.last_updated < %s
                 )
-            """, (datetime.now(timezone.utc).date() - timedelta(days=self.MAX_GAME_AGE_DAYS),))
+            """, (datetime.now(timezone.utc).date() - timedelta(days=self.MAX_GAME_AGE_DAYS), stale_date))
             ids_probable_pitchers = [row[0] for row in cursor.fetchall()]
 
-            # Subquery 3: From player_lookup where status, bats, or throws is null
+            # Subquery 3: From player_lookup where status, bats, or throws is null or stale
             cursor.execute("""
                 SELECT DISTINCT pl.player_id
                 FROM player_lookup pl
                 WHERE pl.status IS NULL OR pl.status IN ('', 'unknown', 'N/A', 'Unk')
                     OR pl.bats IS NULL OR pl.bats IN ('', 'unknown', 'N/A', 'Unk')
                     OR pl.throws IS NULL OR pl.throws IN ('', 'unknown', 'N/A', 'Unk')
-            """)
+                    OR pl.last_updated IS NULL OR pl.last_updated < %s
+            """, (stale_date,))
             ids_lookup = [row[0] for row in cursor.fetchall()]
 
         all_ids = ids_lookup + ids_game_log + ids_probable_pitchers

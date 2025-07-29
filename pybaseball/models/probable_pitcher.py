@@ -39,20 +39,51 @@ class ProbablePitcher(DB_Recorder):
     def get_window_dates(self):
         today = datetime.today().date()
         monday = today - timedelta(days=today.weekday())
-        latest_log_date = self.get_latest_pitcher_game_date()
+        try:
+            latest_log_date = self.get_latest_pitcher_game_date()
+        except ValueError:
+            # If both tables are empty, latest_log_date will be None
+            latest_log_date = None
         fallback_date = datetime.today().date() - timedelta(days=MAX_AGE_DAYS)
 
-        start_date = max(fallback_date, latest_log_date)
+        # If latest_log_date is None, use fallback_date as start_date
+        if latest_log_date is None:
+            start_date = fallback_date
+        else:
+            start_date = max(fallback_date, latest_log_date)
         end_date = (monday + timedelta(days=13)).strftime("%Y-%m-%d")
         return start_date, end_date
+
+    def parse_game_date(self, game_date_str):
+        """Convert ISO datetime string to date string for database"""
+        try:
+            # Parse the ISO datetime string and extract just the date part
+            dt = datetime.fromisoformat(game_date_str.replace('Z', '+00:00'))
+            return dt.strftime('%Y-%m-%d')
+        except (ValueError, AttributeError) as e:
+            logger.warning(f"Failed to parse game date '{game_date_str}': {e}")
+            return None
 
     def process_games(self, games):
         probable_pitcher_rows = []
         game_pitcher_rows = []
+        
         for date_info in games.get("dates", []):
-            game_date = date_info["date"]
             for game in date_info.get("games", []):
                 game_id = game["gamePk"]
+                game_date_str = game.get("gameDate")
+                
+                # Skip games without a date
+                if not game_date_str:
+                    logger.warning(f"No gameDate found for game {game_id}")
+                    continue
+                
+                # Parse the game date
+                game_date = self.parse_game_date(game_date_str)
+                if not game_date:
+                    logger.warning(f"Failed to parse game date for game {game_id}: {game_date_str}")
+                    continue
+                
                 teams = game.get("teams", {})
 
                 # Process game pitchers
@@ -61,10 +92,18 @@ class ProbablePitcher(DB_Recorder):
                 home_pitcher = home_team.get("probablePitcher", {})
                 away_pitcher = away_team.get("probablePitcher", {})
 
+                # Validate that we have team information
+                home_team_abbr = home_team.get("team", {}).get("abbreviation")
+                away_team_abbr = away_team.get("team", {}).get("abbreviation")
+                
+                if not home_team_abbr or not away_team_abbr:
+                    logger.warning(f"Missing team information for game {game_id}: home={home_team_abbr}, away={away_team_abbr}")
+                    continue
+
                 game_pitcher_rows.append((
                     str(game_id),
-                    home_team.get("team", {}).get("abbreviation"),
-                    away_team.get("team", {}).get("abbreviation"),
+                    home_team_abbr,
+                    away_team_abbr,
                     home_pitcher.get("id"),
                     home_pitcher.get("pitchHand", {}).get("code"),
                     away_pitcher.get("id"),
@@ -77,6 +116,11 @@ class ProbablePitcher(DB_Recorder):
                     info = teams.get(side, {})
                     team = info.get("team", {}).get("abbreviation")
                     opponent = teams.get("away" if side == "home" else "home", {}).get("team", {}).get("abbreviation")
+                    
+                    # Skip if we don't have valid team information
+                    if not team or not opponent:
+                        continue
+                        
                     pitcher = info.get("probablePitcher", {})
                     pitcher_id = pitcher.get("id")
                     pitcher_name = pitcher.get("fullName")
@@ -102,7 +146,7 @@ class ProbablePitcher(DB_Recorder):
             return
         
         logger.info(f"Upserting {len(rows)} probable pitchers")
-        insert_query = """
+        insert_query = f"""
             INSERT INTO {self.probable_pitchers_table} (game_id, game_date, team, opponent, pitcher_id, pitcher_name, throws, home, normalised_name)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
@@ -121,7 +165,7 @@ class ProbablePitcher(DB_Recorder):
             return
         
         logger.info(f"Upserting {len(rows)} game pitchers")
-        insert_query = """
+        insert_query = f"""
             INSERT INTO {self.game_pitchers_table} (
                 game_id, home_team, away_team,
                 home_pitcher_id, home_pitcher_throws,

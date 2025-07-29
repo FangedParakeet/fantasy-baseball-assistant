@@ -21,7 +21,7 @@ async function runMigrations() {
 
   await db.query(`CREATE TABLE IF NOT EXISTS teams (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    yahoo_team_id VARCHAR(50) NOT NULL,
+    yahoo_team_id VARCHAR(50) NOT NULL UNIQUE,
     team_name VARCHAR(100) NOT NULL,
     is_user_team BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -44,69 +44,17 @@ async function runMigrations() {
     is_util TINYINT(1) DEFAULT 0,
     is_sp TINYINT(1) DEFAULT 0,
     is_rp TINYINT(1) DEFAULT 0,
-    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+    eligible_positions TEXT,
+    selected_position VARCHAR(50),
+    headshot_url VARCHAR(500),
+    normalised_name VARCHAR(100),
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    INDEX idx_sp (is_sp),
+    INDEX idx_rp (is_rp),
+    INDEX idx_is_of (is_of),
+    INDEX idx_team_id (team_id),
+    INDEX idx_normalised_name_ps (normalised_name)
   )`);
-
-  // Create indexes for players table
-  try {
-    await db.query('CREATE INDEX idx_sp ON players (is_sp)');
-  } catch (error) {
-    // Index already exists, ignore error
-    console.log('idx_sp index already exists');
-  }
-
-  try {
-    await db.query('CREATE INDEX idx_rp ON players (is_rp)');
-  } catch (error) {
-    // Index already exists, ignore error
-    console.log('idx_rp index already exists');
-  }
-
-  try {
-    await db.query('CREATE INDEX idx_is_of ON players (is_of)');
-  } catch (error) {
-    // Index already exists, ignore error
-    console.log('idx_is_of index already exists');
-  }
-
-  try {
-    await db.query('CREATE INDEX idx_team_id ON players (team_id)');
-  } catch (error) {
-    // Index already exists, ignore error
-    console.log('idx_team_id index already exists');
-  }
-
-  // Add new columns if they don't exist
-  try {
-    await db.query(`ALTER TABLE players ADD COLUMN eligible_positions TEXT`);
-  } catch (error) {
-    // Column already exists, ignore error
-    console.log('eligible_positions column already exists');
-  }
-
-  try {
-    await db.query(`ALTER TABLE players ADD COLUMN selected_position VARCHAR(50)`);
-  } catch (error) {
-    // Column already exists, ignore error
-    console.log('selected_position column already exists');
-  }
-
-  try {
-    await db.query(`ALTER TABLE players ADD COLUMN headshot_url VARCHAR(500)`);
-  } catch (error) {
-    // Column already exists, ignore error
-    console.log('headshot_url column already exists');
-  }
-
-  try {
-    await db.query(`
-      ALTER TABLE players ADD COLUMN normalised_name VARCHAR(100),
-      ADD INDEX idx_normalised_name_ps (normalised_name)
-    `);
-  } catch (error) {
-    // Column already exists, ignore error
-    console.log('normalised_name column already exists');
-  }
 
   await db.query(`CREATE TABLE IF NOT EXISTS recommendations (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -184,46 +132,16 @@ async function runMigrations() {
       ip FLOAT,
       sv INT,
       hld INT,
+      bats CHAR(1),
+      throws CHAR(1),
+      sf INT DEFAULT 0,
+      normalised_name VARCHAR(100),
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
-      UNIQUE KEY unique_player_period (player_id, stat_period)
+      UNIQUE KEY unique_player_period (player_id, stat_period),
+      INDEX idx_normalised_name_ps (normalised_name)
     )
   `);
-
-  try {
-    await db.query(`ALTER TABLE player_stats ADD COLUMN bats CHAR(1)`);
-  } catch (error) {
-    // Column already exists, ignore error
-    console.log('bats column already exists');
-  }
-
-  try {
-    await db.query(`ALTER TABLE player_stats ADD COLUMN throws CHAR(1)`);
-  } catch (error) {
-    // Column already exists, ignore error
-    console.log('throws column already exists');
-  }
-
-  try {
-    await db.query(`ALTER TABLE player_stats ADD COLUMN sf INT DEFAULT 0`);
-  } catch (error) {
-    // Column already exists, ignore error
-    console.log('sf column already exists');
-  }
-
-  try {
-    await db.query(`ALTER TABLE player_stats ADD COLUMN normalised_name VARCHAR(100)`);
-  } catch (error) {
-    // Column already exists, ignore error
-    console.log('normalised_name column already exists in player_stats');
-  }
-
-  try {
-    await db.query(`CREATE INDEX idx_normalised_name_ps ON player_stats (normalised_name)`);
-  } catch (error) {
-    // Index already exists, ignore error
-    console.log('idx_normalised_name_ps index already exists');
-  }
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS player_stats_advanced (
@@ -239,25 +157,13 @@ async function runMigrations() {
       bb_perc FLOAT,
       hr_per_9 FLOAT,
       qs_perc FLOAT,
+      normalised_name VARCHAR(100),
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
-      UNIQUE KEY unique_player_period (player_id, stat_period)
-    );
-  `); 
-
-  try {
-    await db.query(`ALTER TABLE player_stats_advanced ADD COLUMN normalised_name VARCHAR(100)`);
-  } catch (error) {
-    // Column already exists, ignore error
-    console.log('normalised_name column already exists in player_stats_advanced');
-  }
-
-  try {
-    await db.query(`CREATE INDEX idx_normalised_name_ps_advanced ON player_stats_advanced (normalised_name)`);
-  } catch (error) {
-    // Index already exists, ignore error
-    console.log('idx_normalised_name_ps_advanced index already exists');
-  }
+      UNIQUE KEY unique_player_period (player_id, stat_period),
+      INDEX idx_normalised_name_ps_advanced (normalised_name)
+    )
+  `);
   
   await db.query(`
     CREATE TABLE IF NOT EXISTS player_game_logs (
@@ -284,57 +190,13 @@ async function runMigrations() {
       sv BOOLEAN,
       hld BOOLEAN,
       fantasy_points FLOAT,
-      FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
-      UNIQUE KEY unique_player_game (player_id, game_date)
+      team VARCHAR(10),
+      game_id VARCHAR(20),
+      normalised_name VARCHAR(100),
+      UNIQUE KEY unique_player_game (player_id, game_date),
+      INDEX idx_normalised_name_ps_logs (normalised_name)
     )
   `);
-
-  try {
-    await db.query(`ALTER TABLE player_game_logs ADD COLUMN normalised_name VARCHAR(100)`);
-  } catch (error) {
-    // Column already exists, ignore error
-    console.log('normalised_name column already exists in player_game_logs');
-  }
-
-  try {
-    await db.query(`CREATE INDEX idx_normalised_name_ps_logs ON player_game_logs (normalised_name)`);
-  } catch (error) {
-    // Index already exists, ignore error
-    console.log('idx_normalised_name_ps_logs index already exists');
-  }
-
-  try {
-    await db.query(`ALTER TABLE player_game_logs ADD COLUMN opponent_hand CHAR(1)`);
-  } catch (error) {
-    console.log('opponent_hand column already exists');
-  }
-  
-  try {
-    await db.query(`ALTER TABLE player_game_logs ADD COLUMN bats CHAR(1)`);
-  } catch (error) {
-    console.log('bats column already exists');
-  }
-
-  // Add team column to player_game_logs
-  try {
-    await db.query(`ALTER TABLE player_game_logs ADD COLUMN team VARCHAR(10)`);
-  } catch (error) {
-    console.log('team column already exists');
-  }
-
-  // Remove foreign key constraint on player_id to allow statcast IDs
-  try {
-    await db.query(`ALTER TABLE player_game_logs DROP FOREIGN KEY player_game_logs_ibfk_1`);
-  } catch (error) {
-    console.log('Foreign key constraint already removed or does not exist');
-  }
-
-  // Remove foreign key constraint on player_rolling_stats to allow statcast IDs
-  try {
-    await db.query(`ALTER TABLE player_rolling_stats DROP FOREIGN KEY player_rolling_stats_ibfk_1`);
-  } catch (error) {
-    console.log('Foreign key constraint already removed or does not exist');
-  }  
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS team_stats (
@@ -376,34 +238,14 @@ async function runMigrations() {
       qs INT DEFAULT 0,
       whip DECIMAL(4,2) DEFAULT 0.00,
       era DECIMAL(5,2) DEFAULT 0.00,
+      split_type VARCHAR(10) DEFAULT 'overall',
+      normalised_name VARCHAR(100),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY unique_player_span (player_id, span_days, end_date),
-      FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      UNIQUE KEY unique_player_span (player_id, span_days, split_type),
+      INDEX idx_normalised_name_ts (normalised_name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
-
-  // Add split_type column to player_rolling_stats
-  try {
-    await db.query(`ALTER TABLE player_rolling_stats ADD COLUMN split_type VARCHAR(10) DEFAULT 'overall'`);
-  } catch (error) {
-    // Column already exists, ignore error
-    console.log('split_type column already exists in player_rolling_stats');
-  }
-
-  try {
-    await db.query(`ALTER TABLE player_rolling_stats ADD COLUMN normalised_name VARCHAR(100)`);
-  } catch (error) {
-    // Column already exists, ignore error
-    console.log('normalised_name column already exists in player_rolling_stats');
-  }
-
-  try {
-    await db.query(`CREATE INDEX idx_normalised_name_ts ON player_rolling_stats (normalised_name)`);
-  } catch (error) {
-    // Index already exists, ignore error
-    console.log('idx_normalised_name_ts index already exists');
-  }
   
   await db.query(`
     CREATE TABLE IF NOT EXISTS team_game_logs (
@@ -415,68 +257,45 @@ async function runMigrations() {
       runs_scored INT,
       runs_allowed INT,
       pitcher_hand CHAR(1),
+      avg FLOAT,
+      obp FLOAT,
+      slg FLOAT,
+      ops FLOAT,
+      er INT,
+      whip FLOAT,
+      strikeouts INT,
+      walks INT,
+      ip FLOAT,
+      hits_allowed INT,
+      game_id VARCHAR(20),
       PRIMARY KEY (team, game_date)
     )
   `);
-
-  try {
-    await db.query(`
-      ALTER TABLE team_game_logs
-        ADD COLUMN avg FLOAT,
-        ADD COLUMN obp FLOAT,
-        ADD COLUMN slg FLOAT,
-        ADD COLUMN ops FLOAT,
-        ADD COLUMN er INT,
-        ADD COLUMN whip FLOAT,
-        ADD COLUMN strikeouts INT,
-        ADD COLUMN walks INT,
-        ADD COLUMN ip FLOAT,
-        ADD COLUMN hits_allowed INT;
-    `);
-  } catch (error) {
-    console.log('team_game_logs columns already exist');
-  }
   
   await db.query(`
     CREATE TABLE IF NOT EXISTS team_rolling_stats (
       team VARCHAR(10),
       split_type VARCHAR(10),
-      window_days INT,
+      span_days INT,
       games_played INT,
       runs_scored INT,
       runs_allowed INT,
       run_diff INT,
       avg_runs_scored DECIMAL(4,2),
       avg_runs_allowed DECIMAL(4,2),
-      PRIMARY KEY (team, split_type, window_days)
+      avg FLOAT,
+      obp FLOAT,
+      slg FLOAT,
+      ops FLOAT,
+      er INT,
+      whip FLOAT,
+      strikeouts INT,
+      walks INT,
+      ip FLOAT,
+      hits_allowed INT,
+      PRIMARY KEY (team, split_type, span_days)
     )
   `);
-
-  // Rename window_days to span_days for consistency
-  try {
-    await db.query(`ALTER TABLE team_rolling_stats CHANGE COLUMN window_days span_days INT`);
-  } catch (error) {
-    // Column already renamed or doesn't exist, ignore error
-    console.log('window_days column already renamed to span_days or table does not exist');
-  }
-
-  try {
-    await db.query(`
-      ALTER TABLE team_rolling_stats
-        ADD COLUMN avg FLOAT,
-        ADD COLUMN obp FLOAT,
-        ADD COLUMN slg FLOAT,
-        ADD COLUMN ops FLOAT,
-        ADD COLUMN er INT,
-        ADD COLUMN whip FLOAT,
-        ADD COLUMN strikeouts INT,
-        ADD COLUMN walks INT,
-        ADD COLUMN ip FLOAT,
-        ADD COLUMN hits_allowed INT;
-    `);
-  } catch (error) {
-    console.log('team_rolling_stats columns already exist');
-  }
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS probable_pitchers (
@@ -489,23 +308,11 @@ async function runMigrations() {
       pitcher_name VARCHAR(100),
       throws VARCHAR(5),
       home BOOLEAN,
-      UNIQUE KEY unique_game_team (game_id, team)
+      normalised_name VARCHAR(100),
+      UNIQUE KEY unique_game_team (game_id, team),
+      INDEX idx_normalised_name_pp (normalised_name)
     )
-  `);  
-
-  try {
-    await db.query(`ALTER TABLE probable_pitchers ADD COLUMN normalised_name VARCHAR(100)`);
-  } catch (error) {
-    // Column already exists, ignore error
-    console.log('normalised_name column already exists in probable_pitchers');
-  }
-
-  try {
-    await db.query(`CREATE INDEX idx_normalised_name_pp ON probable_pitchers (normalised_name)`);
-  } catch (error) {
-    // Index already exists, ignore error
-    console.log('idx_normalised_name_pp index already exists');
-  }
+  `);
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS sync_status (
@@ -517,16 +324,7 @@ async function runMigrations() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
-    
-  // Add unique constraint to yahoo_team_id in teams table
-  try {
-    await db.query('ALTER TABLE teams ADD UNIQUE (yahoo_team_id)');
-  } catch (error) {
-    // Constraint already exists, ignore error
-    console.log('Unique constraint on yahoo_team_id already exists');
-  }
 
-  // Create player lookup table for MLB API data
   await db.query(`
     CREATE TABLE IF NOT EXISTS player_lookup (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -535,28 +333,19 @@ async function runMigrations() {
       first_name VARCHAR(50),
       last_name VARCHAR(50),
       team VARCHAR(10),
+      bats CHAR(1),
+      throws CHAR(1),
+      status VARCHAR(50),
+      last_updated DATETIME,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_player_id (player_id),
       INDEX idx_normalised_name (normalised_name),
-      INDEX idx_team (team)
+      INDEX idx_team (team),
+      INDEX idx_status (status),
+      INDEX idx_last_updated (last_updated)
     )
   `);
-
-  try {
-    await db.query(`
-      ALTER TABLE player_lookup
-      ADD COLUMN bats CHAR(1),
-      ADD COLUMN throws CHAR(1),
-      ADD COLUMN status VARCHAR(50),
-      ADD COLUMN last_updated DATETIME,
-      ADD INDEX idx_status (status),
-      ADD INDEX idx_last_updated (last_updated)
-    `);
-  } catch (error) {
-    // Column already exists, ignore error
-    console.log('columns already exist in player_lookup');
-  }
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS game_pitchers (

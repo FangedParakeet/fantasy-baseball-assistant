@@ -2,9 +2,10 @@ import pandas as pd
 from models.game_log import GameLog
 from utils.functions import normalise_name
 from models.logger import logger
+from utils.constants import SPLITS, ROLLING_WINDOWS
 
 class PlayerGameLog(GameLog):
-    def __init__(self, conn, player_lookup):
+    def __init__(self, conn, player_lookup=None):
         self.conn = conn
         self.player_lookup = player_lookup
         self.game_logs_table = "player_game_logs"
@@ -17,7 +18,10 @@ class PlayerGameLog(GameLog):
             return pd.DataFrame()
         
         # Get player data from lookup table
-        player_data = self.player_lookup.get_player_data_from_lookup(player_ids)
+        if self.player_lookup:
+            player_data = self.player_lookup.get_player_data_from_lookup(player_ids)
+        else:
+            player_data = {}
         
         processed_logs = []
         
@@ -36,6 +40,7 @@ class PlayerGameLog(GameLog):
             
             processed_logs.append((
                 player_id,
+                row['game_id'],
                 row['game_date'],
                 row['opponent'],
                 row['is_home'],
@@ -57,8 +62,6 @@ class PlayerGameLog(GameLog):
                 None, # sv (not calculated yet)
                 None, # hld (not calculated yet)
                 None, # fantasy_points (not calculated yet)
-                None, # bats (not calculated yet)
-                None, # opponent_hand (not calculated yet)
                 normalise_name(player_name),
                 team,  # Use team from lookup table, not from game data
             ))
@@ -76,44 +79,64 @@ class PlayerGameLog(GameLog):
         
         insert_query = f"""
             INSERT INTO {self.game_logs_table} (
-                player_id, game_date, opponent, is_home, position,
+                player_id, game_id, game_date, opponent, is_home, position,
                 ab, h, r, rbi, hr, sb, bb, k, ip, er, hits_allowed, walks_allowed, strikeouts, qs,
-                sv, hld, fantasy_points, bats, opponent_hand, normalised_name, team
+                sv, hld, fantasy_points, normalised_name, team
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
                 opponent=VALUES(opponent), is_home=VALUES(is_home), position=VALUES(position),
                 ab=VALUES(ab), h=VALUES(h), r=VALUES(r), rbi=VALUES(rbi), hr=VALUES(hr), sb=VALUES(sb),
                 bb=VALUES(bb), k=VALUES(k), ip=VALUES(ip), er=VALUES(er), hits_allowed=VALUES(hits_allowed),
                 walks_allowed=VALUES(walks_allowed), strikeouts=VALUES(strikeouts), qs=VALUES(qs),
                 sv=VALUES(sv), hld=VALUES(hld), fantasy_points=VALUES(fantasy_points),
-                bats=VALUES(bats), opponent_hand=VALUES(opponent_hand), normalised_name=VALUES(normalised_name), team=VALUES(team)
+                normalised_name=VALUES(normalised_name), team=VALUES(team)
         """
-        super().batch_upsert_game_logs(insert_query, processed_logs)
+        self.batch_upsert(insert_query, processed_logs)
 
     def compute_rolling_stats(self):
-        compute_query = f"""
-            INSERT INTO {self.rolling_stats_table} (player_id, split_type, span_days, start_date, end_date, 
-                abs, hits, hr, rbi, sb, k, avg, 
-                ip, er, qs, whip, era, normalised_name)
-            SELECT 
-                player_id,
-                %s AS split_type,
-                %s AS span_days,
-                MIN(game_date) AS start_date,
-                MAX(game_date) AS end_date,
-                SUM(ab), SUM(h), SUM(hr), SUM(rbi), SUM(sb),
-                SUM(k),
-                ROUND(SUM(h)/NULLIF(SUM(ab),0), 3) AS avg,
-                ROUND(SUM(ip), 2),
-                SUM(er),
-                SUM(CASE WHEN qs = 1 THEN 1 ELSE 0 END),
-                ROUND(SUM(walks_allowed + hits_allowed)/NULLIF(SUM(ip),0), 2) AS whip,
-                ROUND(SUM(er)*9/NULLIF(SUM(ip),0), 2) AS era,
-                MAX(normalised_name)
-            FROM {self.game_logs_table}
-            WHERE game_date >= CURDATE() - INTERVAL %s DAY
-            GROUP BY player_id
-        """
-        super().compute_rolling_stats(compute_query)
+        # Clear all existing rolling stats before computing new ones
+        logger.info("Clearing all existing player rolling stats")
+        delete_query = f"DELETE FROM {self.rolling_stats_table}"
+        self.execute_query(delete_query)
+        
+        for split in SPLITS:
+            for window in ROLLING_WINDOWS:
+                logger.info(f"Computing player {split} rolling stats for {window} days")
 
+                where_clause = self.build_where_clause_for_split(split)
+
+                insert_query = f"""
+                    INSERT INTO player_rolling_stats (
+                        player_id, span_days, start_date, end_date, games, rbi, runs, hr, sb,
+                        hits, abs, avg, k, ip, er, qs, whip, era, normalised_name, split_type
+                    )
+                    SELECT
+                        gl.player_id,
+                        %s AS span_days,
+                        DATE_SUB(CURDATE(), INTERVAL %s DAY) AS start_date,
+                        CURDATE() AS end_date,
+                        COUNT(*) AS games,
+                        SUM(COALESCE(gl.rbi, 0)),
+                        SUM(COALESCE(gl.r, 0)),
+                        SUM(COALESCE(gl.hr, 0)),
+                        SUM(COALESCE(gl.sb, 0)),
+                        SUM(COALESCE(gl.h, 0)),
+                        SUM(COALESCE(gl.ab, 0)),
+                        ROUND(SUM(COALESCE(gl.h, 0)) / NULLIF(SUM(COALESCE(gl.ab, 0)), 0), 3),
+                        SUM(COALESCE(gl.k, 0)),
+                        ROUND(SUM(COALESCE(gl.ip, 0)), 2),
+                        SUM(COALESCE(gl.er, 0)),
+                        SUM(COALESCE(gl.qs, 0)),
+                        ROUND(SUM(COALESCE(gl.walks_allowed, 0) + gl.hits_allowed) / NULLIF(SUM(COALESCE(gl.ip, 0)), 0), 2),
+                        ROUND(SUM(COALESCE(gl.er, 0)) * 9 / NULLIF(SUM(COALESCE(gl.ip, 0)), 0), 2),
+                        MAX(gl.normalised_name),
+                        %s AS split_type
+                    FROM {self.game_logs_table} gl
+                    LEFT JOIN game_pitchers gp ON gl.game_id = gp.game_id
+                    WHERE gl.game_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
+                    {where_clause}
+                    GROUP BY gl.player_id
+                """
+
+                self.execute_query(insert_query, (window, window, split, window))

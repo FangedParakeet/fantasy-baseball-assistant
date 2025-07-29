@@ -17,7 +17,12 @@ class LeagueGameLog():
     def get_latest_game_log_date(self):
         latest_player_date = self.player_game_log.get_latest_game_log_date()
         latest_team_date = self.team_game_log.get_latest_game_log_date()
-        return min(filter(None, [latest_player_date, latest_team_date]))
+        
+        # If either date is None, return None to use fallback_date
+        if latest_player_date is None or latest_team_date is None:
+            return None
+            
+        return min(latest_player_date, latest_team_date)
 
     def upsert_game_logs(self, games):
         player_game_logs, team_game_logs, all_player_ids = self.process_game_logs(games)
@@ -61,10 +66,18 @@ class LeagueGameLog():
             return []
 
     def get_window_dates(self):
-        latest_log_date = self.get_latest_game_log_date()
+        try:
+            latest_log_date = self.get_latest_game_log_date()
+        except ValueError:
+            # If both tables are empty, latest_log_date will be None
+            latest_log_date = None
         fallback_date = datetime.today().date() - timedelta(days=MAX_AGE_DAYS)
 
-        start_date = max(latest_log_date, fallback_date)
+        # If latest_log_date is None, use fallback_date as start_date
+        if latest_log_date is None:
+            start_date = fallback_date
+        else:
+            start_date = max(latest_log_date, fallback_date)
         end_date = datetime.today().date()
         
         # Format dates as YYYY-MM-DD strings
@@ -145,6 +158,7 @@ class LeagueGameLog():
                         pitching.get("baseOnBalls", 0),
                         float(pitching.get("inningsPitched", "0").replace("0.1", "0.333").replace("0.2", "0.667")),
                         pitching.get("hits", 0),
+                        game['game_pk'],
                     ))
                     
                     # Process batting stats
@@ -154,6 +168,7 @@ class LeagueGameLog():
                         
                         if stats:
                             all_player_game_logs.append({
+                                'game_id': game['game_pk'],
                                 'player_id': batter_id,
                                 'game_date': game['game_date'][:10],
                                 'team': None,  # Will be set from lookup table
@@ -190,6 +205,7 @@ class LeagueGameLog():
                             qs = 1 if ip_decimal >= 6 and stats.get('earnedRuns', 0) <= 3 else 0
                             
                             all_player_game_logs.append({
+                                'game_id': game['game_pk'],
                                 'player_id': pitcher_id,
                                 'game_date': game['game_date'][:10],
                                 'team': None,  # Will be set from lookup table

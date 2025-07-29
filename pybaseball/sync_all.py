@@ -1,4 +1,5 @@
 import subprocess
+import sys
 from utils.sync_status import update_sync_status
 
 SCRIPTS = [
@@ -9,9 +10,17 @@ SCRIPTS = [
 ]
 
 def main():
+    # Parse command line arguments
+    force_flag = "--force" in sys.argv
+    
     for script in SCRIPTS:
         try:
-            subprocess.run(["python", "-c", f"import sys; sys.path.insert(0, '.'); exec(open('services/{script}').read())"], check=True, cwd="/usr/src/pybaseball")
+            # Build the command - only pass --force to hydrate_player_data.py
+            cmd = ["python", "-c", f"import sys; sys.path.insert(0, '.'); exec(open('services/{script}').read())"]
+            if force_flag and script == "hydrate_player_data.py":
+                cmd.extend(["--force"])
+            
+            subprocess.run(cmd, check=True, cwd="/usr/src/pybaseball")
         except Exception as e:
             update_sync_status(script, "error", str(e))
 

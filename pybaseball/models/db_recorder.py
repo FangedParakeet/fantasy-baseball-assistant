@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from models.logger import logger
-from utils.constants import MAX_AGE_DAYS, BATCH_SIZE, ROLLING_WINDOWS
+from utils.constants import MAX_AGE_DAYS, BATCH_SIZE, ROLLING_WINDOWS, SPLITS
 
 class DB_Recorder():
     def __init__(self, conn):
@@ -38,13 +38,9 @@ class DB_Recorder():
             finally:
                 self.conn.commit()
 
-    def compute_rolling_stats(self, table_name, compute_query):
-        logger.info(f"Computing {table_name} rolling stats")
+    def execute_query(self, query, params=None):
         with self.conn.cursor() as cursor:
-            for window in ROLLING_WINDOWS:
-                cursor.execute(f"DELETE FROM {table_name} WHERE span_days = %s", (window,))
-
-                cursor.execute(compute_query, ('overall', window, window))
+            cursor.execute(query, params)
         self.conn.commit()
 
 
