@@ -85,7 +85,7 @@ class LeagueGameLog():
         fallback_date = today - timedelta(days=MAX_AGE_DAYS)
 
         # If latest_log_date is None, use fallback_date as start_date
-        if latest_log_date is None or True:
+        if latest_log_date is None:
             start_date = fallback_date
         else:
             start_date = max(latest_log_date, fallback_date)
