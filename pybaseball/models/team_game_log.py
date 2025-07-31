@@ -135,13 +135,17 @@ class TeamGameLog(GameLog):
             logger.info(f"Computing team vs batter splits for {window} days")
         
             insert_query = f"""
+                INSERT INTO {self.TEAM_VS_BATTER_SPLITS_TABLE} (
+                    team, bats, span_days, start_date, end_date, games_played,
+                    ab, hits, hr, runs, rbi, sb, avg, obp
+                )
                 SELECT
                     pgl.opponent AS team,
                     pl.bats,
                     %s AS span_days,
                     DATE_SUB(CURDATE(), INTERVAL %s DAY) AS start_date,
                     CURDATE() AS end_date,
-                    COUNT(*) AS games,
+                    COUNT(*) AS games_played,
                     SUM(COALESCE(pgl.ab, 0)) AS ab,
                     SUM(COALESCE(pgl.h, 0)) AS hits,
                     SUM(COALESCE(pgl.hr, 0)) AS hr,
