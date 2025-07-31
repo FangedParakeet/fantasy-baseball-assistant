@@ -2,13 +2,14 @@ from datetime import datetime, timedelta, timezone
 
 class SyncStatus:
     THROTTLE_HOURS = 24
+    SYNC_STATUS_TABLE = "sync_status"
 
     def __init__(self, conn):
         self.conn = conn
 
     def should_sync(self, sync_name: str, force=False):
         with self.conn.cursor() as cursor:
-            cursor.execute("SELECT last_run FROM sync_status WHERE sync_name = %s AND status = 'success'", (sync_name,))
+            cursor.execute(f"SELECT last_run FROM {self.SYNC_STATUS_TABLE} WHERE sync_name = %s AND status = 'success'", (sync_name,))
             row = cursor.fetchone()
             if not row:
                 return True
@@ -18,7 +19,7 @@ class SyncStatus:
     def set_sync_status(self, sync_name: str, status: str, message: str=None):
         with self.conn.cursor() as cursor:
             cursor.execute("""
-            INSERT INTO sync_status (sync_name, status, message, last_run)
+            INSERT INTO {self.SYNC_STATUS_TABLE} (sync_name, status, message, last_run)
             VALUES (%s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
                 status = VALUES(status),

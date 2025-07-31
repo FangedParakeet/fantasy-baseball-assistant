@@ -7,6 +7,9 @@ from utils.functions import normalise_name
 
 class PlayerHydrator(DB_Recorder):
     SYNC_NAME = "hydrate_player_lookup"
+    PLAYER_LOOKUP_TABLE = "player_lookup"
+    PLAYER_GAME_LOG_TABLE = "player_game_logs"
+
     MAX_GAME_AGE_DAYS = 7
     MAX_STALE_DAYS = 1
 
@@ -32,7 +35,7 @@ class PlayerHydrator(DB_Recorder):
             return
 
         insert_query = """
-            INSERT INTO player_lookup (player_id, first_name, last_name, normalised_name, status, bats, throws, last_updated)
+            INSERT INTO {self.PLAYER_LOOKUP_TABLE} (player_id, first_name, last_name, normalised_name, status, bats, throws, last_updated)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
                 first_name = VALUES(first_name),
@@ -72,8 +75,8 @@ class PlayerHydrator(DB_Recorder):
             # Subquery 1: From player_game_logs
             cursor.execute("""
                 SELECT DISTINCT pgl.player_id
-                FROM player_game_logs pgl
-                LEFT JOIN player_lookup pl ON pgl.player_id = pl.player_id
+                FROM {self.PLAYER_GAME_LOG_TABLE} pgl
+                LEFT JOIN {self.PLAYER_LOOKUP_TABLE} pl ON pgl.player_id = pl.player_id
                 WHERE pl.status IS NULL OR pl.status IN ('', 'unknown', 'N/A', 'Unk')
                     OR pl.bats IS NULL OR pl.bats IN ('', 'unknown', 'N/A', 'Unk')
                     OR pl.throws IS NULL OR pl.throws IN ('', 'unknown', 'N/A', 'Unk')
@@ -81,24 +84,10 @@ class PlayerHydrator(DB_Recorder):
             """, (stale_date,))
             ids_game_log = [row[0] for row in cursor.fetchall()]
 
-            # Subquery 2: From probable_pitchers in last N days
-            cursor.execute("""
-                SELECT DISTINCT pp.pitcher_id
-                FROM probable_pitchers pp
-                LEFT JOIN player_lookup pl ON pp.pitcher_id = pl.player_id
-                WHERE pp.game_date >= %s AND (
-                    pl.status IS NULL OR pl.status IN ('', 'unknown', 'N/A', 'Unk')
-                    OR pl.bats IS NULL OR pl.bats IN ('', 'unknown', 'N/A', 'Unk')
-                    OR pl.throws IS NULL OR pl.throws IN ('', 'unknown', 'N/A', 'Unk')
-                    OR pl.last_updated IS NULL OR pl.last_updated < %s
-                )
-            """, (datetime.now(timezone.utc).date() - timedelta(days=self.MAX_GAME_AGE_DAYS), stale_date))
-            ids_probable_pitchers = [row[0] for row in cursor.fetchall()]
-
-            # Subquery 3: From player_lookup where status, bats, or throws is null or stale
+            # Subquery 2: From player_lookup where status, bats, or throws is null or stale
             cursor.execute("""
                 SELECT DISTINCT pl.player_id
-                FROM player_lookup pl
+                FROM {self.PLAYER_LOOKUP_TABLE} pl
                 WHERE pl.status IS NULL OR pl.status IN ('', 'unknown', 'N/A', 'Unk')
                     OR pl.bats IS NULL OR pl.bats IN ('', 'unknown', 'N/A', 'Unk')
                     OR pl.throws IS NULL OR pl.throws IN ('', 'unknown', 'N/A', 'Unk')
@@ -106,5 +95,5 @@ class PlayerHydrator(DB_Recorder):
             """, (stale_date,))
             ids_lookup = [row[0] for row in cursor.fetchall()]
 
-        all_ids = ids_lookup + ids_game_log + ids_probable_pitchers
+        all_ids = ids_lookup + ids_game_log
         return list(set(id for id in all_ids if id is not None))

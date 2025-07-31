@@ -1,7 +1,7 @@
 from models.db_recorder import DB_Recorder
 from utils.functions import normalise_name
 from datetime import datetime, timedelta
-from utils.constants import MAX_AGE_DAYS
+from utils.constants import MAX_AGE_DAYS, MLB_TEAM_IDS_REVERSE_MAP
 from models.logger import logger
 
 class ProbablePitcher(DB_Recorder):
@@ -15,7 +15,13 @@ class ProbablePitcher(DB_Recorder):
     def get_latest_pitcher_game_date(self):
         latest_probable_pitcher_date = self.get_latest_record_date(self.probable_pitchers_table)
         latest_game_pitcher_date = self.get_latest_record_date(self.game_pitchers_table)
-        return min(filter(None, [latest_probable_pitcher_date, latest_game_pitcher_date]))
+
+        # If either date is None, return None to use fallback_date
+        if latest_probable_pitcher_date is None or latest_game_pitcher_date is None:
+            return None
+
+        # Both dates exist, return the earliest
+        return min(latest_probable_pitcher_date, latest_game_pitcher_date)
 
     def purge_old_pitcher_games(self):
         self.purge_old_records(self.probable_pitchers_table)
@@ -30,8 +36,14 @@ class ProbablePitcher(DB_Recorder):
         start_date, end_date = self.get_window_dates()
         try:
             logger.info(f"Fetching probable pitchers from {start_date} to {end_date}")
-            games = self.mlb_api.get_probable_pitchers(start_date, end_date)
-            return games
+            
+            # First get the schedule to get game IDs
+            schedule = self.mlb_api.get_schedule(start_date, end_date)
+            if not schedule or 'dates' not in schedule:
+                logger.error("No schedule data returned")
+                return []
+            
+            return schedule
         except Exception as e:    
             logger.error(f"Error fetching probable pitchers: {e}")
             return []
@@ -93,11 +105,31 @@ class ProbablePitcher(DB_Recorder):
                 away_pitcher = away_team.get("probablePitcher", {})
 
                 # Validate that we have team information
-                home_team_abbr = home_team.get("team", {}).get("abbreviation")
-                away_team_abbr = away_team.get("team", {}).get("abbreviation")
+                home_team_id = home_team.get("team", {}).get("id")
+                away_team_id = away_team.get("team", {}).get("id")
+                
+                # Check if team IDs are in our mapping
+                if home_team_id not in MLB_TEAM_IDS_REVERSE_MAP:
+                    home_team_name = home_team.get("team", {}).get("name", "Unknown")
+                    logger.warning(f"Unknown home team ID: {home_team_id} ({home_team_name}) for game {game_id}")
+                    continue
+                if away_team_id not in MLB_TEAM_IDS_REVERSE_MAP:
+                    away_team_name = away_team.get("team", {}).get("name", "Unknown")
+                    logger.warning(f"Unknown away team ID: {away_team_id} ({away_team_name}) for game {game_id}")
+                    continue
+                
+                home_team_abbr = MLB_TEAM_IDS_REVERSE_MAP[home_team_id]
+                away_team_abbr = MLB_TEAM_IDS_REVERSE_MAP[away_team_id]
                 
                 if not home_team_abbr or not away_team_abbr:
                     logger.warning(f"Missing team information for game {game_id}: home={home_team_abbr}, away={away_team_abbr}")
+                    continue
+
+                # Skip if we don't have any pitcher information
+                home_pitcher_id = home_pitcher.get("id")
+                away_pitcher_id = away_pitcher.get("id")
+                if not home_pitcher_id and not away_pitcher_id:
+                    logger.info(f"Game {game_id} skipping - no pitcher data for either team")
                     continue
 
                 game_pitcher_rows.append((
@@ -114,18 +146,38 @@ class ProbablePitcher(DB_Recorder):
                 # Process probable pitchers
                 for side in ["home", "away"]:
                     info = teams.get(side, {})
-                    team = info.get("team", {}).get("abbreviation")
-                    opponent = teams.get("away" if side == "home" else "home", {}).get("team", {}).get("abbreviation")
+                    team_id = info.get("team", {}).get("id")
+                    opponent_id = teams.get("away" if side == "home" else "home", {}).get("team", {}).get("id")
+                    
+                    # Check if team IDs are in our mapping
+                    if team_id not in MLB_TEAM_IDS_REVERSE_MAP:
+                        team_name = info.get("team", {}).get("name", "Unknown")
+                        logger.warning(f"Unknown {side} team ID: {team_id} ({team_name}) for game {game_id}")
+                        continue
+                    if opponent_id not in MLB_TEAM_IDS_REVERSE_MAP:
+                        opponent_name = teams.get("away" if side == "home" else "home", {}).get("team", {}).get("name", "Unknown")
+                        logger.warning(f"Unknown opponent team ID: {opponent_id} ({opponent_name}) for game {game_id}")
+                        continue
+                    
+                    team = MLB_TEAM_IDS_REVERSE_MAP[team_id]
+                    opponent = MLB_TEAM_IDS_REVERSE_MAP[opponent_id]
                     
                     # Skip if we don't have valid team information
                     if not team or not opponent:
                         continue
                         
                     pitcher = info.get("probablePitcher", {})
+                    
                     pitcher_id = pitcher.get("id")
                     pitcher_name = pitcher.get("fullName")
                     throws = pitcher.get("pitchHand", {}).get("code")
                     normalised_name = normalise_name(pitcher_name) if pitcher_name else None
+                    
+                    # Skip if we don't have pitcher information
+                    if not pitcher_id or not pitcher_name:
+                        logger.info(f"Game {game_id} {side} skipping - no pitcher data")
+                        continue
+                    
                     probable_pitcher_rows.append((
                         str(game_id),
                         game_date,

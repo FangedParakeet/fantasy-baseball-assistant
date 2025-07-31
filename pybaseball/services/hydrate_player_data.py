@@ -6,6 +6,7 @@ from models.sync_status import SyncStatus
 from models.player_game_log import PlayerGameLog
 from models.team_game_log import TeamGameLog
 from models.league_game_log import LeagueGameLog
+from models.game_pitchers import GamePitchers
 from models.logger import logger
 
 def main(force=False):
@@ -16,7 +17,8 @@ def main(force=False):
 
     player_game_log = PlayerGameLog(conn)
     team_game_log = TeamGameLog(conn)
-    league_game_log = LeagueGameLog(mlb_api, player_game_log, team_game_log)
+    game_pitchers = GamePitchers(conn)
+    league_game_log = LeagueGameLog(mlb_api, player_game_log, team_game_log, game_pitchers)
 
     try:
         player_hydrator.hydrate_players(force)

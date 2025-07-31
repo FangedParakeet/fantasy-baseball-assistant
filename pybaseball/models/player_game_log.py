@@ -5,12 +5,15 @@ from models.logger import logger
 from utils.constants import SPLITS, ROLLING_WINDOWS
 
 class PlayerGameLog(GameLog):
+    GAME_LOGS_TABLE = "player_game_logs"
+    ROLLING_STATS_TABLE = "player_rolling_stats"
+    GAME_PITCHERS_TABLE = "game_pitchers"
+    PLAYER_LOOKUP_TABLE = "player_lookup"
+
     def __init__(self, conn, player_lookup=None):
         self.conn = conn
         self.player_lookup = player_lookup
-        self.game_logs_table = "player_game_logs"
-        self.rolling_stats_table = "player_rolling_stats"
-        super().__init__(conn, self.game_logs_table, self.rolling_stats_table)
+        super().__init__(conn, self.GAME_LOGS_TABLE, self.ROLLING_STATS_TABLE)
 
     def process_game_logs(self, game_logs, player_ids):
         """Process MLB API game logs into our format"""
@@ -78,7 +81,7 @@ class PlayerGameLog(GameLog):
         logger.info(f"Upserting {len(processed_logs)} player game logs")
         
         insert_query = f"""
-            INSERT INTO {self.game_logs_table} (
+            INSERT INTO {self.GAME_LOGS_TABLE} (
                 player_id, game_id, game_date, opponent, is_home, position,
                 ab, h, r, rbi, hr, sb, bb, k, ip, er, hits_allowed, walks_allowed, strikeouts, qs,
                 sv, hld, fantasy_points, normalised_name, team
@@ -94,10 +97,29 @@ class PlayerGameLog(GameLog):
         """
         self.batch_upsert(insert_query, processed_logs)
 
+    def build_where_clause_for_split(self, split):
+        if split in ['overall', 'home', 'away']:
+            return super().build_where_clause_for_split(split)
+        elif split == 'vs_lhp':
+            return """
+            AND gl.position = 'B' AND (
+                (gl.is_home = 1 AND gp.away_pitcher_id IS NOT NULL AND opp_pl.throws = 'L')
+                OR (gl.is_home = 0 AND gp.home_pitcher_id IS NOT NULL AND opp_pl.throws = 'L')
+            )
+            """
+        elif split == 'vs_rhp':
+            return """
+            AND gl.position = 'B' AND (
+                (gl.is_home = 1 AND gp.away_pitcher_id IS NOT NULL AND opp_pl.throws = 'R')
+                OR (gl.is_home = 0 AND gp.home_pitcher_id IS NOT NULL AND opp_pl.throws = 'R')
+            )
+            """
+        return ''
+
     def compute_rolling_stats(self):
         # Clear all existing rolling stats before computing new ones
         logger.info("Clearing all existing player rolling stats")
-        delete_query = f"DELETE FROM {self.rolling_stats_table}"
+        delete_query = f"DELETE FROM {self.ROLLING_STATS_TABLE}"
         self.execute_query(delete_query)
         
         for split in SPLITS:
@@ -107,9 +129,9 @@ class PlayerGameLog(GameLog):
                 where_clause = self.build_where_clause_for_split(split)
 
                 insert_query = f"""
-                    INSERT INTO player_rolling_stats (
+                    INSERT INTO {self.ROLLING_STATS_TABLE} (
                         player_id, span_days, start_date, end_date, games, rbi, runs, hr, sb,
-                        hits, abs, avg, k, ip, er, qs, whip, era, normalised_name, split_type
+                        hits, abs, avg, obp, k, ip, er, qs, whip, era, normalised_name, split_type
                     )
                     SELECT
                         gl.player_id,
@@ -124,19 +146,27 @@ class PlayerGameLog(GameLog):
                         SUM(COALESCE(gl.h, 0)),
                         SUM(COALESCE(gl.ab, 0)),
                         ROUND(SUM(COALESCE(gl.h, 0)) / NULLIF(SUM(COALESCE(gl.ab, 0)), 0), 3),
+                        ROUND((SUM(COALESCE(gl.h, 0)) + SUM(COALESCE(gl.bb, 0))) / NULLIF(SUM(COALESCE(gl.ab, 0)) + SUM(COALESCE(gl.bb, 0)), 0), 3),
                         SUM(COALESCE(gl.k, 0)),
                         ROUND(SUM(COALESCE(gl.ip, 0)), 2),
                         SUM(COALESCE(gl.er, 0)),
                         SUM(COALESCE(gl.qs, 0)),
-                        ROUND(SUM(COALESCE(gl.walks_allowed, 0) + gl.hits_allowed) / NULLIF(SUM(COALESCE(gl.ip, 0)), 0), 2),
+                        ROUND(SUM(COALESCE(gl.walks_allowed, 0) + COALESCE(gl.hits_allowed, 0)) / NULLIF(SUM(COALESCE(gl.ip, 0)), 0), 2),
                         ROUND(SUM(COALESCE(gl.er, 0)) * 9 / NULLIF(SUM(COALESCE(gl.ip, 0)), 0), 2),
                         MAX(gl.normalised_name),
                         %s AS split_type
-                    FROM {self.game_logs_table} gl
-                    LEFT JOIN game_pitchers gp ON gl.game_id = gp.game_id
+                    FROM {self.GAME_LOGS_TABLE} gl
+                    LEFT JOIN {self.GAME_PITCHERS_TABLE} gp ON gl.game_id = gp.game_id
+                    LEFT JOIN {self.PLAYER_LOOKUP_TABLE} opp_pl ON (
+                        (gl.is_home = 1 AND opp_pl.player_id = gp.away_pitcher_id)
+                        OR
+                        (gl.is_home = 0 AND opp_pl.player_id = gp.home_pitcher_id)
+                    )
                     WHERE gl.game_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
                     {where_clause}
-                    GROUP BY gl.player_id
+                    GROUP BY gl.player_id;
                 """
 
-                self.execute_query(insert_query, (window, window, split, window))
+                params = (window, window, split, window)
+                self.execute_query(insert_query, params)
+

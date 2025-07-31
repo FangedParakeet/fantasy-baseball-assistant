@@ -49,15 +49,6 @@ class MlbApi:
 
         return results
     
-    def get_probable_pitchers(self, start_date: str, end_date: str) -> dict:
-        params = {  
-            "sportId": 1,
-            "startDate": start_date,
-            "endDate": end_date,
-            "fields": "dates,games,gamePk,gameDate,teams,away,home,team,id,name,probablePitcher,fullName,pitchHand,code"
-        }
-        return self.request("schedule", params)
-
     def get_schedule(self, start_date: str, end_date: str) -> dict:
         params = {
             "sportId": 1,

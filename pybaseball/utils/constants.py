@@ -10,6 +10,7 @@ MLB_TEAM_IDS = {
     'CHC': 112, 'CIN': 113, 'MIL': 158, 'PIT': 134, 'STL': 138,
     'ARI': 109, 'COL': 115, 'LAD': 119, 'SD': 135, 'SF': 137
 }
+MLB_TEAM_IDS_REVERSE_MAP = {v: k for k, v in MLB_TEAM_IDS.items()}
 SPLITS = ['overall', 'home', 'away', 'vs_lhp', 'vs_rhp']
 WOBASCALE = 1.25  # This should ideally be year-specific
 LEAGUE_WOBA = 0.320

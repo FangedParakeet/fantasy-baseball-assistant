@@ -232,6 +232,7 @@ async function runMigrations() {
       hits INT DEFAULT 0,
       abs INT DEFAULT 0,
       avg DECIMAL(4,3) DEFAULT 0.000,
+      obp DECIMAL(4,3) DEFAULT 0.000,
       k INT DEFAULT 0,
       ip DECIMAL(5,2) DEFAULT 0.00,
       er INT DEFAULT 0,
@@ -256,7 +257,6 @@ async function runMigrations() {
       is_win BOOLEAN,
       runs_scored INT,
       runs_allowed INT,
-      pitcher_hand CHAR(1),
       avg FLOAT,
       obp FLOAT,
       slg FLOAT,
@@ -298,18 +298,38 @@ async function runMigrations() {
   `);
 
   await db.query(`
+    CREATE TABLE team_vs_batter_splits (
+        team VARCHAR(10),
+        bats CHAR(1),
+        span_days INT,
+        start_date DATE,
+        end_date DATE,
+        games_played INT,
+        ab INT,
+        hits INT,
+        hr INT,
+        runs INT,
+        rbi INT,
+        sb INT,
+        bb INT,
+        avg DECIMAL(4,3),
+        obp DECIMAL(4,3),
+        PRIMARY KEY (team, bats, span_days)
+    );
+  `);
+
+  await db.query(`
     CREATE TABLE IF NOT EXISTS probable_pitchers (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      game_id VARCHAR(50) NOT NULL,
+      espn_game_id VARCHAR(50) NOT NULL,
       game_date DATE NOT NULL,
       team VARCHAR(5) NOT NULL,
       opponent VARCHAR(5) NOT NULL,
-      pitcher_id INT,
+      espn_pitcher_id INT,
       pitcher_name VARCHAR(100),
-      throws VARCHAR(5),
       home BOOLEAN,
       normalised_name VARCHAR(100),
-      UNIQUE KEY unique_game_team (game_id, team),
+      UNIQUE KEY unique_game_team (espn_game_id, team),
       INDEX idx_normalised_name_pp (normalised_name)
     )
   `);
@@ -329,6 +349,7 @@ async function runMigrations() {
     CREATE TABLE IF NOT EXISTS player_lookup (
       id INT AUTO_INCREMENT PRIMARY KEY,
       player_id INT NOT NULL UNIQUE,
+      espn_player_id INT,
       normalised_name VARCHAR(100) NOT NULL,
       first_name VARCHAR(50),
       last_name VARCHAR(50),
@@ -340,6 +361,7 @@ async function runMigrations() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_player_id (player_id),
+      INDEX idx_espn_player_id (espn_player_id),
       INDEX idx_normalised_name (normalised_name),
       INDEX idx_team (team),
       INDEX idx_status (status),
@@ -353,9 +375,7 @@ async function runMigrations() {
       home_team VARCHAR(10),
       away_team VARCHAR(10),
       home_pitcher_id INT,
-      home_pitcher_throws CHAR(1),
       away_pitcher_id INT,
-      away_pitcher_throws CHAR(1),
       game_date DATE
     )
   `);

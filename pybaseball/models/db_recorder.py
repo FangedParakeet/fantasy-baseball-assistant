@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from models.logger import logger
-from utils.constants import MAX_AGE_DAYS, BATCH_SIZE, ROLLING_WINDOWS, SPLITS
+from utils.constants import MAX_AGE_DAYS, BATCH_SIZE
 
 class DB_Recorder():
     def __init__(self, conn):
