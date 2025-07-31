@@ -16,3 +16,4 @@ WOBASCALE = 1.25  # This should ideally be year-specific
 LEAGUE_WOBA = 0.320
 LEAGUE_ERA = 4.20
 BATCH_SIZE = 500
+FIP_CONSTANT = 3.090

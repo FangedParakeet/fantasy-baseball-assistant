@@ -18,7 +18,7 @@ class SyncStatus:
 
     def set_sync_status(self, sync_name: str, status: str, message: str=None):
         with self.conn.cursor() as cursor:
-            cursor.execute("""
+            cursor.execute(f"""
             INSERT INTO {self.SYNC_STATUS_TABLE} (sync_name, status, message, last_run)
             VALUES (%s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE

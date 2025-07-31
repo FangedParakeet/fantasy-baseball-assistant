@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import pandas as pd
 from models.logger import logger
 from utils.constants import MAX_AGE_DAYS, BATCH_SIZE
 
@@ -24,8 +25,17 @@ class DB_Recorder():
             try:
                 # Convert DataFrame to list if needed
                 if hasattr(rows, 'values'):
-                    # It's a DataFrame, convert to list of tuples
-                    rows_list = [tuple(row) for row in rows.values]
+                    # It's a DataFrame, convert to list of tuples and handle NaN values
+                    rows_list = []
+                    for row in rows.values:
+                        # Convert NaN values to None for SQL compatibility
+                        processed_row = []
+                        for val in row:
+                            if pd.isna(val):
+                                processed_row.append(None)
+                            else:
+                                processed_row.append(val)
+                        rows_list.append(tuple(processed_row))
                 else:
                     # It's already a list
                     rows_list = rows

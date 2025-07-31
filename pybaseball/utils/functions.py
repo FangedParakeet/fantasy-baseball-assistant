@@ -1,9 +1,16 @@
 import unicodedata
+import pandas as pd
 import re
 
 def chunked(iterable, size):
     for i in range(0, len(iterable), size):
         yield iterable[i:i + size]
+
+# Helper function to handle NaN values
+def safe_value(val):
+    if pd.isna(val):
+        return 0
+    return val
 
 def normalise_name(name):
     if not name:

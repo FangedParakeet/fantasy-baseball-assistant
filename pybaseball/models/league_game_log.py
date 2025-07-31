@@ -32,6 +32,7 @@ class LeagueGameLog():
         self.player_game_log.upsert_game_logs(player_game_logs, all_player_ids)
         self.team_game_log.upsert_game_logs(team_game_logs)
         self.game_pitchers.upsert_game_pitchers(game_pitchers)
+        self.team_game_log.update_advanced_statistics()
 
     def compute_rolling_stats(self):
         self.player_game_log.compute_rolling_stats()
@@ -84,7 +85,7 @@ class LeagueGameLog():
         fallback_date = today - timedelta(days=MAX_AGE_DAYS)
 
         # If latest_log_date is None, use fallback_date as start_date
-        if latest_log_date is None:
+        if latest_log_date is None or True:
             start_date = fallback_date
         else:
             start_date = max(latest_log_date, fallback_date)
@@ -183,6 +184,13 @@ class LeagueGameLog():
                         stats = batter_stats.get('stats', {}).get('batting', {})
                         
                         if stats:
+                            # Calculate singles (hits - homeRuns - doubles - triples)
+                            hits = stats.get('hits', 0)
+                            home_runs = stats.get('homeRuns', 0)
+                            doubles = stats.get('doubles', 0)
+                            triples = stats.get('triples', 0)
+                            singles = hits - home_runs - doubles - triples
+                            
                             all_player_game_logs.append({
                                 'game_id': game['game_pk'],
                                 'player_id': batter_id,
@@ -192,10 +200,10 @@ class LeagueGameLog():
                                 'is_home': team_type == 'home',
                                 'position': 'B',
                                 'ab': stats.get('atBats', 0),
-                                'h': stats.get('hits', 0),
+                                'h': hits,
                                 'r': stats.get('runs', 0),
                                 'rbi': stats.get('rbi', 0),
-                                'hr': stats.get('homeRuns', 0),
+                                'hr': home_runs,
                                 'sb': stats.get('stolenBases', 0),
                                 'bb': stats.get('baseOnBalls', 0),
                                 'k': stats.get('strikeOuts', 0),
@@ -204,7 +212,27 @@ class LeagueGameLog():
                                 'hits_allowed': 0,
                                 'walks_allowed': 0,
                                 'strikeouts': 0,
-                                'qs': 0
+                                'qs': 0,
+                                # Relief pitcher statistics (0 for batters)
+                                'sv': 0,
+                                'hld': 0,
+                                # New advanced batting statistics
+                                'singles': singles,
+                                'doubles': doubles,
+                                'triples': triples,
+                                'total_bases': stats.get('totalBases', 0),
+                                'sac_flies': stats.get('sacFlies', 0),
+                                'hit_by_pitch': stats.get('hitByPitch', 0),
+                                'ground_outs': stats.get('groundOuts', 0),
+                                'air_outs': stats.get('airOuts', 0),
+                                'left_on_base': stats.get('leftOnBase', 0),
+                                'ground_into_dp': stats.get('groundIntoDoublePlay', 0),
+                                # New advanced pitching statistics (0 for batters)
+                                'batters_faced': 0,
+                                'wild_pitches': 0,
+                                'balks': 0,
+                                'home_runs_allowed': 0,
+                                'inherited_runners_scored': 0
                             })
                             all_player_ids.append(batter_id)
                 
@@ -250,7 +278,28 @@ class LeagueGameLog():
                                 'hits_allowed': stats.get('hits', 0),
                                 'walks_allowed': stats.get('baseOnBalls', 0),
                                 'strikeouts': stats.get('strikeOuts', 0),
-                                'qs': qs
+                                'qs': qs,
+                                # Relief pitcher statistics
+                                'sv': 1 if stats.get('saves', 0) > 0 else 0,
+                                'hld': 1 if stats.get('holds', 0) > 0 else 0,
+                                # New advanced batting statistics (0 for pitchers)
+                                'singles': 0,
+                                'doubles': 0,
+                                'triples': 0,
+                                'total_bases': 0,
+                                'sac_flies': 0,
+                                'hit_by_pitch': 0,
+                                'ground_outs': 0,
+                                'air_outs': 0,
+                                'left_on_base': 0,
+                                'ground_into_dp': 0,
+                                # New advanced pitching statistics
+                                'batters_faced': stats.get('battersFaced', 0),
+                                'wild_pitches': stats.get('wildPitches', 0),
+                                'balks': stats.get('balks', 0),
+                                'home_runs_allowed': stats.get('homeRuns', 0),
+                                'inherited_runners': stats.get('inheritedRunners', 0),
+                                'inherited_runners_scored': stats.get('inheritedRunnersScored', 0)
                             })
                             all_player_ids.append(pitcher_id)
             

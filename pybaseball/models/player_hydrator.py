@@ -34,7 +34,7 @@ class PlayerHydrator(DB_Recorder):
             logger.info("No players found")
             return
 
-        insert_query = """
+        insert_query = f"""
             INSERT INTO {self.PLAYER_LOOKUP_TABLE} (player_id, first_name, last_name, normalised_name, status, bats, throws, last_updated)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
@@ -73,7 +73,7 @@ class PlayerHydrator(DB_Recorder):
             stale_date = datetime.now(timezone.utc) - timedelta(days=self.MAX_STALE_DAYS)
             
             # Subquery 1: From player_game_logs
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT DISTINCT pgl.player_id
                 FROM {self.PLAYER_GAME_LOG_TABLE} pgl
                 LEFT JOIN {self.PLAYER_LOOKUP_TABLE} pl ON pgl.player_id = pl.player_id
@@ -85,7 +85,7 @@ class PlayerHydrator(DB_Recorder):
             ids_game_log = [row[0] for row in cursor.fetchall()]
 
             # Subquery 2: From player_lookup where status, bats, or throws is null or stale
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT DISTINCT pl.player_id
                 FROM {self.PLAYER_LOOKUP_TABLE} pl
                 WHERE pl.status IS NULL OR pl.status IN ('', 'unknown', 'N/A', 'Unk')

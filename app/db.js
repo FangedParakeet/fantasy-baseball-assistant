@@ -193,6 +193,25 @@ async function runMigrations() {
       team VARCHAR(10),
       game_id VARCHAR(20),
       normalised_name VARCHAR(100),
+
+      -- Advanced Statistics
+
+      singles INT DEFAULT 0,
+      doubles INT DEFAULT 0,
+      triples INT DEFAULT 0,
+      total_bases INT DEFAULT 0,
+      sac_flies INT DEFAULT 0,
+      hit_by_pitch INT DEFAULT 0,
+      ground_outs INT DEFAULT 0,
+      air_outs INT DEFAULT 0,
+      left_on_base INT DEFAULT 0,
+      ground_into_dp INT DEFAULT 0,
+      batters_faced INT DEFAULT 0,
+      wild_pitches INT DEFAULT 0,
+      balks INT DEFAULT 0,
+      home_runs_allowed INT DEFAULT 0,
+      inherited_runners INT DEFAULT 0,
+      inherited_runners_scored INT DEFAULT 0,
       UNIQUE KEY unique_player_game (player_id, game_date),
       INDEX idx_normalised_name_ps_logs (normalised_name)
     )
@@ -232,11 +251,12 @@ async function runMigrations() {
       hits INT DEFAULT 0,
       abs INT DEFAULT 0,
       avg DECIMAL(4,3) DEFAULT 0.000,
-      obp DECIMAL(4,3) DEFAULT 0.000,
       k INT DEFAULT 0,
       ip DECIMAL(5,2) DEFAULT 0.00,
       er INT DEFAULT 0,
       qs INT DEFAULT 0,
+      sv INT DEFAULT 0,
+      hld INT DEFAULT 0,
       whip DECIMAL(4,2) DEFAULT 0.00,
       era DECIMAL(5,2) DEFAULT 0.00,
       split_type VARCHAR(10) DEFAULT 'overall',
@@ -246,6 +266,39 @@ async function runMigrations() {
       UNIQUE KEY unique_player_span (player_id, span_days, split_type),
       INDEX idx_normalised_name_ts (normalised_name)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS player_advanced_rolling_stats (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      player_id INT NOT NULL,
+      span_days INT NOT NULL,
+      split_type VARCHAR(10) DEFAULT 'overall',
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+
+      -- Advanced Batting
+      obp DECIMAL(4,3) DEFAULT 0.000,
+      slg DECIMAL(4,3) DEFAULT 0.000,
+      ops DECIMAL(4,3) DEFAULT 0.000,
+      bb_rate DECIMAL(5,2) DEFAULT 0.00,
+      k_rate DECIMAL(5,2) DEFAULT 0.00,
+      babip DECIMAL(5,3) DEFAULT 0.000,
+
+      -- Advanced Pitching
+      inherited_runners INT DEFAULT 0,
+      inherited_runners_scored INT DEFAULT 0,
+      irs_pct DECIMAL(5,2) DEFAULT 0.00,
+      fip DECIMAL(5,2) DEFAULT 0.00,
+
+      -- Meta
+      normalised_name VARCHAR(100),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+      UNIQUE KEY unique_player_span (player_id, span_days, split_type),
+      INDEX idx_normalised_name_ars (normalised_name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
   
   await db.query(`
@@ -268,6 +321,25 @@ async function runMigrations() {
       ip FLOAT,
       hits_allowed INT,
       game_id VARCHAR(20),
+
+      -- Advanced Statistics
+
+      singles INT DEFAULT 0,
+      doubles INT DEFAULT 0,
+      triples INT DEFAULT 0,
+      total_bases INT DEFAULT 0,
+      sac_flies INT DEFAULT 0,
+      hit_by_pitch INT DEFAULT 0,
+      ground_outs INT DEFAULT 0,
+      air_outs INT DEFAULT 0,
+      left_on_base INT DEFAULT 0,
+      ground_into_dp INT DEFAULT 0,
+      batters_faced INT DEFAULT 0,
+      wild_pitches INT DEFAULT 0,
+      balks INT DEFAULT 0,
+      home_runs_allowed INT DEFAULT 0,
+      inherited_runners INT DEFAULT 0,
+      inherited_runners_scored INT DEFAULT 0,
       PRIMARY KEY (team, game_date)
     )
   `);
@@ -278,23 +350,53 @@ async function runMigrations() {
       split_type VARCHAR(10),
       span_days INT,
       games_played INT,
+
+      -- Basic scoring
       runs_scored INT,
       runs_allowed INT,
       run_diff INT,
       avg_runs_scored DECIMAL(4,2),
       avg_runs_allowed DECIMAL(4,2),
+
+      -- Rate stats
       avg FLOAT,
       obp FLOAT,
       slg FLOAT,
       ops FLOAT,
+
+      -- Pitching/defence
       er INT,
       whip FLOAT,
       strikeouts INT,
       walks INT,
       ip FLOAT,
       hits_allowed INT,
+
+      -- Advanced aggregates
+      singles INT,
+      doubles INT,
+      triples INT,
+      total_bases INT,
+      sac_flies INT,
+      hit_by_pitch INT,
+      ground_outs INT,
+      air_outs INT,
+      left_on_base INT,
+      ground_into_dp INT,
+      batters_faced INT,
+      wild_pitches INT,
+      balks INT,
+      home_runs_allowed INT,
+      inherited_runners INT,
+      inherited_runners_scored INT,
+
+      -- Derived advanced metrics (optional)
+      babip DECIMAL(4,3),
+      lob_pct DECIMAL(5,2),
+      fip DECIMAL(5,2),
+
       PRIMARY KEY (team, split_type, span_days)
-    )
+    );
   `);
 
   await db.query(`
@@ -305,16 +407,97 @@ async function runMigrations() {
         start_date DATE,
         end_date DATE,
         games_played INT,
+
+        -- Basic Statistics
         ab INT,
         hits INT,
+        doubles INT,
+        triples INT,
         hr INT,
-        runs INT,
         rbi INT,
+        runs INT,
         sb INT,
         bb INT,
+        k INT,
+        sac_flies INT,
+        hbp INT,
+        ground_into_dp INT,
+
+        -- Advanced Statistics
         avg DECIMAL(4,3),
         obp DECIMAL(4,3),
+        slg DECIMAL(5,3),
+        ops DECIMAL(5,3),
+
         PRIMARY KEY (team, bats, span_days)
+    );
+  `);
+
+  await db.query(`
+    CREATE TABLE team_vs_pitcher_splits (
+        team VARCHAR(10),
+        throws CHAR(1),
+        span_days INT,
+        start_date DATE,
+        end_date DATE,
+        games_played INT,
+
+        -- Basic Statistics
+        ab INT,
+        hits INT,
+        doubles INT,
+        triples INT,
+        hr INT,
+        rbi INT,
+        runs INT,
+        sb INT,
+        bb INT,
+        k INT,
+        sac_flies INT,
+        hbp INT,
+        ground_into_dp INT,
+
+        -- Advanced Statistics
+        avg DECIMAL(4,3),
+        obp DECIMAL(4,3),
+        slg DECIMAL(5,3),
+        ops DECIMAL(5,3),
+
+        PRIMARY KEY (team, throws, span_days)
+    );
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS league_rolling_stats (
+      entity_type ENUM('player', 'team') NOT NULL,     -- player, team, team_vs_batter, team_vs_pitcher
+      split_type VARCHAR(10),
+      span_days INT,
+      bats CHAR(1),            -- for team_vs_batter_splits
+      throws CHAR(1),          -- for team_vs_pitcher_splits
+
+      -- Basic stats
+      avg FLOAT,
+      obp FLOAT,
+      slg FLOAT,
+      ops FLOAT,
+
+      -- Fantasy-friendly
+      hr_per_game FLOAT,
+      sb_per_game FLOAT,
+      rbi_per_game FLOAT,
+      runs_per_game FLOAT,
+      k_per_game FLOAT,
+      bb_per_game FLOAT,
+
+      -- Pitching
+      whip FLOAT,
+      era FLOAT,
+      fip FLOAT,
+      qs_rate FLOAT,
+
+      -- Meta
+      entity_count INT,
+      PRIMARY KEY (entity_type, split_type, span_days, bats, throws)
     );
   `);
 
