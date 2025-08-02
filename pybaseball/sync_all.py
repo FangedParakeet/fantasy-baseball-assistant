@@ -6,7 +6,7 @@ SCRIPTS = [
     "create_player_lookup.py",
     "sync_probable_pitchers.py",
     "sync_game_logs.py",
-    "hydrate_player_data.py",
+    "compute_stats_from_game_logs.py",
 ]
 
 def main():
@@ -15,7 +15,7 @@ def main():
     
     for script in SCRIPTS:
         try:
-            # Build the command - only pass --force to hydrate_player_data.py
+            # Build the command - only pass --force to compute_stats_from_game_logs.py
             cmd = ["python", "-c", f"import sys; sys.path.insert(0, '.'); exec(open('services/{script}').read())"]
             if force_flag and script == "hydrate_player_data.py":
                 cmd.extend(["--force"])

@@ -1,14 +1,11 @@
-from models.rolling_stats_percentiles import RollingStatsPercentiles
 from models.player_rolling_stats import PlayerRollingStats
 from models.player_game_log import PlayerGameLog
 from utils.constants import FIP_CONSTANT, WOBASCALE
 from models.logger import logger
 
 class PlayerAdvancedRollingStats(PlayerRollingStats):
-    ID_KEYS = ['normalised_name', 'position', 'player_id']
     LEAGUE_AVERAGE_KEYS = ['obp', 'slg', 'ops', 'woba', 'fip']
     LEAGUE_AVERAGE_TABLE = 'league_advanced_rolling_stats'
-    EXTRA_KEYS = ['games', 'abs', 'ip']
     STATS_KEYS = {
         'batting': ['obp', 'slg', 'ops', 'bb_rate', 'k_rate', 'babip', 'iso', 'contact_pct', 'gb_fb_ratio', 'lob_batting_pct', 'woba'],
         'pitching': ['inherited_runners', 'inherited_runners_scored', 'irs_pct', 'fip', 'k_per_9', 'bb_per_9', 'hr_per_9', 'k_bb_ratio', 'lob_pitching_pct']
@@ -17,47 +14,15 @@ class PlayerAdvancedRollingStats(PlayerRollingStats):
         'batting': ['woba_plus', 'obp_plus', 'slg_plus', 'ops_plus', 'wraa'],
         'pitching': ['fip_minus', 'era_minus']
     }
-    STATS_THRESHOLDS = {
-        'batting': {
-            'key': 'abs',
-            7: 15,
-            14: 30,
-            30: 40
-        },
-        'pitching': {
-            'key': 'ip',
-            7: 4,
-            14: 8,
-            30: 12
-        }
-    }
-    CONDITIONS = {
-        'batting': {
-            'key': 'position',
-            'comp': '=',
-            'value': 'B'
-        },
-        'pitching': {
-            'key': 'position',
-            'comp': '!=',
-            'value': 'B'
-        }
-    }
 
     def __init__(self, conn, rolling_stats_percentiles):
-        super().__init__(conn)
+        super().__init__(conn, rolling_stats_percentiles)
         self.rolling_stats_table = PlayerGameLog.ADVANCED_ROLLING_STATS_TABLE
         self.basic_rolling_stats_table = PlayerGameLog.BASIC_ROLLING_STATS_TABLE
-        self.rolling_stats_percentiles = rolling_stats_percentiles
+        self.game_logs_table = PlayerGameLog.GAME_LOGS_TABLE
 
     def get_formulas(self):
-        return {
-            'player_id': 'gl.player_id',
-            'normalised_name': 'MAX(gl.normalised_name) AS normalised_name',
-            'position': 'MAX(gl.position) AS position',
-            'games': 'COUNT(*) AS games',
-            'abs': 'SUM(COALESCE(gl.ab, 0)) AS abs',
-            'ip': 'ROUND(SUM(COALESCE(gl.ip, 0)), 2) AS ip',
+        return super().get_formulas() | {
             'obp': """-- OBP = (H + BB + HBP) / (AB + BB + HBP + SF)
                         ROUND(
                             (SUM(COALESCE(gl.h, 0)) + SUM(COALESCE(gl.bb, 0)) + SUM(COALESCE(gl.hit_by_pitch, 0))) /
@@ -187,13 +152,10 @@ class PlayerAdvancedRollingStats(PlayerRollingStats):
                             2
                         ) AS hr_per_9""",
             'k_bb_ratio': """-- K/BB Ratio = K / BB
-                        LEAST(
-                            ROUND(
-                                SUM(COALESCE(gl.strikeouts, 0)) /
-                                NULLIF(SUM(COALESCE(gl.walks_allowed, 0)), 0),
-                                3
-                            ),
-                            9.999
+                        ROUND(
+                            SUM(COALESCE(gl.strikeouts, 0)) /
+                            NULLIF(SUM(COALESCE(gl.walks_allowed, 0)), 0),
+                            2
                         ) AS k_bb_ratio""",
             'lob_pitching_pct': """-- LOB% (Pitching) = (H + BB - R) / (H + BB - HR) (capped at 100.00 to fit DECIMAL(5,2))
                         LEAST(
@@ -227,14 +189,16 @@ class PlayerAdvancedRollingStats(PlayerRollingStats):
         try:
             self.compute_league_averages()
             # Clear all existing rolling stats before computing new ones
-            logger.info("Clearing all existing player advanced rolling stats")
+            logger.info("Clearing all existing advanced player rolling stats")
             self.purge_all_records_in_transaction(self.rolling_stats_table)
             
-            insert_keys = self.ID_KEYS + self.EXTRA_KEYS + self.STATS_KEYS['batting'] + self.STATS_KEYS['pitching']
+            insert_keys = self.SPLIT_WINDOW_KEYS + self.ID_KEYS + self.EXTRA_KEYS + self.DATE_KEYS + self.STATS_KEYS['batting'] + self.STATS_KEYS['pitching']
             all_formulas = self.get_formulas()
             select_formulas = [all_formulas[key] for key in insert_keys]
 
-            super().compute_rolling_stats(self.rolling_stats_table, insert_keys, select_formulas)
+            join_conditions = super().get_join_conditions()
+            logger.info(f"Computing advanced player rolling stats")
+            super().compute_rolling_stats(self.rolling_stats_table, self.game_logs_table, insert_keys, select_formulas, join_conditions, 'GROUP BY gl.player_id')
             self.update_advanced_rolling_stats()
             self.compute_percentiles()
             
@@ -257,23 +221,16 @@ class PlayerAdvancedRollingStats(PlayerRollingStats):
         logger.info("Clearing all existing league averages")
         self.purge_all_records_in_transaction(self.LEAGUE_AVERAGE_TABLE)
         
-        insert_keys = self.LEAGUE_AVERAGE_KEYS
+        insert_keys = self.SPLIT_WINDOW_KEYS + self.DATE_KEYS + self.LEAGUE_AVERAGE_KEYS
         all_formulas = self.get_formulas()
         select_formulas = [all_formulas[key] for key in insert_keys]
-        logger.info(f"Computing league averages for {insert_keys}")
-        super().compute_rolling_stats(self.LEAGUE_AVERAGE_TABLE, insert_keys, select_formulas, is_league=True)
+        logger.info(f"Computing league averages for {self.LEAGUE_AVERAGE_KEYS}")
+        join_conditions = super().get_join_conditions()
+        super().compute_rolling_stats(self.LEAGUE_AVERAGE_TABLE, self.game_logs_table, insert_keys, select_formulas, join_conditions)
 
     def compute_percentiles(self):
         logger.info(f"Computing percentiles for advanced rolling stats")
         self.purge_all_records_in_transaction(self.rolling_stats_table + '_percentiles')
-        for key, stats in self.STATS_KEYS.items():
-            logger.info(f"Computing percentiles for {key}")
-            for stat in stats:
-                logger.info(f"Computing percentiles for {stat}")
-                self.rolling_stats_percentiles.compute_percentiles(self.rolling_stats_table, stat, self.STATS_THRESHOLDS[key], self.CONDITIONS[key], self.ID_KEYS)
-
-        for key, stats in self.ADVANCED_STATS_KEYS.items():
-            logger.info(f"Computing advanced stats percentiles for {key}")
-            for stat in stats:
-                logger.info(f"Computing advanced stats percentiles for {stat}")
-                self.rolling_stats_percentiles.compute_percentiles(self.rolling_stats_table, stat, self.STATS_THRESHOLDS[key], self.CONDITIONS[key], self.ID_KEYS)
+        
+        super().compute_percentiles(self.rolling_stats_table, self.STATS_KEYS, self.STATS_THRESHOLDS, self.CONDITIONS, self.ID_KEYS)
+        super().compute_percentiles(self.rolling_stats_table, self.ADVANCED_STATS_KEYS, self.STATS_THRESHOLDS, self.CONDITIONS, self.ID_KEYS)

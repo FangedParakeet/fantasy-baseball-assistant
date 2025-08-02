@@ -11,8 +11,9 @@ class TeamGameLog(GameLog):
     TEAM_VS_BATTER_SPLITS_TABLE = "team_vs_batter_splits"
     TEAM_VS_PITCHER_SPLITS_TABLE = "team_vs_pitcher_splits"
 
-    def __init__(self, conn):
+    def __init__(self, conn, team_rolling_stats=None):
         self.conn = conn
+        self.team_rolling_stats = team_rolling_stats
         super().__init__(conn, self.GAME_LOGS_TABLE)
 
     def upsert_game_logs(self, logs):
@@ -141,133 +142,10 @@ class TeamGameLog(GameLog):
         return ''
 
     def compute_rolling_stats(self):
-        self.compute_team_rolling_stats()
+        self.team_rolling_stats.compute_rolling_stats()
         self.compute_team_vs_batter_splits()
         self.compute_team_vs_pitcher_splits()
-
-    def compute_team_rolling_stats(self):
-        # Start transaction for the entire operation
-        self.begin_transaction()
-        
-        try:
-            # Clear all existing rolling stats before computing new ones
-            logger.info("Clearing all existing team rolling stats")
-            self.purge_all_records_in_transaction(self.ROLLING_STATS_TABLE)
-            
-            for split in SPLITS:
-                for window in ROLLING_WINDOWS:
-                    logger.info(f"Computing team {split} rolling stats for {window} days")
-
-                    where_clause = self.build_where_clause_for_split(split)
-
-                    insert_query = f"""
-                        INSERT INTO {self.ROLLING_STATS_TABLE} (
-                        team, split_type, span_days, games_played,
-                        runs_scored, runs_allowed, run_diff,
-                        avg_runs_scored, avg_runs_allowed,
-                        avg, obp, slg, ops,
-                        er, whip, era, strikeouts, walks, ip, hits_allowed,
-                        singles, doubles, triples, total_bases, sac_flies, hit_by_pitch,
-                        ground_outs, air_outs, left_on_base, ground_into_dp,
-                        batters_faced, wild_pitches, balks, home_runs_allowed,
-                        inherited_runners, inherited_runners_scored,
-                        babip, lob_pct, fip, k_per_9, bb_per_9, hr_per_9, k_bb_ratio
-                        )
-                    SELECT
-                        gl.team,
-                        %s AS split_type,
-                        %s AS span_days,
-                        COUNT(*) AS games_played,
-
-                        SUM(gl.runs_scored),
-                        SUM(gl.runs_allowed),
-                        SUM(gl.runs_scored) - SUM(gl.runs_allowed) AS run_diff,
-
-                        ROUND(SUM(gl.runs_scored) / COUNT(*), 2),
-                        ROUND(SUM(gl.runs_allowed) / COUNT(*), 2),
-
-                        ROUND(AVG(gl.avg), 3),
-                        ROUND(AVG(gl.obp), 3),
-                        ROUND(AVG(gl.slg), 3),
-                        ROUND(AVG(gl.ops), 3),
-
-                        SUM(gl.er),
-                        ROUND(SUM(gl.walks + gl.hits_allowed) / NULLIF(SUM(gl.ip), 0), 2),
-                        ROUND((SUM(gl.er) * 9) / NULLIF(SUM(gl.ip), 0), 2) AS era,
-                        SUM(gl.strikeouts),
-                        SUM(gl.walks),
-                        ROUND(SUM(gl.ip), 2),
-                        SUM(gl.hits_allowed),
-
-                        SUM(gl.singles),
-                        SUM(gl.doubles),
-                        SUM(gl.triples),
-                        SUM(gl.total_bases),
-                        SUM(gl.sac_flies),
-                        SUM(gl.hit_by_pitch),
-                        SUM(gl.ground_outs),
-                        SUM(gl.air_outs),
-                        SUM(gl.left_on_base),
-                        SUM(gl.ground_into_dp),
-                        SUM(gl.batters_faced),
-                        SUM(gl.wild_pitches),
-                        SUM(gl.balks),
-                        SUM(gl.home_runs_allowed),
-                        SUM(gl.inherited_runners),
-                        SUM(gl.inherited_runners_scored),
-
-                        ROUND(
-                            (
-                            SUM(gl.hits_allowed) - SUM(gl.home_runs_allowed)
-                            ) / NULLIF(
-                            SUM(gl.batters_faced - gl.strikeouts - gl.home_runs_allowed + gl.sac_flies), 0
-                            ), 3
-                        ) AS babip,
-
-                        ROUND(
-                            (
-                            SUM(gl.hits_allowed + gl.walks + gl.hit_by_pitch - gl.runs_allowed)
-                            ) / NULLIF(
-                            SUM(gl.hits_allowed + gl.walks + gl.hit_by_pitch - (1.4 * gl.home_runs_allowed)), 0
-                            ), 2
-                        ) AS lob_pct,
-
-                        ROUND(
-                            (
-                            (13 * SUM(gl.home_runs_allowed)) +
-                            (3 * SUM(gl.walks)) -
-                            (2 * SUM(gl.strikeouts))
-                            ) / NULLIF(SUM(gl.ip), 0) + {FIP_CONSTANT}, 2
-                        ) AS fip,
-                        
-                        ROUND(SUM(gl.strikeouts) / NULLIF(SUM(gl.ip), 0) * 9, 2) AS k_per_9,
-                        ROUND(SUM(gl.walks) / NULLIF(SUM(gl.ip), 0) * 9, 2) AS bb_per_9,
-                        ROUND(SUM(gl.home_runs_allowed) / NULLIF(SUM(gl.ip), 0) * 9, 2) AS hr_per_9,
-                        ROUND(SUM(gl.strikeouts) / NULLIF(SUM(gl.walks), 0), 3) AS k_bb_ratio
-
-                    FROM {self.GAME_LOGS_TABLE} AS gl
-                    LEFT JOIN {GamePitchers.GAME_PITCHERS_TABLE} AS gp ON gl.game_id = gp.game_id
-                    LEFT JOIN {PlayerLookup.LOOKUP_TABLE} AS opp_pl ON (
-                        (gl.is_home = 1 AND gp.away_pitcher_id IS NOT NULL AND opp_pl.player_id = gp.away_pitcher_id)
-                        OR
-                        (gl.is_home = 0 AND gp.home_pitcher_id IS NOT NULL AND opp_pl.player_id = gp.home_pitcher_id)
-                    )
-                    WHERE gl.game_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
-                    {where_clause}
-                    GROUP BY gl.team;
-                """
-
-                params = (split, window, window)
-                self.execute_query_in_transaction(insert_query, params)
-            
-            # Commit transaction
-            self.commit_transaction()
-            logger.info("Successfully computed team rolling stats")
-            
-        except Exception as e:
-            logger.error(f"Error computing team rolling stats: {e}")
-            self.rollback_transaction()
-            raise
+        self.team_rolling_stats.compute_team_vs_splits_percentiles()
 
     def compute_team_vs_batter_splits(self):
         # Clear all existing team vs batter splits before computing new ones
@@ -343,7 +221,7 @@ class TeamGameLog(GameLog):
                     team, throws, span_days, start_date, end_date, games_played,
                     ab, hits, doubles, triples, hr, rbi, runs, sb, bb, k,
                     sac_flies, hbp, ground_into_dp,
-                    avg, obp, slg, ops
+                    avg, obp, slg, ops, so_rate, bb_rate
                 )
                 SELECT
                     pgl.team,
@@ -374,7 +252,9 @@ class TeamGameLog(GameLog):
                         (SUM(pgl.h) + SUM(pgl.bb) + SUM(pgl.hit_by_pitch)) / NULLIF(SUM(pgl.ab) + SUM(pgl.bb) + SUM(pgl.hit_by_pitch) + SUM(pgl.sac_flies), 0)
                         + (SUM(pgl.total_bases) / NULLIF(SUM(pgl.ab), 0)),
                         3
-                    ) AS ops
+                    ) AS ops,
+                    ROUND(SUM(pgl.k) / NULLIF(SUM(pgl.ab + pgl.bb + pgl.hit_by_pitch + pgl.sac_flies), 0), 3) AS so_rate,
+                    ROUND(SUM(pgl.bb) / NULLIF(SUM(pgl.ab + pgl.bb + pgl.hit_by_pitch + pgl.sac_flies), 0), 3) AS bb_rate
 
                 FROM {PlayerGameLog.GAME_LOGS_TABLE} AS pgl
                 LEFT JOIN {GamePitchers.GAME_PITCHERS_TABLE} AS gp ON pgl.game_id = gp.game_id

@@ -11,6 +11,7 @@ from models.league_statistics import LeagueStatistics
 from models.logger import logger
 from models.player_basic_rolling_stats import PlayerBasicRollingStats
 from models.player_advanced_rolling_stats import PlayerAdvancedRollingStats
+from models.team_rolling_stats import TeamRollingStats
 from models.rolling_stats_percentiles import RollingStatsPercentiles
 
 def main(force=False):
@@ -22,8 +23,9 @@ def main(force=False):
     rolling_stats_percentiles = RollingStatsPercentiles(conn)
     player_basic_rolling_stats = PlayerBasicRollingStats(conn, rolling_stats_percentiles)
     player_advanced_rolling_stats = PlayerAdvancedRollingStats(conn, rolling_stats_percentiles)
+    team_rolling_stats = TeamRollingStats(conn, rolling_stats_percentiles)
     player_game_log = PlayerGameLog(conn, None, player_basic_rolling_stats, player_advanced_rolling_stats)
-    team_game_log = TeamGameLog(conn)
+    team_game_log = TeamGameLog(conn, team_rolling_stats)
     game_pitchers = GamePitchers(conn)
     league_statistics = LeagueStatistics(conn)
     league_game_log = LeagueGameLog(mlb_api, player_game_log, team_game_log, game_pitchers, league_statistics)

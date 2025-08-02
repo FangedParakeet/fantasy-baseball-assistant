@@ -14,7 +14,7 @@
         "sync:create_player_lookup": "docker exec pybaseball python main.py create_player_lookup",
         "sync:game_logs": "docker exec pybaseball python main.py game_logs",
         "sync:probable_pitchers": "docker exec pybaseball python main.py probable_pitchers",
-        "sync:hydrate_player_data": "docker exec pybaseball python main.py hydrate_player_data"
+        "sync:compute_stats": "docker exec pybaseball python main.py compute_stats"
     }
   }
   

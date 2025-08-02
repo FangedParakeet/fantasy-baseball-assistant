@@ -1,16 +1,41 @@
 from models.player_game_log import PlayerGameLog
-from models.game_pitchers import GamePitchers
-from models.player_lookup import PlayerLookup
 from models.rolling_stats import RollingStats
-from utils.constants import SPLITS, ROLLING_WINDOWS
 from models.logger import logger
 
 class PlayerRollingStats(RollingStats):
-    def __init__(self, conn):
-        super().__init__(conn)
-        self.game_logs_table = PlayerGameLog.GAME_LOGS_TABLE
-        self.game_pitchers_table = GamePitchers.GAME_PITCHERS_TABLE
-        self.player_lookup_table = PlayerLookup.LOOKUP_TABLE
+    ID_KEYS = ['normalised_name', 'position', 'player_id']
+    EXTRA_KEYS = ['games', 'abs', 'ip']
+    DATE_KEYS = ['start_date', 'end_date']
+    STATS_THRESHOLDS = {
+        'batting': {
+            'key': 'abs',
+            7: 15,
+            14: 30,
+            30: 40
+        },
+        'pitching': {
+            'key': 'ip',
+            7: 4,
+            14: 8,
+            30: 12
+        }
+    }
+    CONDITIONS = {
+        'batting': {
+            'key': 'position',
+            'comp': '=',
+            'value': 'B'
+        },
+        'pitching': {
+            'key': 'position',
+            'comp': '!=',
+            'value': 'B'
+        }
+    }
+
+
+    def __init__(self, conn, rolling_stats_percentiles):
+        super().__init__(conn, rolling_stats_percentiles)
 
     def build_where_clause_for_split(self, split):
         if split in ['overall', 'home', 'away']:
@@ -31,33 +56,24 @@ class PlayerRollingStats(RollingStats):
             """
         return ''
 
-    def compute_rolling_stats(self, rolling_stats_table, insert_keys, select_formulas, is_league=False):
-        insert_keys.extend(['split_type', 'span_days', 'start_date', 'end_date'])
-        select_formulas.extend(['%s AS split_type', '%s AS span_days', 'DATE_SUB(CURDATE(), INTERVAL %s DAY) AS start_date', 'CURDATE() AS end_date'])
-        insert_values = ', '.join(insert_keys)
-        select_values = ', '.join(select_formulas)
+    def get_formulas(self):
+        return super().get_formulas() | {
+            'player_id': 'gl.player_id',
+            'normalised_name': 'MAX(gl.normalised_name) AS normalised_name',
+            'position': 'MAX(gl.position) AS position',
+            'games': 'COUNT(*) AS games',
+            'abs': 'SUM(COALESCE(gl.ab, 0)) AS abs',
+            'ip': 'ROUND(SUM(COALESCE(gl.ip, 0)), 2) AS ip',
+            'start_date': 'DATE_SUB(CURDATE(), INTERVAL %s DAY) AS start_date',
+            'end_date': 'CURDATE() AS end_date',
+        }
 
-        for split in SPLITS:
-            for window in ROLLING_WINDOWS:
-                logger.info(f"Computing rolling stats for {split} for {window} days")
-                where_clause = self.build_where_clause_for_split(split)
-                group_by = 'GROUP BY gl.player_id' if not is_league else ''
-                insert_query = f"""
-                    INSERT INTO {rolling_stats_table} ({insert_values})
-                    SELECT {select_values}
-                    FROM {self.game_logs_table} gl
-                    LEFT JOIN {self.game_pitchers_table} gp ON gl.game_id = gp.game_id
-                    LEFT JOIN {self.player_lookup_table} opp_pl ON (
-                        (gl.is_home = 1 AND opp_pl.player_id = gp.away_pitcher_id)
-                        OR
-                        (gl.is_home = 0 AND opp_pl.player_id = gp.home_pitcher_id)
-                    )
-                    WHERE gl.game_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
-                    {where_clause}
-                    {group_by}
-                """
-                params = (split, window, window, window)
-                self.execute_query_in_transaction(insert_query, params)
+    def get_join_conditions(self):
+        return """
+        (gl.is_home = 1 AND opp_pl.player_id = gp.away_pitcher_id)
+            OR
+        (gl.is_home = 0 AND opp_pl.player_id = gp.home_pitcher_id)
+        """
 
     def update_advanced_rolling_stats(self, advanced_rolling_stats_table, basic_rolling_stats_table, league_averages_table, update_formulas):
         logger.info(f"Updating advanced rolling statistics")

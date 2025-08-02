@@ -290,7 +290,8 @@ async function runMigrations() {
       qs_pct DECIMAL(5,2) DEFAULT 0.00,
       sv_pct DECIMAL(5,2) DEFAULT 0.00,
       hld_pct DECIMAL(5,2) DEFAULT 0.00,
-      is_reliable BOOLEAN DEFAULT FALSE,
+      reliability_score TINYINT UNSIGNED DEFAULT 0,
+      is_reliable BOOLEAN GENERATED ALWAYS AS (reliability_score >= 70) STORED,
       normalised_name VARCHAR(100),
       position VARCHAR(10),
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -334,7 +335,7 @@ async function runMigrations() {
       k_per_9 DECIMAL(5,2) DEFAULT 0.00,
       bb_per_9 DECIMAL(5,2) DEFAULT 0.00,
       hr_per_9 DECIMAL(5,2) DEFAULT 0.00,
-      k_bb_ratio DECIMAL(4,3) DEFAULT 0.000,
+      k_bb_ratio DECIMAL(5,2) DEFAULT 0.00,
       lob_pitching_pct DECIMAL(5,2) DEFAULT 0.00,
       fip_minus DECIMAL(5,1) DEFAULT 0.0,
       era_minus DECIMAL(6,1) DEFAULT 0.0,
@@ -392,7 +393,8 @@ async function runMigrations() {
       era_minus_pct DECIMAL(5,2) DEFAULT 0.00,
 
       -- Meta
-      is_reliable BOOLEAN DEFAULT FALSE,
+      reliability_score TINYINT UNSIGNED,
+      is_reliable BOOLEAN GENERATED ALWAYS AS (reliability_score >= 70) STORED,
       normalised_name VARCHAR(100),
       position VARCHAR(10),
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -500,7 +502,7 @@ async function runMigrations() {
       k_per_9 DECIMAL(5,2),
       bb_per_9 DECIMAL(5,2),
       hr_per_9 DECIMAL(5,2),
-      k_bb_ratio DECIMAL(4,3),
+      k_bb_ratio DECIMAL(5,2),
 
       PRIMARY KEY (team, split_type, span_days)
     );
@@ -533,7 +535,12 @@ async function runMigrations() {
       k_per_9_pct DECIMAL(5,2),
       bb_per_9_pct DECIMAL(5,2),
       hr_per_9_pct DECIMAL(5,2),
-      k_bb_ratio_pct DECIMAL(4,3),
+      k_bb_ratio_pct DECIMAL(5,2),
+
+      -- Meta
+      reliability_score TINYINT UNSIGNED,
+      is_reliable BOOLEAN GENERATED ALWAYS AS (reliability_score >= 70) STORED,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
       PRIMARY KEY (team, split_type, span_days)
     );
@@ -585,6 +592,11 @@ async function runMigrations() {
       so_rate_pct DECIMAL(5,2),
       bb_rate_pct DECIMAL(5,2),
 
+      -- Meta
+      reliability_score TINYINT UNSIGNED,
+      is_reliable BOOLEAN GENERATED ALWAYS AS (reliability_score >= 70) STORED,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
       PRIMARY KEY (team, bats, span_days)
     );
   `);
@@ -619,6 +631,8 @@ async function runMigrations() {
         obp DECIMAL(4,3),
         slg DECIMAL(5,3),
         ops DECIMAL(5,3),
+        so_rate DECIMAL(5,2),
+        bb_rate DECIMAL(5,2),
 
         PRIMARY KEY (team, throws, span_days)
     );
@@ -632,6 +646,12 @@ async function runMigrations() {
       ops_pct DECIMAL(5,2),
       so_rate_pct DECIMAL(5,2),
       bb_rate_pct DECIMAL(5,2),
+
+      -- Meta
+      reliability_score TINYINT UNSIGNED,
+      is_reliable BOOLEAN GENERATED ALWAYS AS (reliability_score >= 70) STORED,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
       PRIMARY KEY (team, throws, span_days)
     );
   `);

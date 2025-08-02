@@ -5,13 +5,13 @@ scripts = {
     "create_player_lookup": "services/create_player_lookup.py",
     "game_logs": "services/sync_game_logs.py",
     "probable_pitchers": "services/sync_probable_pitchers.py",
-    "hydrate_player_data": "services/hydrate_player_data.py",
+    "compute_stats": "services/compute_stats_from_game_logs.py",
     "all": "sync_all.py"
 }
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python main.py [create_player_lookup|game_logs|probable_pitchers|hydrate_player_data|all] [--force]")
+        print("Usage: python main.py [create_player_lookup|game_logs|probable_pitchers|compute_stats|all] [--force]")
         sys.exit(1)
 
     key = sys.argv[1]
