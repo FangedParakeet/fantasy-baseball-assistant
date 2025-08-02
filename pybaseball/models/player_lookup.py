@@ -4,6 +4,8 @@ from utils.constants import MLB_TEAM_IDS
 from utils.functions import normalise_name
 
 class PlayerLookup(DB_Recorder):
+    LOOKUP_TABLE = "player_lookup"
+
     def __init__(self, conn, mlb_api):
         self.conn = conn
         self.mlb_api = mlb_api
@@ -53,8 +55,8 @@ class PlayerLookup(DB_Recorder):
             if all_players:
                 logger.info(f"Inserting {len(all_players)} player records")
                 
-                insert_query = """
-                    INSERT INTO player_lookup (player_id, normalised_name, first_name, last_name, team)
+                insert_query = f"""
+                    INSERT INTO {self.LOOKUP_TABLE} (player_id, normalised_name, first_name, last_name, team)
                     VALUES (%s, %s, %s, %s, %s)
                     ON DUPLICATE KEY UPDATE
                     normalised_name = VALUES(normalised_name),
@@ -99,9 +101,9 @@ class PlayerLookup(DB_Recorder):
                     cursor.execute("INSERT INTO temp_player_ids (player_id) VALUES (%s)", (player_id,))
                 
                 # Join with player_lookup table
-                cursor.execute("""
+                cursor.execute(f"""
                     SELECT pl.player_id, pl.normalised_name, pl.team
-                    FROM player_lookup pl
+                    FROM {self.LOOKUP_TABLE} pl
                     INNER JOIN temp_player_ids t ON pl.player_id = t.player_id
                 """)
                 
@@ -131,7 +133,7 @@ class PlayerLookup(DB_Recorder):
         """Get player name from the lookup table"""
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute("SELECT normalised_name FROM player_lookup WHERE player_id = %s", (player_id,))
+                cursor.execute(f"SELECT normalised_name FROM {self.LOOKUP_TABLE} WHERE player_id = %s", (player_id,))
                 result = cursor.fetchone()
                 return result[0] if result else None
         except Exception as e:
@@ -144,7 +146,7 @@ class PlayerLookup(DB_Recorder):
         """Get player team from the lookup table"""
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute("SELECT team FROM player_lookup WHERE player_id = %s", (player_id,))
+                cursor.execute(f"SELECT team FROM {self.LOOKUP_TABLE} WHERE player_id = %s", (player_id,))
                 result = cursor.fetchone()
                 return result[0] if result else None
         except Exception as e:

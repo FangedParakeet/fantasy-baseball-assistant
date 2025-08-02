@@ -5,11 +5,12 @@ from models.logger import logger
 from utils.constants import MAX_AGE_DAYS, MLB_TEAM_IDS
 
 class LeagueGameLog():
-    def __init__(self, mlb_api, player_game_log, team_game_log, game_pitchers):
+    def __init__(self, mlb_api, player_game_log, team_game_log, game_pitchers, league_statistics=None):
         self.mlb_api = mlb_api
         self.player_game_log = player_game_log
         self.team_game_log = team_game_log
         self.game_pitchers = game_pitchers
+        self.league_statistics = league_statistics
 
     def purge_old_game_logs(self):
         self.player_game_log.purge_old_game_logs()
@@ -37,6 +38,7 @@ class LeagueGameLog():
     def compute_rolling_stats(self):
         self.player_game_log.compute_rolling_stats()
         self.team_game_log.compute_rolling_stats()
+        self.league_statistics.compute_league_averages()
 
     def fetch_game_logs(self):
         start_date, end_date = self.get_window_dates()

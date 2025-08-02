@@ -166,6 +166,25 @@ async function runMigrations() {
   `);
   
   await db.query(`
+    CREATE TABLE IF NOT EXISTS team_stats (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      team_abbr VARCHAR(10) NOT NULL,
+      period_days INT NOT NULL,
+      vs_hand ENUM('LHP', 'RHP') DEFAULT NULL,
+      is_home BOOLEAN DEFAULT NULL,
+      games INT,
+      runs_scored INT,
+      runs_allowed INT,
+      avg FLOAT,
+      obp FLOAT,
+      slg FLOAT,
+      ops FLOAT,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_team_stat (team_abbr, period_days, vs_hand, is_home)
+    )
+  `);
+
+  await db.query(`
     CREATE TABLE IF NOT EXISTS player_game_logs (
       id INT AUTO_INCREMENT PRIMARY KEY,
       player_id INT NOT NULL,
@@ -218,29 +237,11 @@ async function runMigrations() {
   `);
 
   await db.query(`
-    CREATE TABLE IF NOT EXISTS team_stats (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      team_abbr VARCHAR(10) NOT NULL,
-      period_days INT NOT NULL,
-      vs_hand ENUM('LHP', 'RHP') DEFAULT NULL,
-      is_home BOOLEAN DEFAULT NULL,
-      games INT,
-      runs_scored INT,
-      runs_allowed INT,
-      avg FLOAT,
-      obp FLOAT,
-      slg FLOAT,
-      ops FLOAT,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY unique_team_stat (team_abbr, period_days, vs_hand, is_home)
-    )
-  `);
-
-  await db.query(`
     CREATE TABLE IF NOT EXISTS player_rolling_stats (
       id INT AUTO_INCREMENT PRIMARY KEY,
       player_id INT NOT NULL,
       span_days INT NOT NULL,
+      split_type VARCHAR(10) DEFAULT 'overall',
       start_date DATE NOT NULL,
       end_date DATE NOT NULL,
       games INT DEFAULT 0,
@@ -252,6 +253,7 @@ async function runMigrations() {
       abs INT DEFAULT 0,
       avg DECIMAL(4,3) DEFAULT 0.000,
       k INT DEFAULT 0,
+      strikeouts INT DEFAULT 0,
       ip DECIMAL(5,2) DEFAULT 0.00,
       er INT DEFAULT 0,
       qs INT DEFAULT 0,
@@ -259,13 +261,42 @@ async function runMigrations() {
       hld INT DEFAULT 0,
       whip DECIMAL(4,2) DEFAULT 0.00,
       era DECIMAL(5,2) DEFAULT 0.00,
-      split_type VARCHAR(10) DEFAULT 'overall',
       normalised_name VARCHAR(100),
+      position VARCHAR(10),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       UNIQUE KEY unique_player_span (player_id, span_days, split_type),
       INDEX idx_normalised_name_ts (normalised_name)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS player_rolling_stats_percentiles (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      player_id INT NOT NULL,
+      span_days INT NOT NULL,
+      split_type VARCHAR(10) NOT NULL,
+      rbi_pct DECIMAL(5,2) DEFAULT 0.00,
+      runs_pct DECIMAL(5,2) DEFAULT 0.00,
+      hr_pct DECIMAL(5,2) DEFAULT 0.00,
+      sb_pct DECIMAL(5,2) DEFAULT 0.00,
+      hits_pct DECIMAL(5,2) DEFAULT 0.00,
+      avg_pct DECIMAL(5,2) DEFAULT 0.00,
+      k_pct DECIMAL(5,2) DEFAULT 0.00,
+      strikeouts_pct DECIMAL(5,2) DEFAULT 0.00,
+      era_pct DECIMAL(5,2) DEFAULT 0.00,
+      whip_pct DECIMAL(5,2) DEFAULT 0.00,
+      er_pct DECIMAL(5,2) DEFAULT 0.00,
+      qs_pct DECIMAL(5,2) DEFAULT 0.00,
+      sv_pct DECIMAL(5,2) DEFAULT 0.00,
+      hld_pct DECIMAL(5,2) DEFAULT 0.00,
+      is_reliable BOOLEAN DEFAULT FALSE,
+      normalised_name VARCHAR(100),
+      position VARCHAR(10),
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_player_span (player_id, span_days, split_type),
+      INDEX idx_normalised_name_ps_percentiles (normalised_name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
   await db.query(`
@@ -284,20 +315,90 @@ async function runMigrations() {
       bb_rate DECIMAL(5,2) DEFAULT 0.00,
       k_rate DECIMAL(5,2) DEFAULT 0.00,
       babip DECIMAL(5,3) DEFAULT 0.000,
+      iso DECIMAL(4,3) DEFAULT 0.000,
+      contact_pct DECIMAL(5,2) DEFAULT 0.00,
+      gb_fb_ratio DECIMAL(4,3) DEFAULT 0.000,
+      lob_batting_pct DECIMAL(5,2) DEFAULT 0.00,
+      woba DECIMAL(4,3) DEFAULT 0.000,
+      woba_plus DECIMAL(5,1) DEFAULT 0.0,
+      obp_plus DECIMAL(5,1) DEFAULT 0.0,
+      slg_plus DECIMAL(5,1) DEFAULT 0.0,
+      ops_plus DECIMAL(5,1) DEFAULT 0.0,
+      wraa DECIMAL(5,1) DEFAULT 0.0,
 
       -- Advanced Pitching
       inherited_runners INT DEFAULT 0,
       inherited_runners_scored INT DEFAULT 0,
       irs_pct DECIMAL(5,2) DEFAULT 0.00,
       fip DECIMAL(5,2) DEFAULT 0.00,
+      k_per_9 DECIMAL(5,2) DEFAULT 0.00,
+      bb_per_9 DECIMAL(5,2) DEFAULT 0.00,
+      hr_per_9 DECIMAL(5,2) DEFAULT 0.00,
+      k_bb_ratio DECIMAL(4,3) DEFAULT 0.000,
+      lob_pitching_pct DECIMAL(5,2) DEFAULT 0.00,
+      fip_minus DECIMAL(5,1) DEFAULT 0.0,
+      era_minus DECIMAL(6,1) DEFAULT 0.0,
 
       -- Meta
       normalised_name VARCHAR(100),
+      position VARCHAR(10),
+      abs INT DEFAULT 0,
+      ip DECIMAL(5,2) DEFAULT 0.00,
+      games INT DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
       UNIQUE KEY unique_player_span (player_id, span_days, split_type),
       INDEX idx_normalised_name_ars (normalised_name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS player_advanced_rolling_stats_percentiles (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      player_id INT NOT NULL,
+      span_days INT NOT NULL,
+      split_type VARCHAR(10) NOT NULL,
+
+      -- Advanced Batting
+      obp_pct DECIMAL(5,2) DEFAULT 0.00,
+      slg_pct DECIMAL(5,2) DEFAULT 0.00,
+      ops_pct DECIMAL(5,2) DEFAULT 0.00,
+      bb_rate_pct DECIMAL(5,2) DEFAULT 0.00,
+      k_rate_pct DECIMAL(5,2) DEFAULT 0.00,
+      babip_pct DECIMAL(5,2) DEFAULT 0.00,
+      iso_pct DECIMAL(5,2) DEFAULT 0.00,
+      contact_pct_pct DECIMAL(5,2) DEFAULT 0.00,
+      gb_fb_ratio_pct DECIMAL(5,2) DEFAULT 0.00,
+      lob_batting_pct_pct DECIMAL(5,2) DEFAULT 0.00,
+      woba_pct DECIMAL(5,2) DEFAULT 0.00,
+      woba_plus_pct DECIMAL(5,2) DEFAULT 0.00,
+      obp_plus_pct DECIMAL(5,2) DEFAULT 0.00,
+      slg_plus_pct DECIMAL(5,2) DEFAULT 0.00,
+      ops_plus_pct DECIMAL(5,2) DEFAULT 0.00,
+      wraa_pct DECIMAL(5,2) DEFAULT 0.00,
+
+      -- Advanced Pitching
+      inherited_runners_pct DECIMAL(5,2) DEFAULT 0.00,
+      inherited_runners_scored_pct DECIMAL(5,2) DEFAULT 0.00,
+      irs_pct_pct DECIMAL(5,2) DEFAULT 0.00,
+      fip_pct DECIMAL(5,2) DEFAULT 0.00,
+      k_per_9_pct DECIMAL(5,2) DEFAULT 0.00,
+      bb_per_9_pct DECIMAL(5,2) DEFAULT 0.00,
+      hr_per_9_pct DECIMAL(5,2) DEFAULT 0.00,
+      k_bb_ratio_pct DECIMAL(5,2) DEFAULT 0.00,
+      lob_pitching_pct_pct DECIMAL(5,2) DEFAULT 0.00,
+      fip_minus_pct DECIMAL(5,2) DEFAULT 0.00,
+      era_minus_pct DECIMAL(5,2) DEFAULT 0.00,
+
+      -- Meta
+      is_reliable BOOLEAN DEFAULT FALSE,
+      normalised_name VARCHAR(100),
+      position VARCHAR(10),
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+      UNIQUE KEY unique_player_span (player_id, span_days, split_type),
+      INDEX idx_normalised_name_ars_percentiles (normalised_name)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
   
@@ -315,6 +416,7 @@ async function runMigrations() {
       slg FLOAT,
       ops FLOAT,
       er INT,
+      era FLOAT,
       whip FLOAT,
       strikeouts INT,
       walks INT,
@@ -366,6 +468,7 @@ async function runMigrations() {
 
       -- Pitching/defence
       er INT,
+      era FLOAT,
       whip FLOAT,
       strikeouts INT,
       walks INT,
@@ -390,14 +493,52 @@ async function runMigrations() {
       inherited_runners INT,
       inherited_runners_scored INT,
 
-      -- Derived advanced metrics (optional)
+      -- Derived advanced metrics
       babip DECIMAL(4,3),
       lob_pct DECIMAL(5,2),
       fip DECIMAL(5,2),
+      k_per_9 DECIMAL(5,2),
+      bb_per_9 DECIMAL(5,2),
+      hr_per_9 DECIMAL(5,2),
+      k_bb_ratio DECIMAL(4,3),
 
       PRIMARY KEY (team, split_type, span_days)
     );
   `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS team_rolling_stats_percentiles (
+      team VARCHAR(10),
+      split_type VARCHAR(10),
+      span_days INT,
+
+      -- Basic scoring
+      avg_runs_scored_pct DECIMAL(5,2),
+      avg_runs_allowed_pct DECIMAL(5,2),
+
+      -- Rate stats
+      avg_pct DECIMAL(5,2),
+      obp_pct DECIMAL(5,2),
+      slg_pct DECIMAL(5,2),
+      ops_pct DECIMAL(5,2),
+
+      -- Pitching/defence
+      era_pct DECIMAL(5,2),
+      whip_pct DECIMAL(5,2),
+
+      -- Advanced aggregates
+
+      -- Derived advanced metrics
+      fip_pct DECIMAL(5,2),
+      k_per_9_pct DECIMAL(5,2),
+      bb_per_9_pct DECIMAL(5,2),
+      hr_per_9_pct DECIMAL(5,2),
+      k_bb_ratio_pct DECIMAL(4,3),
+
+      PRIMARY KEY (team, split_type, span_days)
+    );
+  `);
+
 
   await db.query(`
     CREATE TABLE team_vs_batter_splits (
@@ -428,10 +569,26 @@ async function runMigrations() {
         obp DECIMAL(4,3),
         slg DECIMAL(5,3),
         ops DECIMAL(5,3),
+        so_rate DECIMAL(5,2),
+        bb_rate DECIMAL(5,2),
 
         PRIMARY KEY (team, bats, span_days)
     );
   `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS team_vs_batter_splits_percentiles (
+      team VARCHAR(10),
+      bats CHAR(1),
+      span_days INT,
+      ops_pct DECIMAL(5,2),
+      so_rate_pct DECIMAL(5,2),
+      bb_rate_pct DECIMAL(5,2),
+
+      PRIMARY KEY (team, bats, span_days)
+    );
+  `);
+
 
   await db.query(`
     CREATE TABLE team_vs_pitcher_splits (
@@ -468,12 +625,22 @@ async function runMigrations() {
   `);
 
   await db.query(`
+    CREATE TABLE IF NOT EXISTS team_vs_pitcher_splits_percentiles (
+      team VARCHAR(10),
+      throws CHAR(1),
+      span_days INT,
+      ops_pct DECIMAL(5,2),
+      so_rate_pct DECIMAL(5,2),
+      bb_rate_pct DECIMAL(5,2),
+      PRIMARY KEY (team, throws, span_days)
+    );
+  `);
+
+  await db.query(`
     CREATE TABLE IF NOT EXISTS league_rolling_stats (
-      entity_type ENUM('player', 'team') NOT NULL,     -- player, team, team_vs_batter, team_vs_pitcher
+      entity_type ENUM('player', 'team', 'team_vs_batter', 'team_vs_pitcher') NOT NULL,
       split_type VARCHAR(10),
       span_days INT,
-      bats CHAR(1),            -- for team_vs_batter_splits
-      throws CHAR(1),          -- for team_vs_pitcher_splits
 
       -- Basic stats
       avg FLOAT,
@@ -497,8 +664,27 @@ async function runMigrations() {
 
       -- Meta
       entity_count INT,
-      PRIMARY KEY (entity_type, split_type, span_days, bats, throws)
+      PRIMARY KEY (entity_type, split_type, span_days)
     );
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS league_advanced_rolling_stats (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      span_days INT NOT NULL,
+      split_type VARCHAR(10) NOT NULL,
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      obp DECIMAL(4,3),
+      slg DECIMAL(4,3),
+      ops DECIMAL(4,3),
+      woba DECIMAL(4,3),
+      fip DECIMAL(5,2),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_league_rolling (span_days, split_type),
+      INDEX idx_league_split_window (split_type, span_days)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
   await db.query(`

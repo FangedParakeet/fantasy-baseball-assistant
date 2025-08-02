@@ -7,7 +7,11 @@ from models.player_game_log import PlayerGameLog
 from models.team_game_log import TeamGameLog
 from models.league_game_log import LeagueGameLog
 from models.game_pitchers import GamePitchers
+from models.league_statistics import LeagueStatistics
 from models.logger import logger
+from models.player_basic_rolling_stats import PlayerBasicRollingStats
+from models.player_advanced_rolling_stats import PlayerAdvancedRollingStats
+from models.rolling_stats_percentiles import RollingStatsPercentiles
 
 def main(force=False):
     conn = get_db_connection()
@@ -15,10 +19,14 @@ def main(force=False):
     sync_status = SyncStatus(conn)
     player_hydrator = PlayerHydrator(conn, mlb_api, sync_status)
 
-    player_game_log = PlayerGameLog(conn)
+    rolling_stats_percentiles = RollingStatsPercentiles(conn)
+    player_basic_rolling_stats = PlayerBasicRollingStats(conn, rolling_stats_percentiles)
+    player_advanced_rolling_stats = PlayerAdvancedRollingStats(conn, rolling_stats_percentiles)
+    player_game_log = PlayerGameLog(conn, None, player_basic_rolling_stats, player_advanced_rolling_stats)
     team_game_log = TeamGameLog(conn)
     game_pitchers = GamePitchers(conn)
-    league_game_log = LeagueGameLog(mlb_api, player_game_log, team_game_log, game_pitchers)
+    league_statistics = LeagueStatistics(conn)
+    league_game_log = LeagueGameLog(mlb_api, player_game_log, team_game_log, game_pitchers, league_statistics)
 
     try:
         player_hydrator.hydrate_players(force)

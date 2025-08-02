@@ -1,10 +1,9 @@
 from models.db_recorder import DB_Recorder
 
 class GameLog(DB_Recorder):
-    def __init__(self, conn, game_logs_table, rolling_stats_table=None):
+    def __init__(self, conn, game_logs_table):
         self.conn = conn
         self.game_logs_table = game_logs_table
-        self.rolling_stats_table = rolling_stats_table
         super().__init__(conn)
 
     def get_latest_game_log_date(self):

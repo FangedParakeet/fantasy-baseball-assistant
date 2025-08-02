@@ -1,6 +1,7 @@
 ROLLING_WINDOWS = [7, 14, 30]
 MAX_AGE_DAYS = 30
 BUFFER_DAYS = 7
+BATCH_SIZE = 500
 # MLB team IDs for the 30 MLB teams
 MLB_TEAM_IDS = {
     'NYY': 147, 'BOS': 111, 'TOR': 141, 'BAL': 110, 'TB': 139,
@@ -12,8 +13,6 @@ MLB_TEAM_IDS = {
 }
 MLB_TEAM_IDS_REVERSE_MAP = {v: k for k, v in MLB_TEAM_IDS.items()}
 SPLITS = ['overall', 'home', 'away', 'vs_lhp', 'vs_rhp']
-WOBASCALE = 1.25  # This should ideally be year-specific
-LEAGUE_WOBA = 0.320
-LEAGUE_ERA = 4.20
-BATCH_SIZE = 500
-FIP_CONSTANT = 3.090
+WOBASCALE = 1.240 # See https://www.fangraphs.com/tools/guts
+FIP_CONSTANT = 3.094 # See https://www.fangraphs.com/tools/guts
+

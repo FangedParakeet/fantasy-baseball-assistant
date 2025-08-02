@@ -20,6 +20,18 @@ class DB_Recorder():
             cursor.execute(f"DELETE FROM {table_name} WHERE game_date < %s", (cutoff_date.date(),))
         self.conn.commit()
 
+    def purge_all_records(self, table_name):
+        logger.info(f"Purging all records from {table_name}")
+        with self.conn.cursor() as cursor:
+            cursor.execute(f"DELETE FROM {table_name}")
+        self.conn.commit()
+
+    def purge_all_records_in_transaction(self, table_name):
+        """Purge all records within the current transaction (no auto-commit)"""
+        logger.info(f"Purging all records from {table_name}")
+        with self.conn.cursor() as cursor:
+            cursor.execute(f"DELETE FROM {table_name}")
+
     def batch_upsert(self, insert_query, rows):
         with self.conn.cursor() as cursor:
             try:
@@ -52,5 +64,24 @@ class DB_Recorder():
         with self.conn.cursor() as cursor:
             cursor.execute(query, params)
         self.conn.commit()
+
+    def begin_transaction(self):
+        """Start a new transaction"""
+        self.conn.autocommit = False
+
+    def commit_transaction(self):
+        """Commit the current transaction"""
+        self.conn.commit()
+        self.conn.autocommit = True
+
+    def rollback_transaction(self):
+        """Rollback the current transaction"""
+        self.conn.rollback()
+        self.conn.autocommit = True
+
+    def execute_query_in_transaction(self, query, params=None):
+        """Execute a query within the current transaction (no auto-commit)"""
+        with self.conn.cursor() as cursor:
+            cursor.execute(query, params)
 
 

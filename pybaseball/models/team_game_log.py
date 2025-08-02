@@ -1,19 +1,19 @@
 from models.game_log import GameLog
 from models.logger import logger
 from utils.constants import SPLITS, ROLLING_WINDOWS, FIP_CONSTANT
+from models.player_game_log import PlayerGameLog
+from models.game_pitchers import GamePitchers
+from models.player_lookup import PlayerLookup
 
 class TeamGameLog(GameLog):
     GAME_LOGS_TABLE = "team_game_logs"
-    PLAYER_GAME_LOGS_TABLE = "player_game_logs"
-    GAME_PITCHERS_TABLE = "game_pitchers"
-    PLAYER_LOOKUP_TABLE = "player_lookup"
     ROLLING_STATS_TABLE = "team_rolling_stats"
     TEAM_VS_BATTER_SPLITS_TABLE = "team_vs_batter_splits"
     TEAM_VS_PITCHER_SPLITS_TABLE = "team_vs_pitcher_splits"
 
     def __init__(self, conn):
         self.conn = conn
-        super().__init__(conn, self.GAME_LOGS_TABLE, self.ROLLING_STATS_TABLE)
+        super().__init__(conn, self.GAME_LOGS_TABLE)
 
     def upsert_game_logs(self, logs):
         """Upsert team game logs to database"""
@@ -65,7 +65,7 @@ class TeamGameLog(GameLog):
                     SUM(ground_into_dp) AS ground_into_dp,
                     SUM(k) AS strikeouts,
                     SUM(bb) AS walks
-                FROM player_game_logs
+                FROM {PlayerGameLog.GAME_LOGS_TABLE}
                 WHERE position = 'B'
                 GROUP BY team, game_id
             ) AS agg
@@ -92,13 +92,14 @@ class TeamGameLog(GameLog):
                     SUM(strikeouts) AS strikeouts,
                     SUM(hits_allowed) AS hits_allowed,
                     ROUND(SUM(walks_allowed + hits_allowed) / NULLIF(SUM(ip), 0), 2) AS whip,
+                    ROUND((SUM(er) * 9) / NULLIF(SUM(ip), 0), 2) AS era,
                     SUM(batters_faced) AS batters_faced,
                     SUM(wild_pitches) AS wild_pitches,
                     SUM(balks) AS balks,
                     SUM(home_runs_allowed) AS home_runs_allowed,
                     SUM(inherited_runners) AS inherited_runners,
                     SUM(inherited_runners_scored) AS inherited_runners_scored
-                FROM player_game_logs
+                FROM {PlayerGameLog.GAME_LOGS_TABLE}
                 WHERE position != 'B'
                 GROUP BY team, game_id
             ) AS agg
@@ -110,6 +111,7 @@ class TeamGameLog(GameLog):
                 tgl.strikeouts = agg.strikeouts,
                 tgl.hits_allowed = agg.hits_allowed,
                 tgl.whip = agg.whip,
+                tgl.era = agg.era,
                 tgl.batters_faced = agg.batters_faced,
                 tgl.wild_pitches = agg.wild_pitches,
                 tgl.balks = agg.balks,
@@ -144,29 +146,32 @@ class TeamGameLog(GameLog):
         self.compute_team_vs_pitcher_splits()
 
     def compute_team_rolling_stats(self):
-        # Clear all existing rolling stats before computing new ones
-        logger.info("Clearing all existing team rolling stats")
-        delete_query = f"DELETE FROM {self.ROLLING_STATS_TABLE}"
-        self.execute_query(delete_query)
+        # Start transaction for the entire operation
+        self.begin_transaction()
         
-        for split in SPLITS:
-            for window in ROLLING_WINDOWS:
-                logger.info(f"Computing team {split} rolling stats for {window} days")
+        try:
+            # Clear all existing rolling stats before computing new ones
+            logger.info("Clearing all existing team rolling stats")
+            self.purge_all_records_in_transaction(self.ROLLING_STATS_TABLE)
+            
+            for split in SPLITS:
+                for window in ROLLING_WINDOWS:
+                    logger.info(f"Computing team {split} rolling stats for {window} days")
 
-                where_clause = self.build_where_clause_for_split(split)
+                    where_clause = self.build_where_clause_for_split(split)
 
-                insert_query = f"""
-                    INSERT INTO {self.ROLLING_STATS_TABLE} (
+                    insert_query = f"""
+                        INSERT INTO {self.ROLLING_STATS_TABLE} (
                         team, split_type, span_days, games_played,
                         runs_scored, runs_allowed, run_diff,
                         avg_runs_scored, avg_runs_allowed,
                         avg, obp, slg, ops,
-                        er, whip, strikeouts, walks, ip, hits_allowed,
+                        er, whip, era, strikeouts, walks, ip, hits_allowed,
                         singles, doubles, triples, total_bases, sac_flies, hit_by_pitch,
                         ground_outs, air_outs, left_on_base, ground_into_dp,
                         batters_faced, wild_pitches, balks, home_runs_allowed,
                         inherited_runners, inherited_runners_scored,
-                        babip, lob_pct, fip
+                        babip, lob_pct, fip, k_per_9, bb_per_9, hr_per_9, k_bb_ratio
                         )
                     SELECT
                         gl.team,
@@ -188,6 +193,7 @@ class TeamGameLog(GameLog):
 
                         SUM(gl.er),
                         ROUND(SUM(gl.walks + gl.hits_allowed) / NULLIF(SUM(gl.ip), 0), 2),
+                        ROUND((SUM(gl.er) * 9) / NULLIF(SUM(gl.ip), 0), 2) AS era,
                         SUM(gl.strikeouts),
                         SUM(gl.walks),
                         ROUND(SUM(gl.ip), 2),
@@ -232,11 +238,16 @@ class TeamGameLog(GameLog):
                             (3 * SUM(gl.walks)) -
                             (2 * SUM(gl.strikeouts))
                             ) / NULLIF(SUM(gl.ip), 0) + {FIP_CONSTANT}, 2
-                        ) AS fip
+                        ) AS fip,
+                        
+                        ROUND(SUM(gl.strikeouts) / NULLIF(SUM(gl.ip), 0) * 9, 2) AS k_per_9,
+                        ROUND(SUM(gl.walks) / NULLIF(SUM(gl.ip), 0) * 9, 2) AS bb_per_9,
+                        ROUND(SUM(gl.home_runs_allowed) / NULLIF(SUM(gl.ip), 0) * 9, 2) AS hr_per_9,
+                        ROUND(SUM(gl.strikeouts) / NULLIF(SUM(gl.walks), 0), 3) AS k_bb_ratio
 
                     FROM {self.GAME_LOGS_TABLE} AS gl
-                    LEFT JOIN {self.GAME_PITCHERS_TABLE} AS gp ON gl.game_id = gp.game_id
-                    LEFT JOIN {self.PLAYER_LOOKUP_TABLE} AS opp_pl ON (
+                    LEFT JOIN {GamePitchers.GAME_PITCHERS_TABLE} AS gp ON gl.game_id = gp.game_id
+                    LEFT JOIN {PlayerLookup.LOOKUP_TABLE} AS opp_pl ON (
                         (gl.is_home = 1 AND gp.away_pitcher_id IS NOT NULL AND opp_pl.player_id = gp.away_pitcher_id)
                         OR
                         (gl.is_home = 0 AND gp.home_pitcher_id IS NOT NULL AND opp_pl.player_id = gp.home_pitcher_id)
@@ -247,13 +258,21 @@ class TeamGameLog(GameLog):
                 """
 
                 params = (split, window, window)
-                self.execute_query(insert_query, params)
+                self.execute_query_in_transaction(insert_query, params)
+            
+            # Commit transaction
+            self.commit_transaction()
+            logger.info("Successfully computed team rolling stats")
+            
+        except Exception as e:
+            logger.error(f"Error computing team rolling stats: {e}")
+            self.rollback_transaction()
+            raise
 
     def compute_team_vs_batter_splits(self):
         # Clear all existing team vs batter splits before computing new ones
         logger.info("Clearing all existing team vs batter splits")
-        delete_query = f"DELETE FROM {self.TEAM_VS_BATTER_SPLITS_TABLE}"
-        self.execute_query(delete_query)
+        self.purge_all_records(self.TEAM_VS_BATTER_SPLITS_TABLE)
 
         for window in ROLLING_WINDOWS:
             logger.info(f"Computing team vs batter splits for {window} days")
@@ -263,7 +282,7 @@ class TeamGameLog(GameLog):
                     team, bats, span_days, start_date, end_date, games_played,
                     ab, hits, doubles, triples, hr, rbi, runs, sb, bb, k,
                     sac_flies, hbp, ground_into_dp,
-                    avg, obp, slg, ops
+                    avg, obp, slg, ops, so_rate, bb_rate
                     )
                 SELECT
                     pgl.opponent AS team,
@@ -294,10 +313,12 @@ class TeamGameLog(GameLog):
                     ROUND(
                         (SUM(pgl.h) + SUM(pgl.bb) + SUM(pgl.hit_by_pitch)) / NULLIF(SUM(pgl.ab) + SUM(pgl.bb) + SUM(pgl.hit_by_pitch) + SUM(pgl.sac_flies), 0) +
                         (SUM(pgl.total_bases) / NULLIF(SUM(pgl.ab), 0)), 3
-                    ) AS ops
+                    ) AS ops,
+                    ROUND(SUM(pgl.k) / NULLIF(SUM(pgl.ab + pgl.bb + pgl.hit_by_pitch + pgl.sac_flies), 0), 3) AS so_rate,
+                    ROUND(SUM(pgl.bb) / NULLIF(SUM(pgl.ab + pgl.bb + pgl.hit_by_pitch + pgl.sac_flies), 0), 3) AS bb_rate
 
-                FROM {self.PLAYER_GAME_LOGS_TABLE} AS pgl
-                JOIN {self.PLAYER_LOOKUP_TABLE} AS pl ON pgl.player_id = pl.player_id
+                FROM {PlayerGameLog.GAME_LOGS_TABLE} AS pgl
+                JOIN {PlayerLookup.LOOKUP_TABLE} AS pl ON pgl.player_id = pl.player_id
 
                 WHERE pgl.game_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
                     AND pgl.position = 'B'
@@ -312,8 +333,7 @@ class TeamGameLog(GameLog):
     def compute_team_vs_pitcher_splits(self):
         # Clear all existing team vs pitcher splits before computing new ones
         logger.info("Clearing all existing team vs pitcher splits")
-        delete_query = f"DELETE FROM {self.TEAM_VS_PITCHER_SPLITS_TABLE}"
-        self.execute_query(delete_query)
+        self.purge_all_records(self.TEAM_VS_PITCHER_SPLITS_TABLE)
 
         for window in ROLLING_WINDOWS:
             logger.info(f"Computing team vs pitcher splits for {window} days")
@@ -356,9 +376,9 @@ class TeamGameLog(GameLog):
                         3
                     ) AS ops
 
-                FROM {self.PLAYER_GAME_LOGS_TABLE} AS pgl
-                LEFT JOIN {self.GAME_PITCHERS_TABLE} AS gp ON pgl.game_id = gp.game_id
-                LEFT JOIN {self.PLAYER_LOOKUP_TABLE} AS opp_pl ON (
+                FROM {PlayerGameLog.GAME_LOGS_TABLE} AS pgl
+                LEFT JOIN {GamePitchers.GAME_PITCHERS_TABLE} AS gp ON pgl.game_id = gp.game_id
+                LEFT JOIN {PlayerLookup.LOOKUP_TABLE} AS opp_pl ON (
                     (pgl.is_home = 1 AND opp_pl.player_id = gp.away_pitcher_id)
                     OR
                     (pgl.is_home = 0 AND opp_pl.player_id = gp.home_pitcher_id)
