@@ -22,7 +22,7 @@ class PlayerHydrator(DB_Recorder):
     def hydrate_players(self, force: bool=False) -> None:
         if not self.sync_status.should_sync(self.SYNC_NAME, force):
             logger.info(f"Skipping {self.SYNC_NAME} sync as it was run less than {self.sync_status.THROTTLE_HOURS} hours ago")
-            return
+            returng
 
         player_ids = self.get_unique_player_ids()
         logger.info(f"Hydrating {len(player_ids)} players")

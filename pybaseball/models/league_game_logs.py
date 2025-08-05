@@ -110,16 +110,14 @@ class LeagueGameLogs():
                 away_starting_pitcher_id = None
 
                 for team_type in ['away', 'home']:
-                    team_game_log = TeamGameLog(team_type, game, box_score_data, line_score_data)
-                    all_team_game_logs.add_row(team_game_log)
+                    all_team_game_logs.add_row(TeamGameLog(team_type, game, box_score_data, line_score_data))
 
                     team_data = box_score_data.get('teams', {}).get(team_type, {})
                     batters = team_data.get('batters', [])
                     pitchers = team_data.get('pitchers', [])
 
                     for batter_id in batters:
-                        batter_game_log = BatterGameLog(batter_id, team_type, game, box_score_data)
-                        all_player_game_logs.add_row(batter_game_log)
+                        all_player_game_logs.add_row(BatterGameLog(batter_id, team_type, game, box_score_data))
 
                     for pitcher_id in pitchers:
                         pitcher_game_log = PitcherGameLog(pitcher_id, team_type, game, box_score_data)
@@ -131,8 +129,8 @@ class LeagueGameLogs():
                             else:
                                 away_starting_pitcher_id = pitcher_game_log.get_player_id()
 
-                game_pitcher_log = GamePitcher(game, home_starting_pitcher_id, away_starting_pitcher_id)
-                all_game_pitchers.add_row(game_pitcher_log)
+
+                all_game_pitchers.add_row(GamePitcher(game, home_starting_pitcher_id, away_starting_pitcher_id))
 
             except Exception as e:
                 logger.warning(f"Failed to get boxscore for game {game['game_pk']}: {e}")
