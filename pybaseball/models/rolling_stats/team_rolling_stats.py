@@ -1,5 +1,5 @@
-from models.rolling_stats import RollingStats
-from models.team_game_log import TeamGameLog
+from models.rolling_stats.rolling_stats import RollingStats
+from models.team_game_logs import TeamGameLogs
 from models.logger import logger
 from utils.constants import FIP_CONSTANT
 
@@ -40,10 +40,10 @@ class TeamRollingStats(RollingStats):
 
 
     def __init__(self, conn, rolling_stats_percentiles):
-        self.rolling_stats_table = TeamGameLog.ROLLING_STATS_TABLE
-        self.game_logs_table = TeamGameLog.GAME_LOGS_TABLE
-        self.team_vs_batter_splits_table = TeamGameLog.TEAM_VS_BATTER_SPLITS_TABLE
-        self.team_vs_pitcher_splits_table = TeamGameLog.TEAM_VS_PITCHER_SPLITS_TABLE
+        self.rolling_stats_table = TeamGameLogs.ROLLING_STATS_TABLE
+        self.game_logs_table = TeamGameLogs.GAME_LOGS_TABLE
+        self.team_vs_batter_splits_table = TeamGameLogs.TEAM_VS_BATTER_SPLITS_TABLE
+        self.team_vs_pitcher_splits_table = TeamGameLogs.TEAM_VS_PITCHER_SPLITS_TABLE
         super().__init__(conn, rolling_stats_percentiles)
 
     def get_formulas(self):

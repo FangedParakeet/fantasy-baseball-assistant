@@ -1,7 +1,7 @@
 from models.logger import logger
 from models.db_recorder import DB_Recorder
-from models.player_game_log import PlayerGameLog
-from models.team_game_log import TeamGameLog
+from models.player_game_logs import PlayerGameLogs
+from models.team_game_logs import TeamGameLogs
 
 class LeagueStatistics(DB_Recorder):
     ROLLING_STATS_TABLE = "league_rolling_stats"
@@ -53,8 +53,8 @@ class LeagueStatistics(DB_Recorder):
                 AVG(pr.qs / NULLIF(pr.games, 0)),
                 AVG(par.obp), AVG(par.slg), AVG(par.ops), AVG(par.fip),
                 COUNT(*)
-            FROM {PlayerGameLog.BASIC_ROLLING_STATS_TABLE} pr
-            LEFT JOIN {PlayerGameLog.ADVANCED_ROLLING_STATS_TABLE} par 
+            FROM {PlayerGameLogs.BASIC_ROLLING_STATS_TABLE} pr
+            LEFT JOIN {PlayerGameLogs.ADVANCED_ROLLING_STATS_TABLE} par 
                 ON pr.player_id = par.player_id 
                 AND pr.split_type = par.split_type 
                 AND pr.span_days = par.span_days
@@ -81,7 +81,7 @@ class LeagueStatistics(DB_Recorder):
                 AVG(trs.strikeouts / NULLIF(trs.games_played, 0)),
                 AVG(trs.walks / NULLIF(trs.games_played, 0)),
                 COUNT(*)
-            FROM {TeamGameLog.ROLLING_STATS_TABLE} trs
+            FROM {TeamGameLogs.ROLLING_STATS_TABLE} trs
             GROUP BY trs.split_type, trs.span_days;
         """
         self.execute_query_in_transaction(insert_query)
@@ -105,7 +105,7 @@ class LeagueStatistics(DB_Recorder):
                 AVG(tvb.k / NULLIF(tvb.games_played, 0)),
                 AVG(tvb.bb / NULLIF(tvb.games_played, 0)),
                 COUNT(*)
-            FROM {TeamGameLog.TEAM_VS_BATTER_SPLITS_TABLE} tvb
+            FROM {TeamGameLogs.TEAM_VS_BATTER_SPLITS_TABLE} tvb
             GROUP BY tvb.span_days, tvb.bats;
         """
         self.execute_query_in_transaction(insert_query)
@@ -129,7 +129,7 @@ class LeagueStatistics(DB_Recorder):
                 AVG(tvp.k / NULLIF(tvp.games_played, 0)),
                 AVG(tvp.bb / NULLIF(tvp.games_played, 0)),
                 COUNT(*)
-            FROM {TeamGameLog.TEAM_VS_PITCHER_SPLITS_TABLE} tvp
+            FROM {TeamGameLogs.TEAM_VS_PITCHER_SPLITS_TABLE} tvp
             GROUP BY tvp.span_days, tvp.throws;
         """
         self.execute_query_in_transaction(insert_query)

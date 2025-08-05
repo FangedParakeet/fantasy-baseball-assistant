@@ -496,7 +496,7 @@ async function runMigrations() {
       inherited_runners_scored INT,
 
       -- Derived advanced metrics
-      babip DECIMAL(4,3),
+      babip DECIMAL(5,3),
       lob_pct DECIMAL(5,2),
       fip DECIMAL(5,2),
       k_per_9 DECIMAL(5,2),

@@ -127,31 +127,3 @@ class PlayerLookup(DB_Recorder):
         except Exception as e:
             logger.error(f"Error getting player data from lookup: {e}")
             return {}
-
-
-    def get_player_name_from_lookup(self, player_id):
-        """Get player name from the lookup table"""
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(f"SELECT normalised_name FROM {self.LOOKUP_TABLE} WHERE player_id = %s", (player_id,))
-                result = cursor.fetchone()
-                return result[0] if result else None
-        except Exception as e:
-            logger.error(f"Error looking up player {player_id}: {e}")
-            return None
-        finally:
-            self.conn.close()
-
-    def get_player_team_from_lookup(self, player_id):
-        """Get player team from the lookup table"""
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(f"SELECT team FROM {self.LOOKUP_TABLE} WHERE player_id = %s", (player_id,))
-                result = cursor.fetchone()
-                return result[0] if result else None
-        except Exception as e:
-            logger.error(f"Error looking up player team {player_id}: {e}")
-            return None
-        finally:
-            self.conn.close()
-

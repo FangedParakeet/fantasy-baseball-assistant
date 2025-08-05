@@ -1,11 +1,12 @@
-from models.game_log import GameLog
+from models.game_logs_db import GameLogsDB
 from models.logger import logger
-from utils.constants import SPLITS, ROLLING_WINDOWS, FIP_CONSTANT
-from models.player_game_log import PlayerGameLog
+from utils.constants import ROLLING_WINDOWS
+from models.player_game_logs import PlayerGameLogs
 from models.game_pitchers import GamePitchers
 from models.player_lookup import PlayerLookup
+from models.game_logs.logs_inserter import LogsInserter
 
-class TeamGameLog(GameLog):
+class TeamGameLogs(GameLogsDB):
     GAME_LOGS_TABLE = "team_game_logs"
     ROLLING_STATS_TABLE = "team_rolling_stats"
     TEAM_VS_BATTER_SPLITS_TABLE = "team_vs_batter_splits"
@@ -16,39 +17,14 @@ class TeamGameLog(GameLog):
         self.team_rolling_stats = team_rolling_stats
         super().__init__(conn, self.GAME_LOGS_TABLE)
 
-    def upsert_game_logs(self, logs):
+    def upsert_game_logs(self, team_game_logs: LogsInserter):
         """Upsert team game logs to database"""
-        if logs.empty:
+        if team_game_logs.is_empty():
             logger.info("No team game logs to insert")
             return
         
-        logger.info(f"Upserting {len(logs)} team game logs")
-        
-        insert_query = f"""
-            INSERT INTO {self.GAME_LOGS_TABLE} (
-                team, game_date, opponent, is_home, is_win, runs_scored, runs_allowed,
-                avg, obp, slg, ops, er, whip, strikeouts, walks, ip, hits_allowed, game_id
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON DUPLICATE KEY UPDATE
-                opponent = VALUES(opponent),
-                is_home = VALUES(is_home),
-                is_win = VALUES(is_win),
-                runs_scored = VALUES(runs_scored),
-                runs_allowed = VALUES(runs_allowed),
-                avg = VALUES(avg),
-                obp = VALUES(obp),
-                slg = VALUES(slg),
-                ops = VALUES(ops),
-                er = VALUES(er),
-                whip = VALUES(whip),
-                strikeouts = VALUES(strikeouts),
-                walks = VALUES(walks),
-                ip = VALUES(ip),
-                hits_allowed = VALUES(hits_allowed),
-                game_id = VALUES(game_id)
-        """
-        self.batch_upsert(insert_query, logs)
+        logger.info(f"Upserting {team_game_logs.get_row_count()} team game logs")        
+        super().upsert_game_logs(team_game_logs)
 
     def update_advanced_statistics(self):
         """Update advanced statistics for team game logs"""
@@ -66,7 +42,7 @@ class TeamGameLog(GameLog):
                     SUM(ground_into_dp) AS ground_into_dp,
                     SUM(k) AS strikeouts,
                     SUM(bb) AS walks
-                FROM {PlayerGameLog.GAME_LOGS_TABLE}
+                FROM {PlayerGameLogs.GAME_LOGS_TABLE}
                 WHERE position = 'B'
                 GROUP BY team, game_id
             ) AS agg
@@ -100,7 +76,7 @@ class TeamGameLog(GameLog):
                     SUM(home_runs_allowed) AS home_runs_allowed,
                     SUM(inherited_runners) AS inherited_runners,
                     SUM(inherited_runners_scored) AS inherited_runners_scored
-                FROM {PlayerGameLog.GAME_LOGS_TABLE}
+                FROM {PlayerGameLogs.GAME_LOGS_TABLE}
                 WHERE position != 'B'
                 GROUP BY team, game_id
             ) AS agg
@@ -121,25 +97,6 @@ class TeamGameLog(GameLog):
                 tgl.inherited_runners_scored = agg.inherited_runners_scored;
         """
         self.execute_query(pitching_update_query)
-
-    def build_where_clause_for_split(self, split):
-        if split in ['overall', 'home', 'away']:
-            return super().build_where_clause_for_split(split)
-        elif split == 'vs_lhp':
-            return """
-            AND (
-                (gl.is_home = 1 AND gp.away_pitcher_id IS NOT NULL AND opp_pl.throws = 'L')
-                OR (gl.is_home = 0 AND gp.home_pitcher_id IS NOT NULL AND opp_pl.throws = 'L')
-            )
-            """
-        elif split == 'vs_rhp':
-            return """
-            AND (
-                (gl.is_home = 1 AND gp.away_pitcher_id IS NOT NULL AND opp_pl.throws = 'R')
-                OR (gl.is_home = 0 AND gp.home_pitcher_id IS NOT NULL AND opp_pl.throws = 'R')
-            )
-            """
-        return ''
 
     def compute_rolling_stats(self):
         self.team_rolling_stats.compute_rolling_stats()
@@ -195,7 +152,7 @@ class TeamGameLog(GameLog):
                     ROUND(SUM(pgl.k) / NULLIF(SUM(pgl.ab + pgl.bb + pgl.hit_by_pitch + pgl.sac_flies), 0), 3) AS so_rate,
                     ROUND(SUM(pgl.bb) / NULLIF(SUM(pgl.ab + pgl.bb + pgl.hit_by_pitch + pgl.sac_flies), 0), 3) AS bb_rate
 
-                FROM {PlayerGameLog.GAME_LOGS_TABLE} AS pgl
+                FROM {PlayerGameLogs.GAME_LOGS_TABLE} AS pgl
                 JOIN {PlayerLookup.LOOKUP_TABLE} AS pl ON pgl.player_id = pl.player_id
 
                 WHERE pgl.game_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
@@ -256,7 +213,7 @@ class TeamGameLog(GameLog):
                     ROUND(SUM(pgl.k) / NULLIF(SUM(pgl.ab + pgl.bb + pgl.hit_by_pitch + pgl.sac_flies), 0), 3) AS so_rate,
                     ROUND(SUM(pgl.bb) / NULLIF(SUM(pgl.ab + pgl.bb + pgl.hit_by_pitch + pgl.sac_flies), 0), 3) AS bb_rate
 
-                FROM {PlayerGameLog.GAME_LOGS_TABLE} AS pgl
+                FROM {PlayerGameLogs.GAME_LOGS_TABLE} AS pgl
                 LEFT JOIN {GamePitchers.GAME_PITCHERS_TABLE} AS gp ON pgl.game_id = gp.game_id
                 LEFT JOIN {PlayerLookup.LOOKUP_TABLE} AS opp_pl ON (
                     (pgl.is_home = 1 AND opp_pl.player_id = gp.away_pitcher_id)

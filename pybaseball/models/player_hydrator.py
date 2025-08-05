@@ -5,7 +5,7 @@ from models.db_recorder import DB_Recorder
 from models.logger import logger
 from utils.functions import normalise_name
 from models.player_lookup import PlayerLookup
-from models.player_game_log import PlayerGameLog
+from models.player_game_logs import PlayerGameLogs
 
 class PlayerHydrator(DB_Recorder):
     SYNC_NAME = "hydrate_player_lookup"
@@ -74,7 +74,7 @@ class PlayerHydrator(DB_Recorder):
             # Subquery 1: From player_game_logs
             cursor.execute(f"""
                 SELECT DISTINCT pgl.player_id
-                FROM {PlayerGameLog.GAME_LOGS_TABLE} pgl
+                FROM {PlayerGameLogs.GAME_LOGS_TABLE} pgl
                 LEFT JOIN {PlayerLookup.LOOKUP_TABLE} pl ON pgl.player_id = pl.player_id
                 WHERE pl.status IS NULL OR pl.status IN ('', 'unknown', 'N/A', 'Unk')
                     OR pl.bats IS NULL OR pl.bats IN ('', 'unknown', 'N/A', 'Unk')

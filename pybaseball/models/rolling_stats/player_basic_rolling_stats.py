@@ -1,5 +1,5 @@
-from models.player_rolling_stats import PlayerRollingStats
-from models.player_game_log import PlayerGameLog
+from models.rolling_stats.player_rolling_stats import PlayerRollingStats
+from models.player_game_logs import PlayerGameLogs
 from models.logger import logger
 
 class PlayerBasicRollingStats(PlayerRollingStats):
@@ -10,8 +10,8 @@ class PlayerBasicRollingStats(PlayerRollingStats):
 
     def __init__(self, conn, rolling_stats_percentiles):
         super().__init__(conn, rolling_stats_percentiles)
-        self.rolling_stats_table = PlayerGameLog.BASIC_ROLLING_STATS_TABLE
-        self.game_logs_table = PlayerGameLog.GAME_LOGS_TABLE
+        self.rolling_stats_table = PlayerGameLogs.BASIC_ROLLING_STATS_TABLE
+        self.game_logs_table = PlayerGameLogs.GAME_LOGS_TABLE
 
     def get_formulas(self):
         return super().get_formulas() | {

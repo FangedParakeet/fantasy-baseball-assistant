@@ -1,5 +1,4 @@
-from models.player_game_log import PlayerGameLog
-from models.rolling_stats import RollingStats
+from models.rolling_stats.rolling_stats import RollingStats
 from models.logger import logger
 
 class PlayerRollingStats(RollingStats):
