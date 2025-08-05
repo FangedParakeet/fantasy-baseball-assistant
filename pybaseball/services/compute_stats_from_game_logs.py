@@ -2,6 +2,7 @@ import sys
 from models.db import get_db_connection
 from models.mlb_api import MlbApi
 from models.player_hydrator import PlayerHydrator
+from models.player_lookup import PlayerLookup
 from models.sync_status import SyncStatus
 from models.player_game_logs import PlayerGameLogs
 from models.team_game_logs import TeamGameLogs
@@ -19,6 +20,7 @@ def main(force=False):
     mlb_api = MlbApi()
     sync_status = SyncStatus(conn)
     player_hydrator = PlayerHydrator(conn, mlb_api, sync_status)
+    player_lookup = PlayerLookup(conn, mlb_api)
 
     rolling_stats_percentiles = RollingStatsPercentiles(conn)
     player_basic_rolling_stats = PlayerBasicRollingStats(conn, rolling_stats_percentiles)
@@ -33,6 +35,7 @@ def main(force=False):
     try:
         player_hydrator.hydrate_players(force)
         logger.info("Hydration complete.")
+        player_lookup.update_player_game_log_names_from_lookup()
         logger.info("Computing rolling stats")
         league_game_log.compute_rolling_stats()
     except Exception as e:

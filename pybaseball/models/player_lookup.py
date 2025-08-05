@@ -1,5 +1,6 @@
 from models.logger import logger
 from models.db_recorder import DB_Recorder
+from models.player_game_logs import PlayerGameLogs
 from utils.constants import MLB_TEAM_IDS
 from utils.functions import normalise_name
 
@@ -9,14 +10,13 @@ class PlayerLookup(DB_Recorder):
     def __init__(self, conn, mlb_api):
         self.conn = conn
         self.mlb_api = mlb_api
+        self.player_game_logs_table = PlayerGameLogs.GAME_LOGS_TABLE
 
-    def create_player_lookup_table(self):
-        """Create a player lookup table using MLB Stats API"""
-        
+    def update_active_team_rosters(self):
+        logger.info("Updating player lookup table with active team rosters")
         try:        
             # Get rosters for all MLB teams
             all_players = []
-            
             logger.info(f"Getting rosters for {len(MLB_TEAM_IDS)} MLB teams...")
             
             for team_code, team_id in MLB_TEAM_IDS.items():
@@ -46,14 +46,12 @@ class PlayerLookup(DB_Recorder):
                                 last_name,
                                 team_code
                             ))
-                            
-                            # logger.info(f"    {full_name} (ID: {player_id})")
                 else:
-                    logger.warning(f"  No roster found for {team_code}")
+                    logger.warning(f"No roster found for {team_code}")
             
             # Insert into database
             if all_players:
-                logger.info(f"Inserting {len(all_players)} player records")
+                logger.info(f"Upserting {len(all_players)} player records")
                 
                 insert_query = f"""
                     INSERT INTO {self.LOOKUP_TABLE} (player_id, normalised_name, first_name, last_name, team)
@@ -67,63 +65,24 @@ class PlayerLookup(DB_Recorder):
                 """
                 
                 self.batch_upsert(insert_query, all_players)
-                
-                logger.info("Player lookup table created successfully")
+                logger.info("Player lookup table updated successfully")
                 
             else:
                 logger.warning("No player data to insert")
                 
         except Exception as e:
-            logger.error(f"Error creating player lookup table: {e}")
-        finally:
-            self.conn.close()
+            logger.error(f"Error updating player lookup table with active team rosters: {e}")
 
-    def get_player_data_from_lookup(self, player_ids):
-        """Get player data from lookup table using player IDs"""
-        if not player_ids:
-            return {}
-        
+    def update_player_game_log_names_from_lookup(self):
+        logger.info("Updating player game log names from lookup table")
         try:
-            logger.info(f"Getting player data for {len(player_ids)} players from lookup table")
-            
-            # Create a temporary table with the player IDs we need
-            with self.conn.cursor() as cursor:
-                # Create temp table
-                cursor.execute("""
-                    CREATE TEMPORARY TABLE temp_player_ids (
-                        player_id INT
-                    )
-                """)
-                
-                # Insert player IDs (remove duplicates)
-                unique_player_ids = list(set(player_ids))
-                for player_id in unique_player_ids:
-                    cursor.execute("INSERT INTO temp_player_ids (player_id) VALUES (%s)", (player_id,))
-                
-                # Join with player_lookup table
-                cursor.execute(f"""
-                    SELECT pl.player_id, pl.normalised_name, pl.team
-                    FROM {self.LOOKUP_TABLE} pl
-                    INNER JOIN temp_player_ids t ON pl.player_id = t.player_id
-                """)
-                
-                results = cursor.fetchall()
-                
-                # Create mapping
-                player_data = {}
-                for player_id, normalised_name, team in results:
-                    player_data[player_id] = {
-                        'name': normalised_name,
-                        'team': team
-                    }
-                    logger.info(f"Mapped player ID {player_id} to {normalised_name} ({team})")
-                
-                # Clean up temp table
-                cursor.execute("DROP TEMPORARY TABLE temp_player_ids")
-                
-                logger.info(f"Successfully mapped {len(player_data)} out of {len(player_ids)} player IDs")
-                return player_data
-                
+            update_query = f"""
+                UPDATE {self.player_game_logs_table} pgl
+                JOIN {self.LOOKUP_TABLE} pl ON pgl.player_id = pl.player_id
+                SET pgl.normalised_name = pl.normalised_name
+                WHERE pgl.normalised_name IS NULL
+            """
+            self.execute_query(update_query)
+            logger.info("Player game log names updated successfully")
         except Exception as e:
-            logger.error(f"Error getting player data from lookup: {e}")
-            return {}
+            logger.error(f"Error updating player game log names from lookup table: {e}")

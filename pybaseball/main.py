@@ -2,7 +2,6 @@ import sys
 import subprocess
 
 scripts = {
-    "create_player_lookup": "services/create_player_lookup.py",
     "game_logs": "services/sync_game_logs.py",
     "probable_pitchers": "services/sync_probable_pitchers.py",
     "compute_stats": "services/compute_stats_from_game_logs.py",
@@ -11,7 +10,7 @@ scripts = {
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python main.py [create_player_lookup|game_logs|probable_pitchers|compute_stats|all] [--force]")
+        print("Usage: python main.py [game_logs|probable_pitchers|compute_stats|all] [--force]")
         sys.exit(1)
 
     key = sys.argv[1]

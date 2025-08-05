@@ -3,7 +3,6 @@ import sys
 from utils.sync_status import update_sync_status
 
 SCRIPTS = [
-    "create_player_lookup.py",
     "sync_probable_pitchers.py",
     "sync_game_logs.py",
     "compute_stats_from_game_logs.py",
