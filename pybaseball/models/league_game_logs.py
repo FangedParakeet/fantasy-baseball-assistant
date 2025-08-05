@@ -1,6 +1,6 @@
 import time
 from datetime import datetime, timedelta
-from models.logger import logger
+from utils.logger import logger
 from utils.constants import MAX_AGE_DAYS, MLB_TEAM_IDS
 from models.game_logs.logs_inserter import LogsInserter
 from models.game_logs.player_game_log import PlayerGameLog

@@ -1,6 +1,6 @@
 from models.db_recorder import DB_Recorder
 from utils.constants import SPLITS, ROLLING_WINDOWS
-from models.logger import logger
+from utils.logger import logger
 
 class RollingStatsPercentiles(DB_Recorder):
     THRESHOLD_MULTIPLIERS = {

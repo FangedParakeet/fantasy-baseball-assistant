@@ -2,7 +2,7 @@ from models.db_recorder import DB_Recorder
 from models.game_pitchers import GamePitchers
 from models.player_lookup import PlayerLookup
 from utils.constants import SPLITS, ROLLING_WINDOWS
-from models.logger import logger
+from utils.logger import logger
 
 class RollingStats(DB_Recorder):
     SPLIT_WINDOW_KEYS = ['split_type', 'span_days']

@@ -1,6 +1,6 @@
 from models.rolling_stats.rolling_stats import RollingStats
 from models.team_game_logs import TeamGameLogs
-from models.logger import logger
+from utils.logger import logger
 from utils.constants import FIP_CONSTANT
 
 class TeamRollingStats(RollingStats):

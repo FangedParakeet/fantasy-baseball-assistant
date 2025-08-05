@@ -1,11 +1,11 @@
 from models.db import get_db_connection
-from models.mlb_api import MlbApi
+from models.api.mlb_api import MlbApi
 from models.player_lookup import PlayerLookup
 from models.player_game_logs import PlayerGameLogs
 from models.team_game_logs import TeamGameLogs
 from models.league_game_logs import LeagueGameLogs
 from models.game_pitchers import GamePitchers
-from models.logger import logger
+from utils.logger import logger
         
 def main():
     conn = get_db_connection()

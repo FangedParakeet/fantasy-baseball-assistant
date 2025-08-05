@@ -1,7 +1,7 @@
 from models.rolling_stats.player_rolling_stats import PlayerRollingStats
 from models.player_game_logs import PlayerGameLogs
 from utils.constants import FIP_CONSTANT, WOBASCALE
-from models.logger import logger
+from utils.logger import logger
 
 class PlayerAdvancedRollingStats(PlayerRollingStats):
     LEAGUE_AVERAGE_KEYS = ['obp', 'slg', 'ops', 'woba', 'fip']

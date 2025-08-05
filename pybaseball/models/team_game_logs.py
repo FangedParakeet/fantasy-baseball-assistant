@@ -1,5 +1,5 @@
 from models.game_logs_db import GameLogsDB
-from models.logger import logger
+from utils.logger import logger
 from utils.constants import ROLLING_WINDOWS
 from models.player_game_logs import PlayerGameLogs
 from models.game_pitchers import GamePitchers

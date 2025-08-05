@@ -1,4 +1,4 @@
-from models.logger import logger
+from utils.logger import logger
 from models.db_recorder import DB_Recorder
 from models.player_game_logs import PlayerGameLogs
 from models.team_game_logs import TeamGameLogs

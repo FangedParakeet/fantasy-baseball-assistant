@@ -715,6 +715,7 @@ async function runMigrations() {
       team VARCHAR(5) NOT NULL,
       opponent VARCHAR(5) NOT NULL,
       espn_pitcher_id INT,
+      player_id INT,
       pitcher_name VARCHAR(100),
       home BOOLEAN,
       normalised_name VARCHAR(100),

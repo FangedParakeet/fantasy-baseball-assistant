@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
-from models.mlb_api import MlbApi
+from models.api.mlb_api import MlbApi
 from models.sync_status import SyncStatus
 from models.db_recorder import DB_Recorder
-from models.logger import logger
+from utils.logger import logger
 from utils.functions import normalise_name
 from models.player_lookup import PlayerLookup
 from models.player_game_logs import PlayerGameLogs
@@ -12,11 +12,12 @@ class PlayerHydrator(DB_Recorder):
     MAX_GAME_AGE_DAYS = 7
     MAX_STALE_DAYS = 1
 
-    def __init__(self, conn, mlb_api: MlbApi, sync_status: SyncStatus):
+    def __init__(self, conn, mlb_api: MlbApi, sync_status: SyncStatus, player_lookup: PlayerLookup):
         super().__init__(conn)
         self.conn = conn
         self.mlb_api = mlb_api
         self.sync_status = sync_status
+        self.player_lookup = player_lookup
 
     def hydrate_players(self, force: bool=False) -> None:
         if not self.sync_status.should_sync(self.SYNC_NAME, force):
@@ -48,6 +49,7 @@ class PlayerHydrator(DB_Recorder):
         self.batch_upsert(insert_query, rows)
 
         logger.info(f"Hydrated {len(players)} players")
+        self.player_lookup.update_player_game_log_names_from_lookup()
 
         self.sync_status.set_sync_status(self.SYNC_NAME, "success", f"Hydrated {len(players)} players")
 

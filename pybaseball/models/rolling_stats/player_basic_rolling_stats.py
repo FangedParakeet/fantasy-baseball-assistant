@@ -1,6 +1,6 @@
 from models.rolling_stats.player_rolling_stats import PlayerRollingStats
 from models.player_game_logs import PlayerGameLogs
-from models.logger import logger
+from utils.logger import logger
 
 class PlayerBasicRollingStats(PlayerRollingStats):
     STATS_KEYS = {

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import pandas as pd
-from models.logger import logger
+from utils.logger import logger
 from utils.constants import MAX_AGE_DAYS, BATCH_SIZE
 
 class DB_Recorder():

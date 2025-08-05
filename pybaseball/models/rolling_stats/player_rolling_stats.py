@@ -1,5 +1,5 @@
 from models.rolling_stats.rolling_stats import RollingStats
-from models.logger import logger
+from utils.logger import logger
 
 class PlayerRollingStats(RollingStats):
     ID_KEYS = ['normalised_name', 'position', 'player_id']

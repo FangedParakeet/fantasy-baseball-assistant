@@ -1,7 +1,7 @@
 class MlbLog:
     KEYS = [] # Set in child class
     
-    def __init__(self, game_data):
+    def __init__(self, game_data=None):
         self.game_data = game_data
         self.values = [None] * len(self.KEYS)
 
@@ -15,7 +15,6 @@ class MlbLog:
     def set_values_for_key(self, index, key):
         value = self.get_value_for_key(key)
         self.values[index] = value
-
 
     def get_value_for_key(self, key):
         if key == 'game_id':

@@ -1,16 +1,18 @@
-from models.logger import logger
+from utils.logger import logger
 from models.db_recorder import DB_Recorder
 from models.player_game_logs import PlayerGameLogs
+from models.probable_pitchers import ProbablePitchers
 from utils.constants import MLB_TEAM_IDS
 from utils.functions import normalise_name
 
 class PlayerLookup(DB_Recorder):
     LOOKUP_TABLE = "player_lookup"
 
-    def __init__(self, conn, mlb_api):
+    def __init__(self, conn, mlb_api=None):
         self.conn = conn
         self.mlb_api = mlb_api
         self.player_game_logs_table = PlayerGameLogs.GAME_LOGS_TABLE
+        self.probable_pitchers_table = ProbablePitchers.PROBABLE_PITCHERS_TABLE
 
     def update_active_team_rosters(self):
         logger.info("Updating player lookup table with active team rosters")
@@ -86,3 +88,16 @@ class PlayerLookup(DB_Recorder):
             logger.info("Player game log names updated successfully")
         except Exception as e:
             logger.error(f"Error updating player game log names from lookup table: {e}")
+
+    def update_probable_pitchers_from_lookup(self):
+        logger.info("Updating probable pitchers from lookup table")
+        try:
+            update_query = f"""
+                UPDATE {self.probable_pitchers_table} pp
+                JOIN {self.LOOKUP_TABLE} pl ON pp.normalised_name = pl.normalised_name
+                SET pp.player_id = pl.player_id
+            """
+            self.execute_query(update_query)
+            logger.info("Probable pitchers updated successfully")
+        except Exception as e:
+            logger.error(f"Error updating probable pitchers from lookup table: {e}")

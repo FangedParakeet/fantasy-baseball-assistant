@@ -1,6 +1,6 @@
 import requests
 import time
-from models.logger import logger
+from utils.logger import logger
 from urllib.parse import urlencode
 
 class MlbApi:
