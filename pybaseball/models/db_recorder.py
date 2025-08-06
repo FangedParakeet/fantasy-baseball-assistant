@@ -7,17 +7,40 @@ class DB_Recorder():
     def __init__(self, conn):
         self.conn = conn
 
-    def get_latest_record_date(self, table_name):
+    def get_latest_record_date(self, table_name, conditions=None):
+        self.reset_connection_state()
         with self.conn.cursor() as cursor:
-            cursor.execute(f"SELECT MAX(game_date) FROM {table_name}")
+            where_clause = "WHERE " + ' AND '.join(conditions) if conditions else ""
+            cursor.execute(f"SELECT MAX(game_date) FROM {table_name} {where_clause}")
             row = cursor.fetchone()
-            return row[0] if row[0] else None
+            result = row[0] if row[0] else None
+        # Ensure any unread results are consumed
+        self.conn.commit()
+        return result
+
+    def get_records_with_conditions(self, table_name, params=None, fields=None, conditions=None, order_by=None):
+        self.reset_connection_state()
+        with self.conn.cursor(dictionary=True) as cursor:
+            where_clause = "WHERE " + ' AND '.join(conditions) if conditions else ""
+            fields_clause = ", ".join(fields) if fields else "*"
+            order_by_clause = "ORDER BY " + ', '.join(order_by) if order_by else ""
+            cursor.execute(f"SELECT {fields_clause} FROM {table_name} {where_clause} {order_by_clause}", params)
+            result = cursor.fetchall()
+        # Ensure any unread results are consumed
+        self.conn.commit()
+        return result
 
     def purge_old_records(self, table_name):
         cutoff_date = datetime.today() - timedelta(days=MAX_AGE_DAYS)
         logger.info(f"Purging {table_name} older than {cutoff_date.date()}")
         with self.conn.cursor() as cursor:
             cursor.execute(f"DELETE FROM {table_name} WHERE game_date < %s", (cutoff_date.date(),))
+        self.conn.commit()
+
+    def purge_records_with_conditions(self, table_name, conditions):
+        with self.conn.cursor() as cursor:
+            where_clause = "WHERE " + ' AND '.join(conditions)
+            cursor.execute(f"DELETE FROM {table_name} {where_clause}")
         self.conn.commit()
 
     def purge_all_records(self, table_name):
@@ -33,6 +56,7 @@ class DB_Recorder():
             cursor.execute(f"DELETE FROM {table_name}")
 
     def batch_upsert(self, insert_query, rows):
+        self.reset_connection_state()
         with self.conn.cursor() as cursor:
             try:
                 # Convert DataFrame to list if needed
@@ -61,9 +85,19 @@ class DB_Recorder():
                 self.conn.commit()
 
     def execute_query(self, query, params=None):
+        self.reset_connection_state()
         with self.conn.cursor() as cursor:
             cursor.execute(query, params)
         self.conn.commit()
+
+    def get_query(self, query, params=None):
+        """Execute a query and return results as dictionaries"""
+        self.reset_connection_state()
+        with self.conn.cursor(dictionary=True) as cursor:
+            cursor.execute(query, params)
+            result = cursor.fetchall()
+        self.conn.commit()
+        return result
 
     def begin_transaction(self):
         """Start a new transaction"""
@@ -83,5 +117,12 @@ class DB_Recorder():
         """Execute a query within the current transaction (no auto-commit)"""
         with self.conn.cursor() as cursor:
             cursor.execute(query, params)
+
+    def reset_connection_state(self):
+        """Reset connection state to handle any unread results"""
+        try:
+            self.conn.commit()
+        except Exception:
+            pass
 
 

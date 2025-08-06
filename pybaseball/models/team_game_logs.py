@@ -3,7 +3,7 @@ from utils.logger import logger
 from utils.constants import ROLLING_WINDOWS
 from models.player_game_logs import PlayerGameLogs
 from models.game_pitchers import GamePitchers
-from models.player_lookup import PlayerLookup
+from models.player_lookups import PlayerLookups
 from models.game_logs.logs_inserter import LogsInserter
 
 class TeamGameLogs(GameLogsDB):
@@ -153,7 +153,7 @@ class TeamGameLogs(GameLogsDB):
                     ROUND(SUM(pgl.bb) / NULLIF(SUM(pgl.ab + pgl.bb + pgl.hit_by_pitch + pgl.sac_flies), 0), 3) AS bb_rate
 
                 FROM {PlayerGameLogs.GAME_LOGS_TABLE} AS pgl
-                JOIN {PlayerLookup.LOOKUP_TABLE} AS pl ON pgl.player_id = pl.player_id
+                JOIN {PlayerLookups.LOOKUP_TABLE} AS pl ON pgl.player_id = pl.player_id
 
                 WHERE pgl.game_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
                     AND pgl.position = 'B'
@@ -215,7 +215,7 @@ class TeamGameLogs(GameLogsDB):
 
                 FROM {PlayerGameLogs.GAME_LOGS_TABLE} AS pgl
                 LEFT JOIN {GamePitchers.GAME_PITCHERS_TABLE} AS gp ON pgl.game_id = gp.game_id
-                LEFT JOIN {PlayerLookup.LOOKUP_TABLE} AS opp_pl ON (
+                LEFT JOIN {PlayerLookups.LOOKUP_TABLE} AS opp_pl ON (
                     (pgl.is_home = 1 AND opp_pl.player_id = gp.away_pitcher_id)
                     OR
                     (pgl.is_home = 0 AND opp_pl.player_id = gp.home_pitcher_id)

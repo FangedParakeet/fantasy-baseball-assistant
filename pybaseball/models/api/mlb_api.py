@@ -65,4 +65,7 @@ class MlbApi:
         return self.request(f"game/{game_id}/linescore")
 
     def get_team_roster(self, team_id: int) -> dict:
-        return self.request(f"teams/{team_id}/roster")
+        params = {
+            "rosterType": "active"
+        }
+        return self.request(f"teams/{team_id}/roster", params)

@@ -710,7 +710,7 @@ async function runMigrations() {
   await db.query(`
     CREATE TABLE IF NOT EXISTS probable_pitchers (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      espn_game_id VARCHAR(50) NOT NULL,
+      game_id VARCHAR(50) NULL,
       game_date DATE NOT NULL,
       team VARCHAR(5) NOT NULL,
       opponent VARCHAR(5) NOT NULL,
@@ -719,8 +719,11 @@ async function runMigrations() {
       pitcher_name VARCHAR(100),
       home BOOLEAN,
       normalised_name VARCHAR(100),
-      UNIQUE KEY unique_game_team (espn_game_id, team),
-      INDEX idx_normalised_name_pp (normalised_name)
+      accuracy VARCHAR(50),
+      UNIQUE KEY unique_game_team (game_date, game_id, team),
+      INDEX idx_normalised_name_pp (normalised_name),
+      INDEX idx_game_date_team (game_date, team),
+      INDEX idx_player_id (player_id)
     )
   `);
 

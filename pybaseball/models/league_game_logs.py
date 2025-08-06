@@ -1,7 +1,7 @@
 import time
 from datetime import datetime, timedelta
 from utils.logger import logger
-from utils.constants import MAX_AGE_DAYS, MLB_TEAM_IDS
+from utils.constants import MAX_AGE_DAYS, MLB_TEAM_IDS_REVERSE_MAP
 from models.game_logs.logs_inserter import LogsInserter
 from models.game_logs.player_game_log import PlayerGameLog
 from models.game_logs.team_game_log import TeamGameLog
@@ -58,9 +58,7 @@ class LeagueGameLogs():
             if games_data is None:
                 logger.error("API call failed - exiting")
                 return []
-            
-            # Create reverse mapping from team ID to abbreviation
-            team_id_to_abbr = {v: k for k, v in MLB_TEAM_IDS.items()}
+        
             
             games = []
             
@@ -72,8 +70,8 @@ class LeagueGameLogs():
                     games.append({
                         'game_pk': game['gamePk'],
                         'game_date': game['gameDate'],
-                        'away_team': team_id_to_abbr.get(away_team_id, 'UNK'),
-                        'home_team': team_id_to_abbr.get(home_team_id, 'UNK')
+                        'away_team': MLB_TEAM_IDS_REVERSE_MAP.get(away_team_id, 'UNK'),
+                        'home_team': MLB_TEAM_IDS_REVERSE_MAP.get(home_team_id, 'UNK')
                     })
             
             logger.info(f"Found {len(games)} games")

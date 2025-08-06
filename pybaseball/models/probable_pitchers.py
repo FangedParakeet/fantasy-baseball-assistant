@@ -1,23 +1,37 @@
 from datetime import datetime, timedelta
+from collections import defaultdict
 from utils.logger import logger
+from utils.constants import MLB_TEAM_IDS_REVERSE_MAP
 from models.db_recorder import DB_Recorder
+from models.api.mlb_api import MlbApi
 from models.api.espn_api import EspnApi
 from models.game_logs.logs_inserter import LogsInserter
 from models.game_logs.probable_pitcher import ProbablePitcher
+from models.game_logs.projected_pitcher import ProjectedPitcher
+from models.team_pitching_rotations import TeamPitchingRotations
 
 class ProbablePitchers(DB_Recorder):
     MAX_DAYS_AHEAD = 10
+    MAX_PROJECTED_DAYS_AHEAD = 14
+    MAX_ROTATION_DAYS_BEHIND = 14
+    MAX_ROTATION_GAMES_BEHIND = 10
     PROBABLE_PITCHERS_TABLE = "probable_pitchers"
     
-    def __init__(self, conn, espn_api: EspnApi):
-        self.probable_pitchers_table = "probable_pitchers"
-        self.game_pitchers_table = "game_pitchers"
-        self.conn = conn
+    def __init__(self, conn, espn_api: EspnApi, mlb_api: MlbApi, team_pitching_rotations: TeamPitchingRotations):
+        self.probable_pitchers_table = self.PROBABLE_PITCHERS_TABLE
         self.espn_api = espn_api
+        self.mlb_api = mlb_api
+        self.team_pitching_rotations = team_pitching_rotations
         super().__init__(conn)
 
-    def purge_old_pitcher_games(self):
+    def purge_old_probable_pitchers(self):
         self.purge_old_records(self.probable_pitchers_table)
+
+    def purge_all_projected_pitchers(self):
+        self.purge_records_with_conditions(self.probable_pitchers_table, ["accuracy = 'projected'"])
+
+    def get_latest_probable_pitcher_date(self):
+        return self.get_latest_record_date(self.probable_pitchers_table, ["accuracy = 'confirmed'", "espn_pitcher_id IS NOT NULL"])
 
     def upsert_all_probable_pitchers(self):
         events = self.fetch_probable_pitchers()
@@ -77,7 +91,6 @@ class ProbablePitchers(DB_Recorder):
                 for team in competitors:
                     team_abbr = team.get('team', {}).get('abbreviation', 'unknown')
                     probables = team.get('probables', [])
-                    logger.info(f"Team {team_abbr} has {len(probables)} probables")
                     
                     if not probables:
                         logger.info(f"No probable pitchers for team {team_abbr}")
@@ -104,6 +117,61 @@ class ProbablePitchers(DB_Recorder):
         end_date = start_date + timedelta(days=self.MAX_DAYS_AHEAD)
         return start_date, end_date
 
+    def infer_projected_probable_pitchers(self):
+        logger.info("Inferring projected probable pitchers")
+        self.team_pitching_rotations.initialise_team_rotations()
+        existing_probable_pitchers = self.team_pitching_rotations.get_new_probable_pitchers()
+
+        start_date = self.get_latest_probable_pitcher_date()
+        end_date = datetime.today().date() + timedelta(days=self.MAX_PROJECTED_DAYS_AHEAD)
+        logger.info(f"Projecting probable pitchers from {start_date} to {end_date}")
+        scheduled_games = self.get_future_scheduled_games(start_date, end_date)
+        logger.info(f"Found {len(scheduled_games)} scheduled games between {start_date} and {end_date}")
+
+        inferred_probable_pitchers = LogsInserter(ProjectedPitcher.KEYS, ProjectedPitcher.ID_KEYS)
+
+        for game in scheduled_games:
+            for team, opponent, home in [
+                (game['home_team'], game['away_team'], True),
+                (game['away_team'], game['home_team'], False)
+            ]:
+                logger.info(f"Processing team {team} for game on {game['game_date']}")
+                
+                # Check for any existing probable pitchers (confirmed or projected)
+                # Convert string date to datetime.date for comparison
+                if (game['game_date'], team) in existing_probable_pitchers:
+                    logger.info(f"Already have probable pitcher for {team} on {game['game_date']}")
+                    continue
+
+                if not self.team_pitching_rotations.rotations_exist_for_team(team):
+                    logger.info(f"No rotation found for team {team}")
+                    continue
+
+                next_pitcher_id = self.team_pitching_rotations.infer_next_pitcher_in_rotation(team)
+                if not next_pitcher_id:
+                    logger.info(f"No next pitcher found for team {team}")
+                    continue
+
+                logger.info(f"Adding projected pitcher {next_pitcher_id} for {team} on {game['game_date']}")
+                inferred_probable_pitchers.add_row(ProjectedPitcher(game['mlb_game_id'], game['game_date'], team, opponent, next_pitcher_id, home))
+
+        logger.info(f"Upserting {inferred_probable_pitchers.get_row_count()} inferred projected probable pitchers")
+        self.upsert_probable_pitchers(inferred_probable_pitchers)
+                
+    def get_future_scheduled_games(self, start_date, end_date):
+        scheduled_games = self.mlb_api.get_schedule(start_date, end_date)
+        processed_games = []
+        for day in scheduled_games.get('dates', []):
+            for game in day.get("games", []):
+                home_team_id = game.get('teams', {}).get('home', {}).get('team', {}).get('id')
+                away_team_id = game.get('teams', {}).get('away', {}).get('team', {}).get('id')
+                processed_games.append({
+                    'mlb_game_id': game.get('gamePk'),
+                    'game_date': datetime.strptime(game['gameDate'][:10], '%Y-%m-%d').date(),
+                    'home_team': MLB_TEAM_IDS_REVERSE_MAP.get(home_team_id, 'UNK'),
+                    'away_team': MLB_TEAM_IDS_REVERSE_MAP.get(away_team_id, 'UNK')
+                })
+        return processed_games
 
     def upsert_probable_pitchers(self, probable_pitchers: LogsInserter):
         if len(probable_pitchers.rows) == 0:
@@ -115,7 +183,7 @@ class ProbablePitchers(DB_Recorder):
             INSERT INTO {self.probable_pitchers_table} ({probable_pitchers.get_insert_keys()})
             VALUES ({probable_pitchers.get_placeholders()})
             ON DUPLICATE KEY UPDATE
-            {probable_pitchers.get_duplicate_update_keys()}
+                {probable_pitchers.get_duplicate_update_keys()}
         """
         self.batch_upsert(insert_query, probable_pitchers.get_rows())
 

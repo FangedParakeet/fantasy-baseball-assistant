@@ -1,6 +1,6 @@
 from models.db_recorder import DB_Recorder
 from models.game_pitchers import GamePitchers
-from models.player_lookup import PlayerLookup
+from models.player_lookups import PlayerLookups
 from utils.constants import SPLITS, ROLLING_WINDOWS
 from utils.logger import logger
 
@@ -11,7 +11,7 @@ class RollingStats(DB_Recorder):
         super().__init__(conn)
         self.rolling_stats_percentiles = rolling_stats_percentiles
         self.game_pitchers_table = GamePitchers.GAME_PITCHERS_TABLE
-        self.player_lookup_table = PlayerLookup.LOOKUP_TABLE
+        self.player_lookups_table = PlayerLookups.LOOKUP_TABLE
         
     def build_where_clause_for_split(self, split):
         if split == 'overall':
@@ -46,7 +46,7 @@ class RollingStats(DB_Recorder):
                     SELECT {select_values}
                     FROM {game_logs_table} gl
                     LEFT JOIN {self.game_pitchers_table} gp ON gl.game_id = gp.game_id
-                    LEFT JOIN {self.player_lookup_table} opp_pl ON (
+                    LEFT JOIN {self.player_lookups_table} opp_pl ON (
                         {join_conditions}
                     )
                     WHERE gl.game_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)

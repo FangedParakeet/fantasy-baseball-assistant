@@ -2,8 +2,8 @@ from models.game_logs.mlb_log import MlbLog
 from utils.functions import normalise_name
 
 class ProbablePitcher(MlbLog):
-    KEYS = ['espn_game_id', 'game_date', 'team', 'opponent', 'espn_pitcher_id', 'home', 'pitcher_name', 'normalised_name']
-    ID_KEYS = ['espn_game_id', 'team']
+    KEYS = ['game_id', 'game_date', 'team', 'opponent', 'espn_pitcher_id', 'home', 'pitcher_name', 'normalised_name', 'accuracy']
+    ID_KEYS = ['game_id', 'team']
     
     def __init__(self, event_data, team_data, competitors_data, pitcher_data):
         super().__init__()
@@ -17,7 +17,7 @@ class ProbablePitcher(MlbLog):
         self.set_values()
 
     def get_value_for_key(self, key):
-        if key == 'espn_game_id':
+        if key == 'game_id':
             return self.event_data.get('id', None)
         elif key == 'game_date':
             return self.event_data.get('date', None)[:10]
@@ -33,5 +33,7 @@ class ProbablePitcher(MlbLog):
             return self.pitcher_name
         elif key == 'normalised_name':
             return normalise_name(self.pitcher_name)
+        elif key == 'accuracy':
+            return 'confirmed'
         else:
             return None
