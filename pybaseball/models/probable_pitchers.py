@@ -147,13 +147,13 @@ class ProbablePitchers(DB_Recorder):
                     logger.info(f"No rotation found for team {team}")
                     continue
 
-                next_pitcher_id = self.team_pitching_rotations.infer_next_pitcher_in_rotation(team)
-                if not next_pitcher_id:
+                [pitcher_id, espn_pitcher_id, normalised_name] = self.team_pitching_rotations.infer_next_pitcher_in_rotation(team)
+                if not pitcher_id and not espn_pitcher_id:
                     logger.info(f"No next pitcher found for team {team}")
                     continue
 
-                logger.info(f"Adding projected pitcher {next_pitcher_id} for {team} on {game['game_date']}")
-                inferred_probable_pitchers.add_row(ProjectedPitcher(game['mlb_game_id'], game['game_date'], team, opponent, next_pitcher_id, home))
+                logger.info(f"Adding projected pitcher {normalised_name} for {team} on {game['game_date']}")
+                inferred_probable_pitchers.add_row(ProjectedPitcher(game['mlb_game_id'], game['game_date'], team, opponent, pitcher_id, espn_pitcher_id, normalised_name, home))
 
         logger.info(f"Upserting {inferred_probable_pitchers.get_row_count()} inferred projected probable pitchers")
         self.upsert_probable_pitchers(inferred_probable_pitchers)
