@@ -6,6 +6,7 @@ SCRIPTS = [
     "sync_game_logs.py",
     "compute_stats_from_game_logs.py",
     "sync_probable_pitchers.py",
+    "sync_season_stats.py",
 ]
 
 def main():

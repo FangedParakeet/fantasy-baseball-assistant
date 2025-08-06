@@ -174,7 +174,7 @@ class ProbablePitchers(DB_Recorder):
         return processed_games
 
     def upsert_probable_pitchers(self, probable_pitchers: LogsInserter):
-        if len(probable_pitchers.rows) == 0:
+        if probable_pitchers.is_empty():
             logger.info("No probable pitchers to insert")
             return
         

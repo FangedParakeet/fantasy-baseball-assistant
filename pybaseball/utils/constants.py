@@ -15,4 +15,5 @@ MLB_TEAM_IDS_REVERSE_MAP = {v: k for k, v in MLB_TEAM_IDS.items()}
 SPLITS = ['overall', 'home', 'away', 'vs_lhp', 'vs_rhp']
 WOBASCALE = 1.240 # See https://www.fangraphs.com/tools/guts
 FIP_CONSTANT = 3.094 # See https://www.fangraphs.com/tools/guts
-
+SEASON_START_DATE = '2025-03-01' # For FanGraphs API requests
+SEASON_END_DATE = '2025-11-01' # For FanGraphs API requests

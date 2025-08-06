@@ -10,6 +10,7 @@ const db = mysql.createPool({
   queueLimit: 0
 });
 
+// YAHOO FANTASY BASEBALL
 async function runMigrations() {
   await db.query(`CREATE TABLE IF NOT EXISTS tokens (
     id INT PRIMARY KEY DEFAULT 1,
@@ -56,6 +57,7 @@ async function runMigrations() {
     INDEX idx_normalised_name_ps (normalised_name)
   )`);
 
+  // OPENAI RECOMMENDATIONS
   await db.query(`CREATE TABLE IF NOT EXISTS recommendations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     player_id INT NOT NULL,
@@ -110,80 +112,7 @@ async function runMigrations() {
     );
   }
 
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS player_stats (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      player_id INT NOT NULL,
-      stat_period ENUM('season', '7d', '14d', '28d') NOT NULL,
-      games INT,
-      avg FLOAT,
-      obp FLOAT,
-      slg FLOAT,
-      ops FLOAT,
-      hr INT,
-      r INT,
-      rbi INT,
-      sb INT,
-      k INT,
-      bb INT,
-      era FLOAT,
-      whip FLOAT,
-      qs INT,
-      ip FLOAT,
-      sv INT,
-      hld INT,
-      bats CHAR(1),
-      throws CHAR(1),
-      sf INT DEFAULT 0,
-      normalised_name VARCHAR(100),
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
-      UNIQUE KEY unique_player_period (player_id, stat_period),
-      INDEX idx_normalised_name_ps (normalised_name)
-    )
-  `);
-
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS player_stats_advanced (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      player_id INT NOT NULL,
-      stat_period ENUM('season', '7d', '14d', '28d') NOT NULL,
-      babip FLOAT,
-      fip FLOAT,
-      era_minus FLOAT,
-      woba FLOAT,
-      wrc_plus FLOAT,
-      k_perc FLOAT,
-      bb_perc FLOAT,
-      hr_per_9 FLOAT,
-      qs_perc FLOAT,
-      normalised_name VARCHAR(100),
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
-      UNIQUE KEY unique_player_period (player_id, stat_period),
-      INDEX idx_normalised_name_ps_advanced (normalised_name)
-    )
-  `);
-  
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS team_stats (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      team_abbr VARCHAR(10) NOT NULL,
-      period_days INT NOT NULL,
-      vs_hand ENUM('LHP', 'RHP') DEFAULT NULL,
-      is_home BOOLEAN DEFAULT NULL,
-      games INT,
-      runs_scored INT,
-      runs_allowed INT,
-      avg FLOAT,
-      obp FLOAT,
-      slg FLOAT,
-      ops FLOAT,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY unique_team_stat (team_abbr, period_days, vs_hand, is_home)
-    )
-  `);
-
+  // PYBASEBALL STATS
   await db.query(`
     CREATE TABLE IF NOT EXISTS player_game_logs (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -771,6 +700,140 @@ async function runMigrations() {
       away_pitcher_id INT,
       game_date DATE
     )
+  `);
+
+  // SEASON STATS MULTIPLE SOURCES
+  await db.query(`
+    CREATE TABLE player_season_stats (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      player_id INT,
+      fangraphs_player_id INT,
+      normalised_name VARCHAR(100),
+      team VARCHAR(10),
+      position VARCHAR(10),
+
+      -- Basic Stats (FanGraphs / Savant)
+      games INT,
+      pa INT,  -- plate appearances
+      ab INT,
+      hits INT,
+      hr INT,
+      rbi INT,
+      runs INT,
+      sb INT,
+      avg DECIMAL(5,3),
+      obp DECIMAL(5,3),
+      slg DECIMAL(5,3),
+      ops DECIMAL(5,3),
+      bb_rate DECIMAL(5,2),  -- BB%
+      k_rate DECIMAL(5,2),   -- K%
+
+      -- Advanced Batting
+      iso DECIMAL(5,3),
+      babip DECIMAL(5,3),
+      woba DECIMAL(5,3),
+      wrc_plus INT,
+      wraa DECIMAL(6,2),
+
+      -- Statcast Quality of Contact
+      barrel_pct DECIMAL(5,2),
+      hard_hit_pct DECIMAL(5,2),
+      avg_ev DECIMAL(5,2),  -- avg exit velocity
+      max_ev DECIMAL(5,2),
+      sweet_spot_pct DECIMAL(5,2),
+
+      -- Plate Discipline (Savant)
+      chase_pct DECIMAL(5,2),
+      contact_pct DECIMAL(5,2),
+      zone_contact_pct DECIMAL(5,2),
+      whiff_pct DECIMAL(5,2),
+
+      -- Advanced Pitching (FanGraphs)
+      ip DECIMAL(6,2),
+      era DECIMAL(5,2),
+      whip DECIMAL(5,2),
+      fip DECIMAL(5,2),
+      x_fip DECIMAL(5,2),
+      siera DECIMAL(5,2),  -- if available
+      k_per_9 DECIMAL(5,2),
+      bb_per_9 DECIMAL(5,2),
+      hr_per_9 DECIMAL(5,2),
+      k_pct DECIMAL(5,2),
+      bb_pct DECIMAL(5,2),
+      csw_pct DECIMAL(5,2),
+      swinging_strike_pct DECIMAL(5,2),
+      ground_ball_pct DECIMAL(5,2),
+      fly_ball_pct DECIMAL(5,2),
+      lob_pct DECIMAL(5,2),  -- LOB%
+
+      -- Results-Based
+      qs INT,
+      sv INT,
+      hld INT,
+
+      -- Meta
+      war DECIMAL(5,2),  -- if available
+      age INT,
+      last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+      UNIQUE KEY unique_player_season (player_id),
+      UNIQUE KEY unique_fangraphs_player_season (fangraphs_player_id),
+      INDEX idx_normalised_name_ps (normalised_name),
+      INDEX idx_player_id (player_id)
+    );
+  `);
+
+  await db.query(`
+    CREATE TABLE team_season_stats (
+      team VARCHAR(10) PRIMARY KEY,
+
+      -- Batting Totals
+      games_played INT,
+      pa INT,
+      ab INT,
+      runs INT,
+      hits INT,
+      hr INT,
+      rbi INT,
+      sb INT,
+      avg DECIMAL(5,3),
+      obp DECIMAL(5,3),
+      slg DECIMAL(5,3),
+      ops DECIMAL(5,3),
+      bb_rate DECIMAL(5,2),
+      k_rate DECIMAL(5,2),
+      woba DECIMAL(5,3),
+      wrc_plus INT,
+      iso DECIMAL(5,3),
+      babip DECIMAL(5,3),
+
+      -- Pitching Totals
+      ip DECIMAL(6,2),
+      era DECIMAL(5,2),
+      whip DECIMAL(5,2),
+      fip DECIMAL(5,2),
+      x_fip DECIMAL(5,2),
+      siera DECIMAL(5,2),
+      k_per_9 DECIMAL(5,2),
+      bb_per_9 DECIMAL(5,2),
+      hr_per_9 DECIMAL(5,2),
+      k_pct DECIMAL(5,2),
+      bb_pct DECIMAL(5,2),
+      swinging_strike_pct DECIMAL(5,2),
+      csw_pct DECIMAL(5,2),
+      ground_ball_pct DECIMAL(5,2),
+      fly_ball_pct DECIMAL(5,2),
+      lob_pct DECIMAL(5,2),
+
+      -- Statcast Aggregates
+      barrel_pct DECIMAL(5,2),
+      hard_hit_pct DECIMAL(5,2),
+      avg_ev DECIMAL(5,2),
+
+      -- Meta
+      war DECIMAL(5,2),
+      last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 }
 

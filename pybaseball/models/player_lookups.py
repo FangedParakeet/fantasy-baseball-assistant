@@ -1,7 +1,6 @@
 from utils.logger import logger
 from models.db_recorder import DB_Recorder
 from models.player_game_logs import PlayerGameLogs
-from models.probable_pitchers import ProbablePitchers
 from datetime import datetime, timedelta, timezone
 from models.game_logs.logs_inserter import LogsInserter
 
@@ -14,7 +13,6 @@ class PlayerLookups(DB_Recorder):
         self.conn = conn
         self.mlb_api = mlb_api
         self.player_game_logs_table = PlayerGameLogs.GAME_LOGS_TABLE
-        self.probable_pitchers_table = ProbablePitchers.PROBABLE_PITCHERS_TABLE
 
 
     def insert_rows_into_lookup_table(self, all_rows: LogsInserter):
@@ -34,40 +32,39 @@ class PlayerLookups(DB_Recorder):
         """
         self.execute_query(update_query)
 
-    def update_player_game_log_names_from_lookup(self):
-        logger.info("Updating player game log names from lookup table")
+    def update_player_names_from_lookup(self, table: str, matching_conditions: list[str] = []):
+        logger.info(f"Updating player names from lookup table for {table}")
         try:
+            default_join_conditions = ["t.player_id = pl.player_id"]
+            join_conditions = default_join_conditions + [f"t.{condition} = pl.{condition}" for condition in matching_conditions]
+            conditions_str = " AND ".join(join_conditions)
             update_query = f"""
-                UPDATE {self.player_game_logs_table} pgl
-                JOIN {self.LOOKUP_TABLE} pl ON pgl.player_id = pl.player_id
-                SET pgl.normalised_name = pl.normalised_name
-                WHERE pgl.normalised_name IS NULL
+                UPDATE {table} t
+                JOIN {self.LOOKUP_TABLE} pl ON {conditions_str}
+                SET t.normalised_name = pl.normalised_name
+                WHERE t.normalised_name IS NULL
             """
             self.execute_query(update_query)
-            logger.info("Player game log names updated successfully")
+            logger.info(f"Player names updated successfully for {table}")
         except Exception as e:
-            logger.error(f"Error updating player game log names from lookup table: {e}")
+            logger.error(f"Error updating player names from lookup table for {table}: {e}")
 
-    def update_probable_pitchers_from_lookup(self):
-        logger.info("Updating probable pitchers from lookup table")
+    def update_player_ids_from_lookup(self, table: str, matching_conditions: list[str] = []):
+        logger.info(f"Updating player ids from lookup table for {table}")
         try:
-            update_query_null_player_id = f"""
-                UPDATE {self.probable_pitchers_table} pp
-                JOIN {self.LOOKUP_TABLE} pl ON pp.normalised_name = pl.normalised_name
-                SET pp.player_id = pl.player_id
+            default_join_conditions = ["t.normalised_name = pl.normalised_name"]
+            join_conditions = default_join_conditions + [f"t.{condition} = pl.{condition}" for condition in matching_conditions]
+            conditions_str = " AND ".join(join_conditions)
+            update_query = f"""
+                UPDATE {table} t
+                JOIN {self.LOOKUP_TABLE} pl ON {conditions_str}
+                SET t.player_id = pl.player_id
+                WHERE t.player_id IS NULL
             """
-
-            update_query_null_normalised_name = f"""
-                UPDATE {self.probable_pitchers_table} pp
-                JOIN {self.LOOKUP_TABLE} pl ON pp.player_id = pl.player_id
-                SET pp.normalised_name = pl.normalised_name
-            """
-
-            self.execute_query(update_query_null_player_id)
-            self.execute_query(update_query_null_normalised_name)
-            logger.info("Probable pitchers updated successfully")
+            self.execute_query(update_query)
+            logger.info(f"Player ids updated successfully for {table}")
         except Exception as e:
-            logger.error(f"Error updating probable pitchers from lookup table: {e}")
+            logger.error(f"Error updating player ids from lookup table for {table}: {e}")
 
     def get_stale_player_ids(self) -> list[int]:
         with self.conn.cursor() as cursor:
