@@ -4,7 +4,7 @@ from utils.logger import logger
 from urllib.parse import urlencode
 
 class MlbApi:
-    URL_BASE = "https://statsapi.mlb.com/api/v1/"
+    URL_BASE = "https://statsapi.mlb.com/api/v1"
     MAX_RETRIES = 3
     MAX_PLAYERS_PER_REQUEST = 100
     RETRY_WAIT_TIME = 1.0
@@ -13,8 +13,8 @@ class MlbApi:
         self.session = requests.Session()
 
     def request(self, endpoint: str, params: dict = None) -> dict:
-        url = f"{self.URL_BASE}{endpoint}"
-
+        url = f"{self.URL_BASE}/{endpoint}"
+        logger.info(f"Fetching MLB data from {url}")
         if params:
             url += "?" + urlencode(params, doseq=True)
 

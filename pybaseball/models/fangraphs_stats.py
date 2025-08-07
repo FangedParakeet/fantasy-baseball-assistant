@@ -1,5 +1,5 @@
 from models.api.fangraphs_api import FangraphsApi
-from models.db_recorder import DB_Recorder
+from models.season_stats import SeasonStats
 from models.game_logs.logs_inserter import LogsInserter
 from models.game_logs.fangraphs_pitcher_stat_log import FangraphsPitcherStatLog
 from models.game_logs.fangraphs_batter_stat_log import FangraphsBatterStatLog
@@ -8,14 +8,11 @@ from models.game_logs.fangraphs_team_pitching_stat_log import FangraphsTeamPitch
 from models.player_lookups import PlayerLookups
 from utils.logger import logger
 
-class FangraphsStats(DB_Recorder):
-    PLAYER_STATS_TABLE = 'player_season_stats'
-    TEAM_STATS_TABLE = 'team_season_stats'
-
+class FangraphsStats(SeasonStats):
     def __init__(self, conn, fangraphs_api: FangraphsApi, player_lookups: PlayerLookups):
+        super().__init__(conn)
         self.api = fangraphs_api
         self.player_lookups = player_lookups
-        super().__init__(conn)
 
     def update_all_player_stats(self):
         logger.info("Updating all season player stats from Fangraphs")
@@ -87,15 +84,3 @@ class FangraphsStats(DB_Recorder):
             logger.info(f"Upserting {all_team_batting_stats.get_row_count()} team batting stats")
             self.upsert_stats(self.TEAM_STATS_TABLE, all_team_batting_stats)
 
-    def upsert_stats(self, table_name: str, all_stats: LogsInserter):
-        if all_stats.is_empty():
-            logger.info("No stats to upsert")
-            return
-        
-        insert_query = f"""
-            INSERT INTO {table_name} ({all_stats.get_insert_keys()})
-            VALUES ({all_stats.get_placeholders()})
-            ON DUPLICATE KEY UPDATE
-                {all_stats.get_duplicate_update_keys()}
-        """
-        self.batch_upsert(insert_query, all_stats.get_rows())

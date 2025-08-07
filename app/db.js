@@ -754,17 +754,16 @@ async function runMigrations() {
       whip DECIMAL(5,2),
       fip DECIMAL(5,2),
       x_fip DECIMAL(5,2),
-      siera DECIMAL(5,2),  -- if available
       k_per_9 DECIMAL(5,2),
       bb_per_9 DECIMAL(5,2),
       hr_per_9 DECIMAL(5,2),
       k_pct DECIMAL(5,2),
       bb_pct DECIMAL(5,2),
+      lob_pct DECIMAL(5,2),  -- LOB%
       csw_pct DECIMAL(5,2),
       swinging_strike_pct DECIMAL(5,2),
       ground_ball_pct DECIMAL(5,2),
       fly_ball_pct DECIMAL(5,2),
-      lob_pct DECIMAL(5,2),  -- LOB%
 
       -- Results-Based
       qs INT,
@@ -772,7 +771,7 @@ async function runMigrations() {
       hld INT,
 
       -- Meta
-      war DECIMAL(5,2),  -- if available
+      sprint_speed DECIMAL(5,2),
       age INT,
       last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
 
@@ -813,7 +812,6 @@ async function runMigrations() {
       whip DECIMAL(5,2),
       fip DECIMAL(5,2),
       x_fip DECIMAL(5,2),
-      siera DECIMAL(5,2),
       k_per_9 DECIMAL(5,2),
       bb_per_9 DECIMAL(5,2),
       hr_per_9 DECIMAL(5,2),
@@ -837,4 +835,4 @@ async function runMigrations() {
   `);
 }
 
-module.exports = { db, runMigrations };
+module.exports = { db, runMigrations, runSchemaMigrations };
