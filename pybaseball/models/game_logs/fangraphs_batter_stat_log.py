@@ -1,6 +1,11 @@
 from models.game_logs.fangraphs_player_stat_log import FangraphsPlayerStatLog
 
 class FangraphsBatterStatLog(FangraphsPlayerStatLog):
+    KEYS = [
+        'fangraphs_player_id', 'normalised_name', 'team', 'position', 'last_updated', # ID
+        'games', 'pa', 'ab', 'hits', 'hr', 'rbi', 'runs', 'sb', 'avg', 'obp', 'slg', 'ops', 'bb_rate', 'k_rate', # Basic stats
+        'iso', 'babip', 'woba', 'wrc_plus', 'wraa' # Advanced batting stats
+    ]
 
     def __init__(self, player_info):
         super().__init__(player_info)

@@ -16,22 +16,23 @@ from models.rolling_stats.rolling_stats_percentiles import RollingStatsPercentil
 from utils.logger import logger
 
 def main(force=False):
-    conn = get_db_connection()
-    mlb_api = MlbApi()
-    sync_status = SyncStatus(conn)
-    player_hydrator = PlayerHydrator(conn, mlb_api, sync_status, PlayerLookups(conn))
-
-    rolling_stats_percentiles = RollingStatsPercentiles(conn)
-    player_basic_rolling_stats = PlayerBasicRollingStats(conn, rolling_stats_percentiles)
-    player_advanced_rolling_stats = PlayerAdvancedRollingStats(conn, rolling_stats_percentiles)
-    team_rolling_stats = TeamRollingStats(conn, rolling_stats_percentiles)
-    player_game_log = PlayerGameLogs(conn, player_basic_rolling_stats, player_advanced_rolling_stats)
-    team_game_log = TeamGameLogs(conn, team_rolling_stats)
-    game_pitchers = GamePitchers(conn)
-    league_statistics = LeagueStatistics(conn)
-    league_game_log = LeagueGameLogs(mlb_api, player_game_log, team_game_log, game_pitchers, league_statistics)
-
+    conn = None
     try:
+        conn = get_db_connection()
+        mlb_api = MlbApi()
+        sync_status = SyncStatus(conn)
+        player_hydrator = PlayerHydrator(conn, mlb_api, sync_status, PlayerLookups(conn))
+
+        rolling_stats_percentiles = RollingStatsPercentiles(conn)
+        player_basic_rolling_stats = PlayerBasicRollingStats(conn, rolling_stats_percentiles)
+        player_advanced_rolling_stats = PlayerAdvancedRollingStats(conn, rolling_stats_percentiles)
+        team_rolling_stats = TeamRollingStats(conn, rolling_stats_percentiles)
+        player_game_log = PlayerGameLogs(conn, player_basic_rolling_stats, player_advanced_rolling_stats)
+        team_game_log = TeamGameLogs(conn, team_rolling_stats)
+        game_pitchers = GamePitchers(conn)
+        league_statistics = LeagueStatistics(conn)
+        league_game_log = LeagueGameLogs(mlb_api, player_game_log, team_game_log, game_pitchers, league_statistics)
+
         logger.info("Starting rolling stats computation...")
         player_hydrator.hydrate_players(force)
         logger.info("Hydration complete.")
@@ -40,7 +41,10 @@ def main(force=False):
         logger.info("Rolling stats computation complete.")
     except Exception as e:
         logger.exception("Error computing rolling stats")
-
+    finally:
+        if conn:
+            conn.close()
+            logger.info("Database connection closed.")
 
 if __name__ == "__main__":
     force = "--force" in sys.argv

@@ -829,9 +829,9 @@ async function runMigrations() {
       barrel_pct DECIMAL(5,2),
       hard_hit_pct DECIMAL(5,2),
       avg_ev DECIMAL(5,2),
+      war DECIMAL(5,2),
 
       -- Meta
-      war DECIMAL(5,2),
       last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);

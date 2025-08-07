@@ -3,11 +3,7 @@ from utils.functions import normalise_name
 from datetime import datetime, timezone
 
 class FangraphsPlayerStatLog(MlbLog):
-    KEYS = ['fangraphs_player_id', 'normalised_name', 'team', 'position', 'last_updated', # ID
-        'games', 'pa', 'ab', 'hits', 'hr', 'rbi', 'runs', 'sb', 'avg', 'obp', 'slg', 'ops', 'bb_rate', 'k_rate', # Basic stats
-        'iso', 'babip', 'woba', 'wrc_plus', 'wraa', # Advanced batting stats
-        'ip', 'era', 'whip', 'fip', 'x_fip', 'k_per_9', 'bb_per_9', 'hr_per_9', 'k_pct', 'bb_pct', 'lob_pct'] # Advanced pitching stats
-    ID_KEYS = ['fangraphs_player_id']
+    ID_KEYS = ['fangraphs_player_id', 'position']
 
     def __init__(self, player_info):
         super().__init__()
@@ -15,7 +11,7 @@ class FangraphsPlayerStatLog(MlbLog):
 
     def get_value_for_key(self, key):
         if key == 'fangraphs_player_id':
-            return self.player_info.get('playerId', None)
+            return self.player_info.get('playerid', None)
         elif key == 'normalised_name':
             return normalise_name(self.player_info.get('playerName', ''))
         elif key == 'team':

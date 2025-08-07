@@ -10,12 +10,13 @@ from models.game_pitchers import GamePitchers
 from utils.logger import logger
         
 def main():
-    conn = get_db_connection()
-    mlb_api = MlbApi()
-    player_hydrator = PlayerHydrator(conn, mlb_api, SyncStatus(conn), PlayerLookups(conn))
-    league_game_logs = LeagueGameLogs(mlb_api, PlayerGameLogs(conn), TeamGameLogs(conn), GamePitchers(conn))
-
+    conn = None
     try:
+        conn = get_db_connection()
+        mlb_api = MlbApi()
+        player_hydrator = PlayerHydrator(conn, mlb_api, SyncStatus(conn), PlayerLookups(conn))
+        league_game_logs = LeagueGameLogs(mlb_api, PlayerGameLogs(conn), TeamGameLogs(conn), GamePitchers(conn))
+
         logger.info("Starting game logs sync...")
         league_game_logs.purge_old_game_logs()
 
@@ -27,6 +28,10 @@ def main():
         logger.info("Game logs sync complete.")
     except Exception as e:
         logger.exception("Error syncing game logs: {e}")
+    finally:
+        if conn:
+            conn.close()
+            logger.info("Database connection closed.")
 
 if __name__ == "__main__":
     main() 

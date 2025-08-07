@@ -5,14 +5,21 @@ from models.player_lookups import PlayerLookups
 from utils.logger import logger
 
 def main():
-    conn = get_db_connection()
-    fangraphs_stats = FangraphsStats(conn, FangraphsApi(), PlayerLookups(conn))
+    conn = None
     try:
+        conn = get_db_connection()
+        fangraphs_stats = FangraphsStats(conn, FangraphsApi(), PlayerLookups(conn))
+        
         logger.info("Starting season stats sync...")
         fangraphs_stats.update_all_player_stats()
+        fangraphs_stats.update_all_team_stats()
         logger.info("Season stats sync complete.")
     except Exception as e:
         logger.exception("Error syncing season stats: {e}")
+    finally:
+        if conn:
+            conn.close()
+            logger.info("Database connection closed.")
 
 if __name__ == "__main__":
     main() 

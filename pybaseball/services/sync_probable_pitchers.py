@@ -11,13 +11,14 @@ from models.team_pitching_rotations import TeamPitchingRotations
 from utils.logger import logger
 
 def main(force=False):
-    conn = get_db_connection()
-    mlb_api = MlbApi()
-    player_hydrator = PlayerHydrator(conn, mlb_api, SyncStatus(conn), PlayerLookups(conn))
-    team_pitching_rotations = TeamPitchingRotations(conn, ProbablePitchers.PROBABLE_PITCHERS_TABLE, PlayerLookups.LOOKUP_TABLE, GamePitchers.GAME_PITCHERS_TABLE)
-    probable_pitchers = ProbablePitchers(conn, EspnApi(), mlb_api, team_pitching_rotations)
-
+    conn = None
     try:
+        conn = get_db_connection()
+        mlb_api = MlbApi()
+        player_hydrator = PlayerHydrator(conn, mlb_api, SyncStatus(conn), PlayerLookups(conn))
+        team_pitching_rotations = TeamPitchingRotations(conn, ProbablePitchers.PROBABLE_PITCHERS_TABLE, PlayerLookups.LOOKUP_TABLE, GamePitchers.GAME_PITCHERS_TABLE)
+        probable_pitchers = ProbablePitchers(conn, EspnApi(), mlb_api, team_pitching_rotations)
+
         logger.info("Starting probable pitchers sync...")
         probable_pitchers.purge_old_probable_pitchers()
         probable_pitchers.purge_all_projected_pitchers()
@@ -31,10 +32,13 @@ def main(force=False):
         probable_pitchers.infer_projected_probable_pitchers()
         player_hydrator.update_table_from_lookup(ProbablePitchers.PROBABLE_PITCHERS_TABLE)
 
-
         logger.info("Probable pitchers sync complete.")
     except Exception as e:
         logger.exception("Error syncing probable pitchers: {e}")
+    finally:
+        if conn:
+            conn.close()
+            logger.info("Database connection closed.")
 
 if __name__ == "__main__":
     force = "--force" in sys.argv
