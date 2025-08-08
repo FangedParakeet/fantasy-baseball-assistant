@@ -1,9 +1,7 @@
-from datetime import datetime, timezone
 from models.api.mlb_api import MlbApi
 from models.sync_status import SyncStatus
 from models.db_recorder import DB_Recorder
 from utils.logger import logger
-from utils.functions import normalise_name
 from models.player_lookups import PlayerLookups
 from models.game_logs.player_lookup import PlayerLookup
 from models.game_logs.logs_inserter import LogsInserter
@@ -39,7 +37,6 @@ class PlayerHydrator(DB_Recorder):
 
         self.player_lookups.insert_rows_into_lookup_table(all_rows)
 
-        self.player_lookups.update_player_game_log_names_from_lookup()
         self.set_sync_status(self.HYDRATE_PLAYER_LOOKUP_SYNC_NAME, "success", f"Hydrated {all_rows.get_row_count()} players")
         logger.info(f"Hydrated {all_rows.get_row_count()} players")
 

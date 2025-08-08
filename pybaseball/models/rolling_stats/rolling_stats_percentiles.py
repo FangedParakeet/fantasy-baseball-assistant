@@ -28,7 +28,7 @@ class RollingStatsPercentiles(DB_Recorder):
             conditions.append(f"""{extra_condition['key']} {extra_condition['comp']} '{extra_condition['value']}'""")
 
         insert_values = f"span_days, {split_type_key}, updated_at, {stats_key}_pct" + extra_values + ", reliability_score"
-        select_values = f"span_days, {split_type_key}, %s, ROUND(100 * PERCENT_RANK() OVER (ORDER BY {stats_key} ASC), 2) AS {stats_key}_pct" + extra_values
+        select_values = f"span_days, {split_type_key}, CURRENT_TIMESTAMP, ROUND(100 * PERCENT_RANK() OVER (ORDER BY {stats_key} ASC), 2) AS {stats_key}_pct" + extra_values
 
         for split in custom_splits if custom_splits else SPLITS:
             for window in ROLLING_WINDOWS:
@@ -43,10 +43,9 @@ class RollingStatsPercentiles(DB_Recorder):
                     ON DUPLICATE KEY UPDATE
                         {stats_key}_pct = VALUES({stats_key}_pct),
                         reliability_score = VALUES(reliability_score),
-                        updated_at = %s
+                        updated_at = CURRENT_TIMESTAMP
                 """
-                current_time = datetime.now(timezone.utc)
-                params = [window, split, current_time, current_time]
+                params = [window, split]
                 self.execute_query_in_transaction(insert_query, params)
 
     def compute_single_season_percentiles(self, stats_table, stats_key, reliability_threshold, extra_stats_keys=None):

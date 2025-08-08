@@ -17,3 +17,4 @@ WOBASCALE = 1.240 # See https://www.fangraphs.com/tools/guts
 FIP_CONSTANT = 3.094 # See https://www.fangraphs.com/tools/guts
 SEASON_START_DATE = '2025-03-01' # For FanGraphs API requests
 SEASON_END_DATE = '2025-11-01' # For FanGraphs API requests
+CURRENT_TIMEZONE = 'America/New_York'

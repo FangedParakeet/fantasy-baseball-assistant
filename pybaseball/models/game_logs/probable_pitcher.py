@@ -1,5 +1,5 @@
 from models.game_logs.mlb_log import MlbLog
-from utils.functions import normalise_name
+from utils.functions import normalise_name, convert_utc_date
 
 class ProbablePitcher(MlbLog):
     KEYS = ['game_id', 'game_date', 'team', 'opponent', 'espn_pitcher_id', 'home', 'pitcher_name', 'normalised_name', 'accuracy']
@@ -20,7 +20,7 @@ class ProbablePitcher(MlbLog):
         if key == 'game_id':
             return self.event_data.get('id', None)
         elif key == 'game_date':
-            return self.event_data.get('date', None)[:10]
+            return convert_utc_date(self.event_data.get('date', None))
         elif key == 'team':
             return self.team_data.get('team', {}).get('abbreviation', None)
         elif key == 'opponent':

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from collections import defaultdict
+from utils.functions import convert_utc_date
 from utils.logger import logger
 from utils.constants import MLB_TEAM_IDS_REVERSE_MAP
 from models.db_recorder import DB_Recorder
@@ -80,7 +80,7 @@ class ProbablePitchers(DB_Recorder):
                 logger.info(f"No competitions found in event {event.get('id', 'unknown')}")
                 continue
             
-            logger.info(f"Processing {len(competitions)} competitions for event {event.get('id', 'unknown')}")
+            logger.info(f"Processing {len(competitions)} competitions for {convert_utc_date(event.get('date', None))}")
             
             for competition in competitions:
                 competitors = competition.get('competitors', [])
@@ -167,7 +167,7 @@ class ProbablePitchers(DB_Recorder):
                 away_team_id = game.get('teams', {}).get('away', {}).get('team', {}).get('id')
                 processed_games.append({
                     'mlb_game_id': game.get('gamePk'),
-                    'game_date': datetime.strptime(game['gameDate'][:10], '%Y-%m-%d').date(),
+                    'game_date': convert_utc_date(game['gameDate']),
                     'home_team': MLB_TEAM_IDS_REVERSE_MAP.get(home_team_id, 'UNK'),
                     'away_team': MLB_TEAM_IDS_REVERSE_MAP.get(away_team_id, 'UNK')
                 })

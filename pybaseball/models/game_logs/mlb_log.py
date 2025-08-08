@@ -1,3 +1,5 @@
+from utils.functions import convert_utc_date
+
 class MlbLog:
     KEYS = [] # Set in child class
     
@@ -20,6 +22,7 @@ class MlbLog:
         if key == 'game_id':
             return self.game_data['game_pk']
         elif key == 'game_date':
-            return self.game_data['game_date'][:10]
+            return convert_utc_date(self.game_data['game_date'])
         else:
             return None
+
