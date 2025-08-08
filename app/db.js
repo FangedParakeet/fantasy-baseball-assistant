@@ -649,10 +649,12 @@ async function runMigrations() {
       home BOOLEAN,
       normalised_name VARCHAR(100),
       accuracy VARCHAR(50),
+      qs_likelihood_score DECIMAL(5,1) NULL,
       UNIQUE KEY unique_game_team (game_date, game_id, team),
       INDEX idx_normalised_name_pp (normalised_name),
       INDEX idx_game_date_team (game_date, team),
-      INDEX idx_player_id (player_id)
+      INDEX idx_player_id (player_id),
+      INDEX idx_qs_likelihood_score (qs_likelihood_score)
     )
   `);
 

@@ -186,4 +186,3 @@ class ProbablePitchers(DB_Recorder):
                 {probable_pitchers.get_duplicate_update_keys()}
         """
         self.batch_upsert(insert_query, probable_pitchers.get_rows())
-

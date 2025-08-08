@@ -8,6 +8,7 @@ from models.player_lookups import PlayerLookups
 from models.player_hydrator import PlayerHydrator
 from models.sync_status import SyncStatus
 from models.team_pitching_rotations import TeamPitchingRotations
+from models.qs_score_calculator import QSScoreCalculator
 from utils.logger import logger
 
 def main(force=False):
@@ -17,6 +18,7 @@ def main(force=False):
         mlb_api = MlbApi()
         player_hydrator = PlayerHydrator(conn, mlb_api, SyncStatus(conn), PlayerLookups(conn))
         team_pitching_rotations = TeamPitchingRotations(conn, ProbablePitchers.PROBABLE_PITCHERS_TABLE, PlayerLookups.LOOKUP_TABLE, GamePitchers.GAME_PITCHERS_TABLE)
+        qs_score_calculator = QSScoreCalculator(conn)
         probable_pitchers = ProbablePitchers(conn, EspnApi(), mlb_api, team_pitching_rotations)
 
         logger.info("Starting probable pitchers sync...")
@@ -31,6 +33,8 @@ def main(force=False):
         
         probable_pitchers.infer_projected_probable_pitchers()
         player_hydrator.update_table_from_lookup(ProbablePitchers.PROBABLE_PITCHERS_TABLE)
+
+        qs_score_calculator.update_probables_qs_scores()
 
         logger.info("Probable pitchers sync complete.")
     except Exception as e:
