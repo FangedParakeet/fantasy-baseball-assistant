@@ -160,7 +160,7 @@ async function runMigrations() {
       home_runs_allowed INT DEFAULT 0,
       inherited_runners INT DEFAULT 0,
       inherited_runners_scored INT DEFAULT 0,
-      UNIQUE KEY unique_player_game (player_id, game_date),
+      UNIQUE KEY unique_player_game (player_id, position, game_id),
       INDEX idx_normalised_name_ps_logs (normalised_name)
     )
   `);
@@ -194,7 +194,7 @@ async function runMigrations() {
       position VARCHAR(10),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY unique_player_span (player_id, span_days, split_type),
+      UNIQUE KEY unique_player_span (player_id, position, span_days, split_type),
       INDEX idx_normalised_name_ts (normalised_name)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
@@ -224,7 +224,7 @@ async function runMigrations() {
       normalised_name VARCHAR(100),
       position VARCHAR(10),
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY unique_player_span (player_id, span_days, split_type),
+      UNIQUE KEY unique_player_span (player_id, position, span_days, split_type),
       INDEX idx_normalised_name_ps_percentiles (normalised_name)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
@@ -278,7 +278,7 @@ async function runMigrations() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-      UNIQUE KEY unique_player_span (player_id, span_days, split_type),
+      UNIQUE KEY unique_player_span (player_id, position, span_days, split_type),
       INDEX idx_normalised_name_ars (normalised_name)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
@@ -328,7 +328,7 @@ async function runMigrations() {
       position VARCHAR(10),
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-      UNIQUE KEY unique_player_span (player_id, span_days, split_type),
+      UNIQUE KEY unique_player_span (player_id, position, span_days, split_type),
       INDEX idx_normalised_name_ars_percentiles (normalised_name)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);

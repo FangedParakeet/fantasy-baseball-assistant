@@ -1,9 +1,10 @@
-from models.game_logs.mlb_log import MlbLog
 import re
+from utils.functions import convert_utc_date
+from models.game_logs.mlb_log import MlbLog
 
 class GameLog(MlbLog):    
     def __init__(self, team_home_or_away, game_data, box_score_data):
-        super().__init__(game_data)
+        super().__init__()
 
         self.team_home_or_away = team_home_or_away
         self.opponent_team_home_or_away = 'away' if team_home_or_away == 'home' else 'home'
@@ -19,8 +20,12 @@ class GameLog(MlbLog):
             return self.game_data.get(f'{self.opponent_team_home_or_away}_team', None)
         elif key == 'is_home':
             return self.team_home_or_away == 'home'
+        elif key == 'game_id':
+            return self.game_data['game_pk']
+        elif key == 'game_date':
+            return convert_utc_date(self.game_data['game_date'])
         else:
-            return super().get_value_for_key(key)
+            return None
 
     def ip_to_decimal(self, ip_str):
         if not ip_str or ip_str == '0':

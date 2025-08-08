@@ -5,7 +5,7 @@ class SavantPlayerStatLog(MlbLog):
     ID_KEYS = ['player_id']
 
     def __init__(self, player_data: dict):
-        super().__init__(player_data)
+        super().__init__()
         self.player_data = player_data
 
     def get_value_for_key(self, key: str):
