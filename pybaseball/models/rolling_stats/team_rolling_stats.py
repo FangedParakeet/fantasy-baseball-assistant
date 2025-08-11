@@ -7,22 +7,27 @@ class TeamRollingStats(RollingStats):
     ID_KEYS = ['team']
     EXTRA_KEYS = ['games_played']
     STATS_KEYS = {
-        'batting': ['runs_scored', 'runs_allowed', 'run_diff',
-                        'avg_runs_scored', 'avg_runs_allowed',
-                        'avg', 'obp', 'slg', 'ops'],
-        'pitching': ['er', 'whip', 'era', 'strikeouts', 'walks', 'ip', 'hits_allowed',
-                        'singles', 'doubles', 'triples', 'total_bases', 'sac_flies', 'hit_by_pitch',
-                        'ground_outs', 'air_outs', 'left_on_base', 'ground_into_dp',
-                        'batters_faced', 'wild_pitches', 'balks', 'home_runs_allowed',
-                        'inherited_runners', 'inherited_runners_scored',
-                        'babip', 'lob_pct', 'fip', 'k_per_9', 'bb_per_9', 'hr_per_9', 'k_bb_ratio']
+        'batting': [
+            'runs_scored', 'runs_allowed', 'run_diff',
+            'avg_runs_scored', 'avg_runs_allowed',
+            'avg', 'obp', 'slg', 'ops'
+        ],
+        'pitching': [
+            'er', 'whip', 'era', 'strikeouts', 'walks', 'ip', 'hits_allowed',
+            'singles', 'doubles', 'triples', 'total_bases', 'sac_flies', 'hit_by_pitch',
+            'ground_outs', 'air_outs', 'left_on_base', 'ground_into_dp',
+            'batters_faced', 'wild_pitches', 'balks', 'home_runs_allowed',
+            'inherited_runners', 'inherited_runners_scored',
+            'babip', 'lob_pct', 'fip', 'k_per_9', 'bb_per_9', 'hr_per_9', 'k_bb_ratio',
+            'nrfi'
+        ]
     }
     PERCENTILE_STATS_KEYS = {
         'batting': ['avg_runs_scored', 'avg_runs_allowed', 'avg', 'obp', 'slg', 'ops'],
-        'pitching': ['era', 'whip', 'fip', 'k_per_9', 'bb_per_9', 'hr_per_9', 'k_bb_ratio']
+        'pitching': ['era', 'whip', 'fip', 'k_per_9', 'bb_per_9', 'hr_per_9', 'k_bb_ratio', 'nrfi']
     }
     TEAM_VS_BATTER_SPLITS_PERCENTILE_KEYS = { 'batting': ['ops', 'so_rate', 'bb_rate'] }
-    TEAM_VS_PITCHER_SPLITS_PERCENTILE_KEYS = { 'pitching': ['ops', 'so_rate', 'bb_rate'] }
+    TEAM_VS_PITCHER_SPLITS_PERCENTILE_KEYS = { 'pitching': ['ops', 'so_rate', 'bb_rate', 'nrfi'] }
     STATS_THRESHOLDS = {
         'batting': {
             'key': 'games_played',
@@ -106,7 +111,8 @@ class TeamRollingStats(RollingStats):
             'k_per_9': 'ROUND((SUM(COALESCE(gl.strikeouts, 0)) * 9) / NULLIF(SUM(gl.ip), 0), 2) AS k_per_9',
             'bb_per_9': 'ROUND((SUM(COALESCE(gl.walks, 0)) * 9) / NULLIF(SUM(gl.ip), 0), 2) AS bb_per_9',
             'hr_per_9': 'ROUND((SUM(COALESCE(gl.home_runs_allowed, 0)) * 9) / NULLIF(SUM(gl.ip), 0), 2) AS hr_per_9',
-            'k_bb_ratio': 'ROUND(SUM(COALESCE(gl.strikeouts, 0)) / NULLIF(SUM(COALESCE(gl.walks, 0)), 0), 2) AS k_bb_ratio'
+            'k_bb_ratio': 'ROUND(SUM(COALESCE(gl.strikeouts, 0)) / NULLIF(SUM(COALESCE(gl.walks, 0)), 0), 2) AS k_bb_ratio',
+            'nrfi': 'SUM(COALESCE(gl.nrfi, 0)) AS nrfi'
         }
 
     def get_join_conditions(self):

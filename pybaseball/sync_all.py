@@ -5,8 +5,8 @@ from utils.sync_status import update_sync_status
 SCRIPTS = [
     "sync_game_logs.py",
     "compute_stats_from_game_logs.py",
-    "sync_probable_pitchers.py",
     "sync_season_stats.py",
+    "sync_probable_pitchers.py",
 ]
 
 def main():

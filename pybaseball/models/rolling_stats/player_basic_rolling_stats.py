@@ -5,7 +5,7 @@ from utils.logger import logger
 class PlayerBasicRollingStats(PlayerRollingStats):
     STATS_KEYS = {
         'batting': ['rbi', 'runs', 'hr', 'sb', 'hits', 'avg', 'k'],
-        'pitching': ['strikeouts', 'era', 'whip', 'er', 'qs', 'sv', 'hld']
+        'pitching': ['strikeouts', 'era', 'whip', 'er', 'qs', 'sv', 'hld', 'nrfi']
     }
 
     def __init__(self, conn, rolling_stats_percentiles):
@@ -29,6 +29,7 @@ class PlayerBasicRollingStats(PlayerRollingStats):
             'hld': 'SUM(COALESCE(gl.hld, 0)) AS hld',
             'era': 'ROUND(SUM(COALESCE(gl.er, 0)) * 9 / NULLIF(SUM(COALESCE(gl.ip, 0)), 0), 2) AS era',
             'whip': 'ROUND(SUM(COALESCE(gl.walks_allowed, 0) + COALESCE(gl.hits_allowed, 0)) / NULLIF(SUM(COALESCE(gl.ip, 0)), 0), 2) AS whip',
+            'nrfi': 'SUM(COALESCE(gl.nrfi, 0)) AS nrfi',
         }
 
     def compute_rolling_stats(self):

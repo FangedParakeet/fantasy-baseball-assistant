@@ -1,7 +1,7 @@
 from models.game_logs.player_game_log import PlayerGameLog
 
 class PitcherGameLog(PlayerGameLog):
-    def __init__(self, player_id, team_home_or_away, game_data, box_score_data):
+    def __init__(self, player_id, team_home_or_away, game_data, box_score_data, line_score_data):
         super().__init__(player_id, team_home_or_away, game_data, box_score_data)
 
         team_data = box_score_data.get('teams', {}).get(team_home_or_away, {})
@@ -17,6 +17,16 @@ class PitcherGameLog(PlayerGameLog):
             self.ip = 0.0
             
         self.er = self.stats.get('earnedRuns', 0)
+
+        innings = line_score_data.get('innings', [])
+        if innings:
+            first_inning = innings[0]
+            opponent_team_home_or_away = 'away' if self.team_home_or_away == 'home' else 'home'
+            first_inning_runs_allowed = first_inning.get(opponent_team_home_or_away, {}).get('runs', 0)
+            self.nrfi = 1 if self.is_starting and first_inning_runs_allowed == 0 else 0
+        else:
+            self.nrfi = 0
+
         self.set_values()
 
     def is_starting_pitcher(self):
@@ -41,6 +51,8 @@ class PitcherGameLog(PlayerGameLog):
             return 1 if self.stats.get('saves', 0) > 0 else 0
         elif key == 'hld':
             return 1 if self.stats.get('holds', 0) > 0 else 0
+        elif key == 'nrfi':
+            return self.nrfi
         elif key == 'batters_faced':
             return self.stats.get('battersFaced', 0)
         elif key == 'wild_pitches':

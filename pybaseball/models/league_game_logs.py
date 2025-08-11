@@ -115,10 +115,11 @@ class LeagueGameLogs():
                     pitchers = team_data.get('pitchers', [])
 
                     for batter_id in batters:
-                        all_player_game_logs.add_row(BatterGameLog(batter_id, team_type, game, box_score_data))
+                        batter_game_log = BatterGameLog(batter_id, team_type, game, box_score_data)
+                        all_player_game_logs.add_row(batter_game_log)
 
                     for pitcher_id in pitchers:
-                        pitcher_game_log = PitcherGameLog(pitcher_id, team_type, game, box_score_data)
+                        pitcher_game_log = PitcherGameLog(pitcher_id, team_type, game, box_score_data, line_score_data)
                         all_player_game_logs.add_row(pitcher_game_log)
 
                         if pitcher_game_log.is_starting_pitcher():

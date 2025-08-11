@@ -134,9 +134,10 @@ async function runMigrations() {
       hits_allowed INT,
       walks_allowed INT,
       strikeouts INT,
-      qs BOOLEAN,
-      sv BOOLEAN,
-      hld BOOLEAN,
+      qs tinyint(1),
+      sv tinyint(1),
+      hld tinyint(1),
+      nrfi tinyint(1),
       fantasy_points FLOAT,
       team VARCHAR(10),
       game_id VARCHAR(20),
@@ -188,6 +189,7 @@ async function runMigrations() {
       qs INT DEFAULT 0,
       sv INT DEFAULT 0,
       hld INT DEFAULT 0,
+      nrfi INT DEFAULT 0,
       whip DECIMAL(4,2) DEFAULT 0.00,
       era DECIMAL(5,2) DEFAULT 0.00,
       normalised_name VARCHAR(100),
@@ -219,6 +221,7 @@ async function runMigrations() {
       qs_pct DECIMAL(5,2) DEFAULT 0.00,
       sv_pct DECIMAL(5,2) DEFAULT 0.00,
       hld_pct DECIMAL(5,2) DEFAULT 0.00,
+      nrfi_pct DECIMAL(5,2) DEFAULT 0.00,
       reliability_score TINYINT UNSIGNED DEFAULT 0,
       is_reliable BOOLEAN GENERATED ALWAYS AS (reliability_score >= 70) STORED,
       normalised_name VARCHAR(100),
@@ -353,6 +356,7 @@ async function runMigrations() {
       walks INT,
       ip FLOAT,
       hits_allowed INT,
+      nrfi tinyint(1),
       game_id VARCHAR(20),
 
       -- Advanced Statistics
@@ -423,6 +427,7 @@ async function runMigrations() {
       home_runs_allowed INT,
       inherited_runners INT,
       inherited_runners_scored INT,
+      nrfi INT,
 
       -- Derived advanced metrics
       babip DECIMAL(5,3),
@@ -446,6 +451,7 @@ async function runMigrations() {
       -- Basic scoring
       avg_runs_scored_pct DECIMAL(5,2),
       avg_runs_allowed_pct DECIMAL(5,2),
+      nrfi_pct DECIMAL(5,2),
 
       -- Rate stats
       avg_pct DECIMAL(5,2),
@@ -554,6 +560,7 @@ async function runMigrations() {
         sac_flies INT,
         hbp INT,
         ground_into_dp INT,
+        nrfi INT,
 
         -- Advanced Statistics
         avg DECIMAL(4,3),
@@ -575,7 +582,8 @@ async function runMigrations() {
       ops_pct DECIMAL(5,2),
       so_rate_pct DECIMAL(5,2),
       bb_rate_pct DECIMAL(5,2),
-
+      nrfi_pct DECIMAL(5,2),
+      
       -- Meta
       reliability_score TINYINT UNSIGNED,
       is_reliable BOOLEAN GENERATED ALWAYS AS (reliability_score >= 70) STORED,
@@ -650,6 +658,7 @@ async function runMigrations() {
       normalised_name VARCHAR(100),
       accuracy VARCHAR(50),
       qs_likelihood_score DECIMAL(5,1) NULL,
+      nrfi_likelihood_score DECIMAL(5,1) NULL,
       UNIQUE KEY unique_game_team (game_date, game_id, team),
       INDEX idx_normalised_name_pp (normalised_name),
       INDEX idx_game_date_team (game_date, team),

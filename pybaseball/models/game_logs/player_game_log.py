@@ -4,7 +4,7 @@ class PlayerGameLog(GameLog):
     KEYS = [
         'player_id', 'game_id', 'game_date', 'opponent', 'is_home', 'position', # General
         'ab', 'h', 'r', 'rbi', 'hr', 'sb', 'bb', 'k', # Batting
-        'ip', 'er', 'hits_allowed', 'walks_allowed', 'strikeouts', 'qs', 'sv', 'hld', # Pitching
+        'ip', 'er', 'hits_allowed', 'walks_allowed', 'strikeouts', 'qs', 'sv', 'hld', 'nrfi', # Pitching
         'fantasy_points', 'team', # General'
         'singles', 'doubles', 'triples', 'total_bases', 'sac_flies', 'hit_by_pitch', 'ground_outs', 'air_outs', 'left_on_base', 'ground_into_dp', # Advanced Batting
         'batters_faced', 'wild_pitches', 'balks', 'home_runs_allowed', 'inherited_runners', 'inherited_runners_scored' # Advanced Pitching

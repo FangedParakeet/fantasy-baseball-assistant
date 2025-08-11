@@ -2,7 +2,7 @@ from models.game_logs.game_log import GameLog
 
 class TeamGameLog(GameLog):
     KEYS = [
-        'team', 'game_date', 'opponent', 'is_home', 'is_win', # General
+        'team', 'game_date', 'opponent', 'is_home', 'is_win', 'nrfi', # General
         'runs_scored', 'runs_allowed', 'avg', 'obp', 'slg', 'ops', # Batting
         'er', 'whip', 'strikeouts', 'walks', 'ip', 'hits_allowed', # Pitching
         'game_id' # General
@@ -19,6 +19,16 @@ class TeamGameLog(GameLog):
         team_data = box_score_data.get('teams', {}).get(team_home_or_away, {})
         self.batting_stats = team_data.get('teamStats', {}).get('batting', {})
         self.pitching_stats = team_data.get('teamStats', {}).get('pitching', {})
+
+        innings = line_score_data.get('innings', [])
+        if innings:
+            first_inning = innings[0]
+            home_runs = first_inning.get('home', {}).get('runs', 0)
+            away_runs = first_inning.get('away', {}).get('runs', 0)
+            self.nrfi = 1 if home_runs == 0 and away_runs == 0 else 0
+        else:
+            self.nrfi = 0
+
         self.set_values()
 
     def get_value_for_key(self, key):
@@ -48,6 +58,8 @@ class TeamGameLog(GameLog):
             return float(self.ip_to_decimal(self.pitching_stats.get("inningsPitched", "0")))
         elif key == 'hits_allowed':
             return self.pitching_stats.get("hits", 0)
+        elif key == 'nrfi':
+            return self.nrfi
         else:
             return super().get_value_for_key(key)
     
