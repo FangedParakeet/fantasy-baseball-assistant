@@ -44,7 +44,7 @@ class PitcherGameLog(PlayerGameLog):
         elif key == 'walks_allowed':
             return self.stats.get('baseOnBalls', 0)
         elif key == 'strikeouts':
-            return self.stats.get('strikeouts', 0)
+            return self.stats.get('strikeOuts', 0)
         elif key == 'qs':
             return 1 if self.is_starting and self.ip >= 6 and self.er <= 3 else 0
         elif key == 'sv':

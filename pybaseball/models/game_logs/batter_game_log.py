@@ -33,7 +33,7 @@ class BatterGameLog(PlayerGameLog):
         elif key == 'bb':
             return self.stats.get('baseOnBalls', 0)
         elif key == 'k':
-            return self.stats.get('strikeouts', 0)
+            return self.stats.get('strikeOuts', 0)
         elif key == 'singles':
             return self.singles
         elif key == 'doubles':

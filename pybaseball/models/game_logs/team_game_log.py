@@ -51,7 +51,7 @@ class TeamGameLog(GameLog):
         elif key == 'whip':
             return float(self.pitching_stats.get("whip", 0.0))
         elif key == 'strikeouts':
-            return self.pitching_stats.get("strikeouts", 0)
+            return self.pitching_stats.get("strikeOuts", 0)
         elif key == 'walks':
             return self.pitching_stats.get("baseOnBalls", 0)
         elif key == 'ip':
