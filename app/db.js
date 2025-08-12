@@ -31,11 +31,12 @@ async function runMigrations() {
   await db.query(`CREATE TABLE IF NOT EXISTS players (
     id INT AUTO_INCREMENT PRIMARY KEY,
     yahoo_player_id VARCHAR(50),
+    player_id INT,
     team_id INT,
     name VARCHAR(100) NOT NULL,
     mlb_team VARCHAR(10),
     positions VARCHAR(50),
-    status ENUM('rostered', 'free_agent') DEFAULT 'rostered',
+    status ENUM('rostered', 'free_agent') DEFAULT 'free_agent',
     is_c TINYINT(1) DEFAULT 0,
     is_1b TINYINT(1) DEFAULT 0,
     is_2b TINYINT(1) DEFAULT 0,
@@ -50,6 +51,8 @@ async function runMigrations() {
     headshot_url VARCHAR(500),
     normalised_name VARCHAR(100),
     FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_player_id (player_id),
+    UNIQUE KEY unique_yahoo_player_id (yahoo_player_id),
     INDEX idx_sp (is_sp),
     INDEX idx_rp (is_rp),
     INDEX idx_is_of (is_of),
@@ -483,7 +486,7 @@ async function runMigrations() {
 
 
   await db.query(`
-    CREATE TABLE team_vs_batter_splits (
+    CREATE TABLE IF NOT EXISTS team_vs_batter_splits (
         team VARCHAR(10),
         bats CHAR(1),
         span_days INT,
@@ -538,7 +541,7 @@ async function runMigrations() {
 
 
   await db.query(`
-    CREATE TABLE team_vs_pitcher_splits (
+    CREATE TABLE IF NOT EXISTS team_vs_pitcher_splits (
         team VARCHAR(10),
         throws CHAR(1),
         span_days INT,
@@ -583,7 +586,7 @@ async function runMigrations() {
       so_rate_pct DECIMAL(5,2),
       bb_rate_pct DECIMAL(5,2),
       nrfi_pct DECIMAL(5,2),
-      
+
       -- Meta
       reliability_score TINYINT UNSIGNED,
       is_reliable BOOLEAN GENERATED ALWAYS AS (reliability_score >= 70) STORED,
@@ -683,6 +686,7 @@ async function runMigrations() {
       id INT AUTO_INCREMENT PRIMARY KEY,
       player_id INT NOT NULL UNIQUE,
       espn_player_id INT,
+      yahoo_player_id VARCHAR(50),
       normalised_name VARCHAR(100) NOT NULL,
       first_name VARCHAR(50),
       last_name VARCHAR(50),
@@ -715,7 +719,7 @@ async function runMigrations() {
 
   // SEASON STATS MULTIPLE SOURCES
   await db.query(`
-    CREATE TABLE player_season_stats (
+    CREATE TABLE IF NOT EXISTS player_season_stats (
       id INT AUTO_INCREMENT PRIMARY KEY,
       player_id INT,
       fangraphs_player_id INT,
@@ -873,7 +877,7 @@ async function runMigrations() {
   `);
 
   await db.query(`
-    CREATE TABLE team_season_stats (
+    CREATE TABLE IF NOT EXISTS team_season_stats (
       team VARCHAR(10) PRIMARY KEY,
 
       -- Batting Totals
@@ -925,7 +929,7 @@ async function runMigrations() {
   `);
 
   await db.query(`
-    CREATE TABLE team_season_stats_percentiles (
+    CREATE TABLE IF NOT EXISTS team_season_stats_percentiles (
       team VARCHAR(10) PRIMARY KEY,
 
       -- Batting Totals
@@ -974,4 +978,9 @@ async function runMigrations() {
       last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+}
+
+module.exports = {
+  runMigrations,
+  db
 }

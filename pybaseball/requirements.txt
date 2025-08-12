@@ -1,4 +1,5 @@
+lxml
 mysql-connector-python
-requests
 pandas
 pytz
+requests

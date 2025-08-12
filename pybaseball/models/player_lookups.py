@@ -49,11 +49,11 @@ class PlayerLookups(DB_Recorder):
         except Exception as e:
             logger.error(f"Error updating player names from lookup table for {table}: {e}")
 
-    def update_player_ids_from_lookup(self, table: str, matching_conditions: list[str] = []):
+    def update_player_ids_from_lookup(self, table: str, matching_conditions: dict = {}):
         logger.info(f"Updating player ids from lookup table for {table}")
         try:
             default_join_conditions = ["t.normalised_name = pl.normalised_name"]
-            join_conditions = default_join_conditions + [f"t.{condition} = pl.{condition}" for condition in matching_conditions]
+            join_conditions = default_join_conditions + [f"t.{key} = pl.{value}" for key, value in matching_conditions.items()]
             conditions_str = " AND ".join(join_conditions)
             update_query = f"""
                 UPDATE {table} t
@@ -65,6 +65,22 @@ class PlayerLookups(DB_Recorder):
             logger.info(f"Player ids updated successfully for {table}")
         except Exception as e:
             logger.error(f"Error updating player ids from lookup table for {table}: {e}")
+
+    def update_lookup_fields_from_table(self, table: str, fields: list[str]):
+        logger.info(f"Updating lookup fields from {table} for {fields}")
+        try:
+            update_fields = ", ".join([f"pl.{field} = t.{field}" for field in fields])
+            where_clause = " AND ".join([f"pl.{field} IS NULL" for field in fields])
+            update_query = f"""
+                UPDATE {self.LOOKUP_TABLE} pl
+                JOIN {table} t ON pl.player_id = t.player_id
+                SET {update_fields}
+                WHERE {where_clause}
+            """
+            self.execute_query(update_query)
+            logger.info(f"Lookup fields updated successfully for {table}")
+        except Exception as e:
+            logger.error(f"Error updating lookup fields from {table} for {fields}: {e}")
 
     def get_stale_player_ids(self) -> list[int]:
         with self.conn.cursor() as cursor:

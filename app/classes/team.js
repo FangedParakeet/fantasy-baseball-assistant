@@ -122,7 +122,7 @@ class Team {
       const players = rosterRes.fantasy_content.team.roster.players.player;
       
       // Clear existing rostered players for this team
-      await db.query('DELETE FROM players WHERE team_id = ?', [teamId]);
+      await db.query('UPDATE players SET status = "free_agent", team_id = NULL WHERE team_id = ?', [teamId]);
   
       for (const player of players) {
         const playerId = player.player_id;
@@ -145,15 +145,36 @@ class Team {
         };      
 
         // Update position flags
-        const rawPositions = JSON.parse(eligiblePositions);
+        let rawPositions;
+        try {
+          rawPositions = JSON.parse(eligiblePositions);
+        } catch (error) {
+          console.error('Failed to parse eligible positions for player:', name, ':', eligiblePositions, error);
+          rawPositions = [];
+        }
+        
+        console.log('Raw positions for player:', name, ':', rawPositions);
+        
         const positions = Array.isArray(rawPositions)
-          ? rawPositions.map(pos => (typeof pos === 'string' ? pos : pos.position))
+          ? rawPositions.map(pos => {
+              if (typeof pos === 'string') {
+                return pos;
+              } else if (pos && typeof pos === 'object' && pos.position) {
+                return pos.position;
+              }
+              return null;
+            }).filter(pos => pos !== null)
           : [];
-
+        
         positions.forEach(pos => {
-          const flagKey = positionMap[pos];
+          // Normalize position to uppercase to match positionMap keys
+          const normalizedPos = pos ? pos.toUpperCase() : '';
+          const flagKey = positionMap[normalizedPos];
           if (flagKey) {
             positionFlags[flagKey] = 1;
+          } else {
+            // Log unknown positions for debugging
+            console.log(`Unknown position: "${pos}" (normalized: "${normalizedPos}")`);
           }
         });
 
@@ -162,8 +183,21 @@ class Team {
         // });
   
         await db.query(
-          `INSERT INTO players (yahoo_player_id, team_id, name, normalised_name, mlb_team, eligible_positions, selected_position, headshot_url, status, is_c, is_1b, is_2b, is_3b, is_ss, is_of, is_util, is_sp, is_rp)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO players 
+            (yahoo_player_id, team_id, name, normalised_name, mlb_team, eligible_positions, selected_position, headshot_url, status, is_c, is_1b, is_2b, is_3b, is_ss, is_of, is_util, is_sp, is_rp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+              team_id = VALUES(team_id),
+              status = VALUES(status),
+              is_c = VALUES(is_c),
+              is_1b = VALUES(is_1b),
+              is_2b = VALUES(is_2b),
+              is_3b = VALUES(is_3b),
+              is_ss = VALUES(is_ss),
+              is_of = VALUES(is_of),
+              is_util = VALUES(is_util),
+              is_sp = VALUES(is_sp),
+              is_rp = VALUES(is_rp)`,
           [playerId, teamId, name, normalisedName(name), mlbTeam, eligiblePositions, selectedPosition, headshotUrl, 'rostered', positionFlags.is_c, positionFlags.is_1b, positionFlags.is_2b, positionFlags.is_3b, positionFlags.is_ss, positionFlags.is_of, positionFlags.is_util, positionFlags.is_sp, positionFlags.is_rp]
         );
       }
@@ -231,9 +265,13 @@ class Team {
     }
 
     async getMyRoster() {
-        const [[{ id: teamId }]] = await db.query(
+        const [[team]] = await db.query(
           'SELECT id FROM teams WHERE is_user_team = true LIMIT 1'
         );
+        if (!team) {
+          return { error: 'No user team found' };
+        }
+        const teamId = team.id;
         return this.getRosterForTeam(teamId);
     }
 

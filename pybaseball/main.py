@@ -6,12 +6,13 @@ scripts = {
     "probable_pitchers": "services/sync_probable_pitchers.py",
     "compute_stats": "services/compute_stats_from_game_logs.py",
     "season_stats": "services/sync_season_stats.py",
+    "yahoo_player_data": "services/sync_yahoo_player_data.py",
     "all": "sync_all.py"
 }
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python main.py [game_logs|probable_pitchers|compute_stats|season_stats|all] [--force]")
+        print("Usage: python main.py [game_logs|probable_pitchers|compute_stats|season_stats|yahoo_player_data|all] [--force]")
         sys.exit(1)
 
     key = sys.argv[1]

@@ -24,7 +24,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api', rosterRoutes);
 app.use('/api', aiRoutes);
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.APP_PORT || 3001;
 app.listen(PORT, async () => {
   await runMigrations();
   console.log(`Server running on port ${PORT}`);

@@ -1,5 +1,6 @@
 const Token = require('../classes/token');
 const Yahoo = require('../classes/yahoo');
+const { positionMap } = require('./constants');
 
 async function getValidAccessToken() {
   const token = new Token();
@@ -59,5 +60,6 @@ const normalisedName = (name) => {
   module.exports = {
     getValidAccessToken,
     parseEligiblePositions,
-    normalisedName
+    normalisedName,
+    positionMap
   };

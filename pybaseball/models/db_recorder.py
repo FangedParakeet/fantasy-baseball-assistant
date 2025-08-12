@@ -99,6 +99,31 @@ class DB_Recorder():
         self.conn.commit()
         return result
 
+    def get_one(self, table_name, conditions=None):
+        self.reset_connection_state()
+        with self.conn.cursor(dictionary=True) as cursor:
+            where_clause = "WHERE " + ' AND '.join(conditions) if conditions else ""
+            cursor.execute(f"SELECT * FROM {table_name} {where_clause} LIMIT 1")
+            row = cursor.fetchone()
+            result = row if row else None
+        self.conn.commit()
+        return result
+
+    def insert_one(self, table_name, data):
+        self.reset_connection_state()
+        with self.conn.cursor() as cursor:
+            cursor.execute(f"INSERT INTO {table_name} ({', '.join(data.keys())}) VALUES ({', '.join(['%s'] * len(data))})", list(data.values()))
+        self.conn.commit()
+
+    def upsert_one(self, table_name, data, id_keys=None):
+        self.reset_connection_state()
+        with self.conn.cursor() as cursor:
+            cursor.execute(f"""
+            INSERT INTO {table_name} ({', '.join(data.keys())}) 
+                VALUES ({', '.join(['%s'] * len(data.values()))}) 
+                ON DUPLICATE KEY UPDATE {', '.join([f'{key} = VALUES({key})' for key in data.keys() if key not in id_keys])}""", list(data.values()))
+        self.conn.commit()
+
     def begin_transaction(self):
         """Start a new transaction"""
         self.conn.autocommit = False

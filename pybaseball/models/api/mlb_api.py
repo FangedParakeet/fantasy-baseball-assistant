@@ -30,7 +30,7 @@ class MlbApi:
                 time.sleep(wait_time)
                 attempt += 1
 
-        logger.error(f"Max retries ({self.MAX_RETRIES}) exceeded. URL: {url}, Params: {params}")
+        logger.error(f"Max retries ({self.MAX_RETRIES}) exceeded. URL: {url}")
         return None
 
     def get_player_info(self, player_ids: list[int]) -> list[dict]:

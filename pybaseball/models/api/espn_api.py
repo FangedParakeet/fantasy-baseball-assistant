@@ -1,6 +1,5 @@
 import requests
 from urllib.parse import urlencode
-from utils.functions import normalise_name
 
 class EspnApi:
     BASE_URL = "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard"

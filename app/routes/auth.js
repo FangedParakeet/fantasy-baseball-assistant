@@ -20,9 +20,14 @@ router.get('/token-status', async (req, res) => {
 });
 
 // OAuth login redirect
-router.get('/login', (req, res) => {
-  const authUrl = yahoo.getAuthUrl();
-  res.redirect(authUrl);
+router.get('/login', async (req, res) => {
+  try {
+    const authUrl = await yahoo.getAuthUrl();
+    res.redirect(authUrl);
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Failed to generate auth URL' });
+  }
 });
 
 // OAuth redirect handler

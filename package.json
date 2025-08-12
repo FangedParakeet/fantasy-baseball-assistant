@@ -14,7 +14,8 @@
         "sync:game_logs": "docker exec pybaseball python main.py game_logs",
         "sync:compute_stats": "docker exec pybaseball python main.py compute_stats",
         "sync:probable_pitchers": "docker exec pybaseball python main.py probable_pitchers",
-        "sync:season_stats": "docker exec pybaseball python main.py season_stats"
+        "sync:season_stats": "docker exec pybaseball python main.py season_stats",
+        "sync:yahoo_player_data": "docker exec pybaseball python main.py yahoo_player_data"
     }
   }
   
