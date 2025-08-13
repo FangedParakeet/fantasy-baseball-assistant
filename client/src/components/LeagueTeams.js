@@ -54,6 +54,19 @@ function LeagueTeams() {
     }
   };
 
+  const handleSyncAllRosters = async () => {
+    try {
+      setSyncing(true);
+      await api.post('/league-teams/sync-all-rosters');
+      // Refresh the roster after successful sync
+      await fetchTeamRoster(selectedTeamId);
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleSyncRoster = async () => {
     if (!selectedTeamId) return;
     
@@ -111,78 +124,47 @@ function LeagueTeams() {
     return text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
   }
 
-  if (teamsLoading) return <div style={{ textAlign: 'center', padding: '50px' }}>Loading teams...</div>;
-  if (error) return <div style={{ color: 'red', textAlign: 'center', padding: '20px' }}>{error}</div>;
+  if (teamsLoading) return <div className="loading-container">Loading teams...</div>;
+  if (error) return <div className="error-container">{error}</div>;
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+    <div className="container">
+      <div className="header-with-actions">
         <h1>League Teams</h1>
+        <button 
+          onClick={handleSyncAllRosters}
+          disabled={syncing}
+          className={`btn btn-large ${syncing ? 'btn-secondary' : 'btn-success'}`}
+        >
+          {syncing ? 'Syncing...' : 'Sync All Rosters'}
+        </button>
         <button 
           onClick={handleSyncRoster}
           disabled={syncing || !selectedTeamId}
-          style={{ 
-            padding: '10px 20px', 
-            backgroundColor: syncing || !selectedTeamId ? '#6c757d' : '#28a745', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '4px',
-            cursor: syncing || !selectedTeamId ? 'not-allowed' : 'pointer'
-          }}
+          className={`btn btn-large ${syncing || !selectedTeamId ? 'btn-secondary' : 'btn-success'}`}
         >
-          {syncing ? 'Syncing...' : 'Sync Roster'}
+          {syncing ? 'Syncing...' : 'Sync Selected Roster'}
         </button>
       </div>
 
-      <div style={{ 
-        backgroundColor: '#f8f9fa', 
-        padding: '20px', 
-        borderRadius: '8px', 
-        marginBottom: '20px' 
-      }}>
+      <div className="section">
         <h3>Team Analysis</h3>
         
         {validationError && (
-          <div style={{ 
-            backgroundColor: '#f8d7da', 
-            color: '#721c24', 
-            padding: '10px', 
-            borderRadius: '4px', 
-            marginBottom: '15px',
-            border: '1px solid #f5c6cb'
-          }}>
+          <div className="form-error">
             {validationError}
           </div>
         )}
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(180px, 320px) minmax(140px, 180px) auto',
-            gap: '24px',
-            alignItems: 'end',
-            marginBottom: '10px',
-            // Responsive: stack vertically on small screens
-            gridAutoFlow: 'row',
-          }}
-        >
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+        <div className="form-container-wide">
+          <div className="form-group">
+            <label>
               Select Team:
             </label>
             <select
               value={selectedTeamId}
               onChange={handleTeamChange}
-              style={{
-                padding: '8px 12px',
-                fontSize: '16px',
-                borderRadius: '4px',
-                border: '1px solid #ced4da',
-                width: '100%',
-                maxWidth: '320px',
-                minWidth: '180px',
-                boxSizing: 'border-box',
-              }}
+              className="form-input form-input-select"
             >
               <option value="">Select a team...</option>
               {teams.map((team) => (
@@ -193,48 +175,24 @@ function LeagueTeams() {
             </select>
           </div>
 
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+          <div className="form-group">
+            <label>
               Week Start Date (Monday):
             </label>
             <input
               type="date"
               value={selectedDate}
               onChange={handleDateChange}
-              style={{
-                padding: '8px 12px',
-                fontSize: '16px',
-                borderRadius: '4px',
-                border: '1px solid #ced4da',
-                width: '100%',
-                maxWidth: '180px',
-                minWidth: '140px',
-                boxSizing: 'border-box',
-              }}
+              className="form-input form-input-date"
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'end', height: '100%' }}>
+          <div className="form-actions">
             <button
               onClick={handleAnalyzeTeam}
               disabled={analysing || !selectedTeamId || !selectedDate}
-              style={{
-                padding: '10px 20px',
-                backgroundColor:
-                  analysing || !selectedTeamId || !selectedDate ? '#6c757d' : '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor:
-                  analysing || !selectedTeamId || !selectedDate
-                    ? 'not-allowed'
-                    : 'pointer',
-                fontWeight: 'bold',
-                whiteSpace: 'nowrap',
-                width: '100%',
-                minWidth: '120px',
-                boxSizing: 'border-box',
-              }}
+              className={`btn btn-large ${analysing || !selectedTeamId || !selectedDate ? 'btn-secondary' : 'btn-primary'}`}
+              style={{ width: '100%', minWidth: '120px' }}
             >
               {analysing ? 'Analysing...' : 'Analyse Team'}
             </button>
@@ -245,72 +203,48 @@ function LeagueTeams() {
       {selectedTeamId && (
         <div>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '50px' }}>Loading roster...</div>
+            <div className="loading-container">Loading roster...</div>
           ) : (
             <div>
-              <div style={{ 
-                backgroundColor: '#f8f9fa', 
-                padding: '20px', 
-                borderRadius: '8px', 
-                marginBottom: '20px' 
-              }}>
+              <div className="roster-summary">
                 <h3>Roster Summary</h3>
                 <p>Total Players: {players.length}</p>
                 
                 {analysis && (
-                  <div style={{ 
-                    marginTop: '15px', 
-                    padding: '15px', 
-                    backgroundColor: 'white', 
-                    borderRadius: '6px', 
-                    border: '1px solid #dee2e6' 
-                  }}>
-                    <h4 style={{ margin: '0 0 10px 0', color: '#495057' }}>AI Analysis</h4>
-                    <div style={{ 
-                      whiteSpace: 'pre-wrap', 
-                      lineHeight: '1.6',
-                      fontSize: '14px'
-                    }}
+                  <div className="analysis-section">
+                    <h4 className="section-title">AI Analysis</h4>
+                    <div 
+                      className="analysis-content"
                       dangerouslySetInnerHTML={{ __html: formatAIResponse(analysis) }}
                     />
                   </div>
                 )}
               </div>
 
-              <div style={{ 
-                backgroundColor: 'white', 
-                padding: '20px', 
-                borderRadius: '8px', 
-                border: '1px solid #dee2e6' 
-              }}>
+              <div className="section-white">
                 <h3>Players</h3>
                 {players.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px', color: '#6c757d' }}>
+                  <div className="empty-state">
                     <p>No players found for this team.</p>
                     <p>Try syncing the roster to load team data.</p>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gap: '15px' }}>
+                  <div className="players-grid">
                     {players.map((player, index) => (
                       <div 
                         key={index}
-                        style={{ 
-                          padding: '15px', 
-                          border: '1px solid #e9ecef', 
-                          borderRadius: '6px',
-                          backgroundColor: '#f8f9fa'
-                        }}
+                        className="player-card"
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <div>
-                            <h4 style={{ margin: '0 0 8px 0', color: '#495057' }}>
+                        <div className="player-card-header">
+                          <div className="player-info">
+                            <h4>
                               {player.name} ({player.selected_position || 'N/A'})
                             </h4>
-                            <p style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#6c757d' }}>
+                            <p>
                               Team: {player.mlb_team}
                             </p>
                             {player.eligible_positions && (
-                              <p style={{ margin: '0 0 5px 0', fontSize: '12px', color: '#6c757d' }}>
+                              <p>
                                 Eligible: {(() => {
                                   try {
                                     const positions = JSON.parse(player.eligible_positions);
@@ -336,12 +270,7 @@ function LeagueTeams() {
                               <img 
                                 src={player.headshot_url} 
                                 alt={`${player.name} headshot`}
-                                style={{ 
-                                  width: '50px', 
-                                  height: '50px', 
-                                  borderRadius: '4px',
-                                  objectFit: 'cover'
-                                }}
+                                className="player-headshot"
                               />
                             )}
                           </div>
@@ -356,17 +285,10 @@ function LeagueTeams() {
         </div>
       )}
 
-      <div style={{ marginTop: '20px', textAlign: 'center' }}>
+      <div className="text-center mt-20">
         <button 
           onClick={() => window.location.href = '/'}
-          style={{ 
-            padding: '8px 16px', 
-            backgroundColor: '#6c757d', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
+          className="btn btn-secondary"
         >
           Back to Home
         </button>

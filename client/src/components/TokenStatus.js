@@ -39,10 +39,10 @@ function TokenStatus() {
   if (error) return <div style={{ color: 'red' }}>{error}</div>;
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
+    <div className="container" style={{ maxWidth: '600px' }}>
       <h1>Fantasy Baseball Assistant</h1>
       
-      <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+      <div className="section">
         <h3>Yahoo Fantasy Connection</h3>
         
         {tokenStatus?.hasToken ? (
@@ -53,34 +53,38 @@ function TokenStatus() {
                 {tokenStatus.expiresAt && (
                   <p>Token expires: {new Date(tokenStatus.expiresAt).toLocaleString()}</p>
                 )}
-                <button 
-                  onClick={() => window.location.href = '/my-team'}
-                  style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', marginRight: '10px' }}
-                >
-                  View My Team
-                </button>
-                <button 
-                  onClick={handleRefreshToken}
-                  style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}
-                >
-                  Refresh Token
-                </button>
+                <div className="btn-group">
+                  <button 
+                    onClick={() => window.location.href = '/my-team'}
+                    className="btn btn-primary btn-large"
+                  >
+                    View My Team
+                  </button>
+                  <button 
+                    onClick={handleRefreshToken}
+                    className="btn btn-success btn-large"
+                  >
+                    Refresh Token
+                  </button>
+                </div>
               </div>
             ) : (
               <div>
                 <p style={{ color: 'orange' }}>⚠ Token expired</p>
-                <button 
-                  onClick={handleRefreshToken}
-                  style={{ padding: '10px 20px', backgroundColor: '#ffc107', color: 'black', border: 'none', borderRadius: '4px', marginRight: '10px' }}
-                >
-                  Refresh Token
-                </button>
-                <button 
-                  onClick={handleYahooLogin}
-                  style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
-                >
-                  Reconnect Yahoo
-                </button>
+                <div className="btn-group">
+                  <button 
+                    onClick={handleRefreshToken}
+                    className="btn btn-warning btn-large"
+                  >
+                    Refresh Token
+                  </button>
+                  <button 
+                    onClick={handleYahooLogin}
+                    className="btn btn-primary btn-large"
+                  >
+                    Reconnect Yahoo
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -89,7 +93,7 @@ function TokenStatus() {
             <p>Connect your Yahoo Fantasy account to get started</p>
             <button 
               onClick={handleYahooLogin}
-              style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
+              className="btn btn-primary btn-large"
             >
               Connect Yahoo Account
             </button>
@@ -97,45 +101,37 @@ function TokenStatus() {
         )}
       </div>
 
-      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #dee2e6' }}>
+      <div className="section-white">
         <h3>Quick Actions</h3>
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          <li style={{ marginBottom: '10px' }}>
+        <ul className="quick-actions">
+          <li>
             <button 
               onClick={() => window.location.href = '/my-team'}
-              style={{ 
-                width: '100%', 
-                padding: '8px', 
-                backgroundColor: '#007bff', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '4px',
-                opacity: 1
-              }}
+              className="btn btn-primary btn-full"
             >
               My Team
             </button>
           </li>
-          <li style={{ marginBottom: '10px' }}>
+          <li>
             <button 
               onClick={() => window.location.href = '/league-teams'}
-              style={{ width: '100%', padding: '8px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
+              className="btn btn-primary btn-full"
             >
               League Teams
             </button>
           </li>
-          <li style={{ marginBottom: '10px' }}>
+          <li>
             <button 
               onClick={() => window.location.href = '/two-start-pitchers'}
-              style={{ width: '100%', padding: '8px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
+              className="btn btn-primary btn-full"
             >
               Two-Start Pitchers
             </button>
           </li>
-          <li style={{ marginBottom: '10px' }}>
+          <li>
             <button 
               disabled
-              style={{ width: '100%', padding: '8px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', opacity: 0.6 }}
+              className="btn btn-secondary btn-full"
             >
               Player Recommendations (Coming Soon)
             </button>
@@ -143,15 +139,15 @@ function TokenStatus() {
           <li>
             <button 
               disabled
-              style={{ width: '100%', padding: '8px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', opacity: 0.6 }}
+              className="btn btn-secondary btn-full"
             >
               Trade Analyzer (Coming Soon)
             </button>
           </li>
-          <li style={{ marginTop: '20px', borderTop: '1px solid #dee2e6', paddingTop: '20px' }}>
+          <li className="quick-actions-separator">
             <button 
               onClick={() => window.location.href = '/settings'}
-              style={{ width: '100%', padding: '8px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px' }}
+              className="btn btn-secondary btn-full"
             >
               Settings
             </button>

@@ -61,42 +61,21 @@ function Settings() {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '50px' }}>
-        <div style={{ fontSize: '18px', marginBottom: '20px' }}>Loading settings...</div>
-        <div style={{ 
-          display: 'inline-block',
-          width: '40px',
-          height: '40px',
-          border: '4px solid #f3f3f3',
-          borderTop: '4px solid #3498db',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite'
-        }}></div>
-        <style>{`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}</style>
+      <div className="loading-container">
+        <div className="loading-text">Loading settings...</div>
+        <div className="spinner"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ color: 'red', textAlign: 'center', padding: '20px' }}>
+      <div className="error-container">
         {error}
         <button 
           onClick={fetchContexts}
-          style={{ 
-            marginLeft: '10px',
-            padding: '5px 10px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
+          className="btn btn-primary"
+          style={{ marginLeft: '10px' }}
         >
           Retry
         </button>
@@ -105,20 +84,11 @@ function Settings() {
   }
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
-      <div style={{ marginBottom: '20px' }}>
+    <div className="container-wide">
+      <div className="nav-back">
         <button
           onClick={() => window.location.href = '/'}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            marginBottom: '10px'
-          }}
+          className="btn btn-primary nav-back-btn"
         >
           ← Back to Homepage
         </button>
@@ -126,37 +96,18 @@ function Settings() {
       <h1>AI Context Settings</h1>
       
       {success && (
-        <div style={{ 
-          backgroundColor: '#d4edda', 
-          color: '#155724', 
-          padding: '15px', 
-          borderRadius: '4px', 
-          marginBottom: '20px',
-          border: '1px solid #c3e6cb'
-        }}>
+        <div className="alert alert-success">
           {success}
         </div>
       )}
 
       {error && (
-        <div style={{ 
-          backgroundColor: '#f8d7da', 
-          color: '#721c24', 
-          padding: '15px', 
-          borderRadius: '4px', 
-          marginBottom: '20px',
-          border: '1px solid #f5c6cb'
-        }}>
+        <div className="alert alert-error">
           {error}
         </div>
       )}
 
-      <div style={{ 
-        backgroundColor: '#f8f9fa', 
-        padding: '20px', 
-        borderRadius: '8px', 
-        marginBottom: '20px' 
-      }}>
+      <div className="section">
         <h3>About AI Context</h3>
         <p>
           These settings control the AI prompts used for fantasy baseball analysis. 
@@ -168,29 +119,16 @@ function Settings() {
         {contexts.map((context) => (
           <div 
             key={context.key_name}
-            style={{ 
-              backgroundColor: 'white', 
-              padding: '20px', 
-              borderRadius: '8px', 
-              border: '1px solid #dee2e6',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-            }}
+            className="section-white"
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <h3 style={{ margin: 0, color: '#495057' }}>
+              <h3 className="section-title">
                 {context.key_name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
               </h3>
               {editingKey !== context.key_name && (
                 <button 
                   onClick={() => handleEdit(context.key_name)}
-                  style={{ 
-                    padding: '8px 16px', 
-                    backgroundColor: '#007bff', 
-                    color: 'white', 
-                    border: 'none', 
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
+                  className="btn btn-primary"
                 >
                   Edit
                 </button>
@@ -205,17 +143,7 @@ function Settings() {
                 saving={saving}
               />
             ) : (
-              <div style={{ 
-                backgroundColor: '#f8f9fa', 
-                padding: '15px', 
-                borderRadius: '4px',
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'monospace',
-                fontSize: '14px',
-                lineHeight: '1.5',
-                maxHeight: '300px',
-                overflow: 'auto'
-              }}>
+              <div className="context-display">
                 {context.content}
               </div>
             )}
@@ -236,58 +164,27 @@ function ContextEditForm({ context, onSave, onCancel, saving }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div style={{ marginBottom: '15px' }}>
-        <label style={{ 
-          display: 'block', 
-          marginBottom: '5px', 
-          fontWeight: 'bold',
-          color: '#495057'
-        }}>
+      <div className="context-edit-form">
+        <label>
           Content:
         </label>
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          style={{
-            width: '100%',
-            minHeight: '200px',
-            padding: '10px',
-            border: '1px solid #ced4da',
-            borderRadius: '4px',
-            fontFamily: 'monospace',
-            fontSize: '14px',
-            lineHeight: '1.5',
-            resize: 'vertical'
-          }}
+          className="form-textarea"
           placeholder="Enter AI context content..."
         />
       </div>
       
-      <div style={{ display: 'flex', gap: '10px' }}>
+      <div className="form-actions">
         <button 
           type="submit"
           disabled={saving}
-          style={{ 
-            padding: '10px 20px', 
-            backgroundColor: saving ? '#6c757d' : '#28a745', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '4px',
-            cursor: saving ? 'not-allowed' : 'pointer'
-          }}
+          className={`btn btn-large ${saving ? 'btn-secondary' : 'btn-success'}`}
         >
           {saving ? (
             <span>
-              <span style={{ 
-                display: 'inline-block',
-                width: '16px',
-                height: '16px',
-                border: '2px solid #ffffff',
-                borderTop: '2px solid transparent',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-                marginRight: '8px'
-              }}></span>
+              <span className="spinner spinner-small" style={{ marginRight: '8px' }}></span>
               Saving...
             </span>
           ) : 'Save Changes'}
@@ -297,14 +194,7 @@ function ContextEditForm({ context, onSave, onCancel, saving }) {
           type="button"
           onClick={onCancel}
           disabled={saving}
-          style={{ 
-            padding: '10px 20px', 
-            backgroundColor: '#6c757d', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '4px',
-            cursor: saving ? 'not-allowed' : 'pointer'
-          }}
+          className="btn btn-secondary btn-large"
         >
           Cancel
         </button>

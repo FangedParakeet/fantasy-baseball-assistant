@@ -12,7 +12,7 @@ function AuthRedirect() {
     }, 100);
   }, []);
 
-  return <div>Redirecting to backend...</div>;
+  return <div className="loading-container">Redirecting to backend...</div>;
 }
 
 export default AuthRedirect; 

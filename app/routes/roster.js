@@ -68,7 +68,7 @@ router.post('/league-teams/:teamId/sync-roster', async (req, res) => {
   }
 });
 
-router.post('/all-league-teams/sync-rosters', async (req, res) => {
+router.post('/league-teams/sync-all-rosters', async (req, res) => {
   try {
     const accessToken = await getValidAccessToken();
     const yahoo = new Yahoo(accessToken);
@@ -76,7 +76,7 @@ router.post('/all-league-teams/sync-rosters', async (req, res) => {
     const result = await team.syncAllLeagueTeams();
     res.json(result);
   } catch (error) {
-    console.error('Error in /all-league-teams/sync-rosters:', error);
+    console.error('Error in /league-teams/sync-all-rosters:', error);
     res.status(500).json({ error: 'Failed to sync rosters', details: error.message });
   }
 });

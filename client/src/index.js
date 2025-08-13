@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import './styles/index.css';
 import TokenStatus from './components/TokenStatus';
 import OAuthSuccess from './components/OAuthSuccess';
 import AuthRedirect from './components/AuthRedirect';

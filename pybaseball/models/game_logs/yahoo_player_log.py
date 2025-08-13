@@ -1,9 +1,10 @@
 from models.game_logs.mlb_log import MlbLog
+from utils.functions import normalise_name
 import json
 
 class YahooPlayerLog(MlbLog):
     KEYS = [
-        'yahoo_player_id', 'mlb_team',
+        'yahoo_player_id', 'mlb_team', 'position',
         'eligible_positions', 'headshot_url', 'normalised_name', 'name',
         'is_c', 'is_1b', 'is_2b', 'is_3b', 'is_ss', 'is_of', 'is_util', 'is_sp', 'is_rp'
     ]
@@ -29,6 +30,13 @@ class YahooPlayerLog(MlbLog):
             if position in self.POSITION_MAP:
                 self.position_flags[self.POSITION_MAP[position]] = 1
 
+        self.position = 'B'
+        if self.position_flags.get('is_sp', 0) == 1 or self.position_flags.get('is_rp', 0) == 1:
+            self.position = 'P'
+
+        self.name = self.player_data.get('name', None)
+        self.normalised_name = normalise_name(self.name.replace('(Batter)', '').replace('(Pitcher)', '').strip()) if self.name else None
+
         self.set_values()
 
 
@@ -37,14 +45,16 @@ class YahooPlayerLog(MlbLog):
             return self.player_data.get('yahoo_player_id', None)
         elif key == 'mlb_team':
             return self.player_data.get('mlb_team', None)
+        elif key == 'position':
+            return self.position
         elif key == 'eligible_positions':
             return json.dumps(self.player_data.get('eligible_positions', []))
         elif key == 'headshot_url':
             return self.player_data.get('headshot_url', None)
         elif key == 'normalised_name':
-            return self.player_data.get('normalised_name', None)
+            return self.normalised_name
         elif key == 'name':
-            return self.player_data.get('name', None)
+            return self.name
         elif key == 'is_c':
             return self.position_flags.get('is_c', 0)
         elif key == 'is_1b':

@@ -46,7 +46,7 @@ class Team {
       if (teams.error) {
         throw new Error(`Failed to get all league teams: ${teams.details}`);
       }
-      if (await this.isSyncStale()) {
+      if (true || await this.isSyncStale()) {
         for (const team of teams.teams) {
           await this.syncRosterForTeam(team.yahoo_team_id);
         }

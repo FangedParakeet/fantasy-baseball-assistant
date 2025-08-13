@@ -1,0 +1,199 @@
+/* Component-specific styles */
+
+/* Player cards */
+.player-card {
+  padding: 15px;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  background-color: #f8f9fa;
+}
+
+.player-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.player-info h4 {
+  margin: 0 0 8px 0;
+  color: #495057;
+}
+
+.player-info p {
+  margin: 0 0 5px 0;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.player-info p:last-child {
+  font-size: 12px;
+}
+
+.player-headshot {
+  width: 50px;
+  height: 50px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+/* Analysis sections */
+.analysis-section {
+  margin-top: 15px;
+  padding: 15px;
+  background-color: white;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.analysis-content {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+/* Roster summary */
+.roster-summary {
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.roster-summary h3 {
+  margin: 0 0 10px 0;
+  color: #495057;
+}
+
+.roster-summary p {
+  margin: 0;
+}
+
+/* Players grid */
+.players-grid {
+  display: grid;
+  gap: 15px;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+}
+
+.empty-state h3 {
+  margin-bottom: 10px;
+}
+
+.empty-state p {
+  margin-bottom: 10px;
+}
+
+/* Quick actions list */
+.quick-actions {
+  list-style: none;
+  padding: 0;
+}
+
+.quick-actions li {
+  margin-bottom: 10px;
+}
+
+.quick-actions li:last-child {
+  margin-bottom: 0;
+}
+
+.quick-actions-separator {
+  margin-top: 20px;
+  border-top: 1px solid #dee2e6;
+  padding-top: 20px;
+}
+
+/* Loading states */
+.loading-container {
+  text-align: center;
+  padding: 50px;
+}
+
+.loading-text {
+  font-size: 18px;
+  margin-bottom: 20px;
+}
+
+/* Error states */
+.error-container {
+  color: red;
+  text-align: center;
+  padding: 20px;
+}
+
+/* Navigation */
+.nav-back {
+  margin-bottom: 20px;
+}
+
+.nav-back-btn {
+  margin-bottom: 10px;
+}
+
+/* Header with actions */
+.header-with-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header-with-actions h1 {
+  margin: 0;
+}
+
+/* AI response formatting */
+.ai-response {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+/* Context display */
+.context-display {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  font-family: monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  max-height: 300px;
+  overflow: auto;
+}
+
+/* Context edit form */
+.context-edit-form {
+  margin-bottom: 15px;
+}
+
+.context-edit-form label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #495057;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .header-with-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .player-card-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .player-headshot {
+    align-self: center;
+  }
+} 

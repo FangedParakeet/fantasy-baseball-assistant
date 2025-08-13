@@ -15,7 +15,7 @@ function OAuthSuccess() {
   }, [location]);
 
   return (
-    <div style={{ textAlign: 'center', padding: '50px' }}>
+    <div className="loading-container">
       <h2>OAuth Successful!</h2>
       <p>Redirecting to home page...</p>
     </div>

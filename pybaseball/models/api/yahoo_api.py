@@ -191,7 +191,6 @@ class YahooApi:
         return {
             "yahoo_player_id": self.parse_xml_path(player_node, "player_key"),
             "name": self.parse_xml_path(player_node, "name/full"),
-            "normalised_name": normalise_name(self.parse_xml_path(player_node, "name/full")),
             "mlb_team": self.parse_xml_path(player_node, "editorial_team_abbr"),
             "eligible_positions": sorted(set(positions)),
             "headshot_url": self.parse_xml_path(player_node, "headshot/url"),
