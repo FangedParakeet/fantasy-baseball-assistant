@@ -4,6 +4,7 @@ class Player {
     constructor() {
         this.probablePitchersTable = 'probable_pitchers';
         this.playersTable = 'players';
+        this.playerLookupsTable = 'player_lookup';
         this.playerRollingStatsTable = 'player_rolling_stats';
         this.playerRollingStatsPercentilesTable = 'player_rolling_stats_percentiles';
         this.playerAdvancedRollingStatsPercentilesTable = 'player_advanced_rolling_stats_percentiles';
@@ -16,10 +17,37 @@ class Player {
         if (!startDate || !endDate) {
             throw new Error('Missing required parameters');
         }
+        const spanDays = 30;
         const [probablePitchers] = await db.query(
-            `SELECT p.id, pp.game_date, pp.team, pp.opponent, pp.home, pp.player_id, p.normalised_name, pp.accuracy, pp.qs_likelihood_score
+            `SELECT 
+                p.id, pp.game_date, pp.team, pp.opponent, pp.home, pp.player_id, p.normalised_name, pp.accuracy, pp.qs_likelihood_score,
+                p.name, p.mlb_team, p.eligible_positions, p.headshot_url,
+                prs_raw.ip,
+                prs_raw.strikeouts,
+                prs.strikeouts_pct,
+                prs_raw.era,
+                prs.era_pct,
+                prs_raw.whip,
+                prs.whip_pct,
+                prs_raw.qs,
+                prs.qs_pct,
+                prs_raw.sv,
+                prs.sv_pct,
+                prs_raw.hld,
+                prs.hld_pct,
+                pars.k_per_9_pct,
+                pars.bb_per_9_pct,
+                pars.fip_pct,
+                prs.reliability_score
             FROM ${this.probablePitchersTable} pp
             LEFT JOIN ${this.playersTable} p ON p.player_id = pp.player_id
+            LEFT JOIN ${this.playerLookupsTable} pl ON pl.player_id = pp.player_id
+            LEFT JOIN ${this.playerAdvancedRollingStatsPercentilesTable} pars 
+                ON pars.player_id = pp.player_id AND pars.span_days = ? AND pars.split_type = 'overall' AND pars.position = 'P'
+            LEFT JOIN ${this.playerRollingStatsPercentilesTable} prs
+                ON prs.player_id = pp.player_id AND prs.span_days = ? AND prs.split_type = 'overall' AND prs.position = 'P'
+            LEFT JOIN ${this.playerRollingStatsTable} prs_raw
+                ON prs_raw.player_id = pp.player_id AND prs_raw.span_days = ? AND prs_raw.split_type = 'overall' AND prs_raw.position = 'P'
             WHERE pp.game_date BETWEEN ? AND ? 
                 AND EXISTS (
                     SELECT 1 
@@ -32,7 +60,50 @@ class Player {
                 )
             ORDER BY pp.normalised_name ASC, pp.game_date ASC
             `,
-            [startDate, endDate, startDate, endDate]
+            [spanDays, spanDays, spanDays, startDate, endDate, startDate, endDate]
+        );
+        return probablePitchers;
+    }
+
+    async getAvailableDailyStreamingPitchers(startDate, endDate) {
+        if (!startDate || !endDate) {
+            throw new Error('Missing required parameters');
+        }
+        const spanDays = 30;
+        const [probablePitchers] = await db.query(
+            `SELECT pp.game_date, pp.team, pp.opponent, pp.home, pp.player_id, pp.normalised_name, pp.accuracy, pp.qs_likelihood_score,
+                p.name, p.mlb_team, p.eligible_positions, p.headshot_url,
+                prs_raw.ip,
+                prs_raw.strikeouts,
+                prs.strikeouts_pct,
+                prs_raw.era,
+                prs.era_pct,
+                prs_raw.whip,
+                prs.whip_pct,
+                prs_raw.qs,
+                prs.qs_pct,
+                prs_raw.sv,
+                prs.sv_pct,
+                prs_raw.hld,
+                prs.hld_pct,
+                pars.k_per_9_pct,
+                pars.bb_per_9_pct,
+                pars.fip_pct,
+                prs.reliability_score
+            FROM ${this.probablePitchersTable} pp
+            LEFT JOIN ${this.playersTable} p ON p.player_id = pp.player_id
+            LEFT JOIN ${this.playerLookupsTable} pl ON pl.player_id = pp.player_id
+            LEFT JOIN ${this.playerAdvancedRollingStatsPercentilesTable} pars 
+                ON pars.player_id = pp.player_id AND pars.span_days = ? AND pars.split_type = 'overall' AND pars.position = 'P'
+            LEFT JOIN ${this.playerRollingStatsPercentilesTable} prs
+                ON prs.player_id = pp.player_id AND prs.span_days = ? AND prs.split_type = 'overall' AND prs.position = 'P'
+            LEFT JOIN ${this.playerRollingStatsTable} prs_raw
+                ON prs_raw.player_id = pp.player_id AND prs_raw.span_days = ? AND prs_raw.split_type = 'overall' AND prs_raw.position = 'P'
+            WHERE pp.game_date BETWEEN ? AND ?
+                AND p.status = 'free_agent'
+            ORDER BY pp.game_date, pp.qs_likelihood_score DESC, pp.normalised_name
+            `,
+            [spanDays, spanDays, spanDays, startDate, endDate]
         );
         return probablePitchers;
     }
@@ -42,7 +113,9 @@ class Player {
             throw new Error('Missing required parameters');
         }
         const [probablePitchers] = await db.query(
-            `SELECT p.id, pp.game_date, pp.team, pp.opponent, pp.home, pp.player_id, pp.normalised_name, pp.accuracy, pp.qs_likelihood_score
+            `SELECT 
+                p.id, pp.game_date, pp.team, pp.opponent, pp.home, pp.player_id, pp.normalised_name, pp.accuracy, pp.qs_likelihood_score,
+                p.name, p.mlb_team, p.eligible_positions, p.headshot_url
             FROM ${this.probablePitchersTable} pp
             LEFT JOIN ${this.playersTable} p ON p.player_id = pp.player_id
             WHERE pp.game_date BETWEEN ? AND ?
@@ -67,10 +140,12 @@ class Player {
             throw new Error('Missing required parameters');
         }
         const [probablePitchers] = await db.query(
-            `SELECT pp.game_date, pp.team, pp.opponent, pp.home, p.player_id, p.normalised_name, pp.accuracy, pp.qs_likelihood_score
+            `SELECT 
+                pp.game_date, pp.team, pp.opponent, pp.home, p.player_id, p.normalised_name, pp.accuracy, pp.qs_likelihood_score,
+                p.name, p.mlb_team, p.eligible_positions, p.headshot_url
             FROM ${this.probablePitchersTable} pp
             JOIN ${this.playersTable} p ON p.player_id = pp.player_id
-            WHERE game_date BETWEEN ? AND ?
+            WHERE pp.game_date BETWEEN ? AND ?
                 AND p.team_id = ?
             ORDER BY pp.game_date ASC, pp.qs_likelihood_score DESC, pp.normalised_name ASC
             `,
@@ -356,7 +431,7 @@ class Player {
         return hitterScores;
     }
 
-    async getHitterAvgObpWatchlist(page=1, spanDays=14, position=false) {
+    async getHitterContactOnBaseWatchlist(page=1, spanDays=14, position=false) {
         let positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
         const offset = (page - 1) * this.pageSize;
         const minAbs = 15;
@@ -442,7 +517,7 @@ class Player {
             LEFT JOIN ${this.playersTable} p ON p.player_id = prs.player_id AND p.position = 'B'
             WHERE prs.span_days = ? AND prs.split_type = 'overall'
                 AND prs.reliability_score >= 60
-                AND raw.abs >= ?
+                AND prs_raw.abs >= ?
                 AND p.status = 'free_agent'
                 ${positionFilter}
             ORDER BY power_score DESC
@@ -539,7 +614,7 @@ class Player {
             JOIN ${this.playerRollingStatsTable} prs_raw
                 ON prs_raw.player_id = prs.player_id AND prs_raw.span_days = ? AND prs_raw.split_type = 'overall' AND prs_raw.position = 'P'
             LEFT JOIN ${this.playerLookupsTable} pls ON pls.player_id = prs.player_id
-            LEFT JOIN players p ON p.player_id = prs.player_id AND p.position = 'P'
+            LEFT JOIN ${this.playersTable} p ON p.player_id = prs.player_id AND p.position = 'P'
             WHERE prs.span_days = ? AND prs.split_type = 'overall'
                 AND prs.reliability_score >= 55
                 AND prs_raw.ip >= ?
