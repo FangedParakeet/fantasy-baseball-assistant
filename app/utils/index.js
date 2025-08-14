@@ -1,6 +1,6 @@
 const Token = require('../classes/token');
 const Yahoo = require('../classes/yahoo');
-const { positionMap } = require('./constants');
+const { POSITION_MAP, convertYahooTeamAbbr } = require('./constants');
 
 async function getValidAccessToken() {
   const token = new Token();
@@ -61,5 +61,6 @@ const normalisedName = (name) => {
     getValidAccessToken,
     parseEligiblePositions,
     normalisedName,
-    positionMap
+    POSITION_MAP,
+    convertYahooTeamAbbr
   };

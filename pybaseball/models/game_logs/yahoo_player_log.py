@@ -1,5 +1,6 @@
 from models.game_logs.mlb_log import MlbLog
 from utils.functions import normalise_name
+from utils.constants import YAHOO_TO_BACKEND_TEAM_MAP
 import json
 
 class YahooPlayerLog(MlbLog):
@@ -44,7 +45,7 @@ class YahooPlayerLog(MlbLog):
         if key == 'yahoo_player_id':
             return self.player_data.get('yahoo_player_id', None)
         elif key == 'mlb_team':
-            return self.player_data.get('mlb_team', None)
+            return YAHOO_TO_BACKEND_TEAM_MAP.get(self.player_data.get('mlb_team', None), None)
         elif key == 'position':
             return self.position
         elif key == 'eligible_positions':

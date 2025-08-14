@@ -36,23 +36,36 @@ class PlayerRollingStats(RollingStats):
     def __init__(self, conn, rolling_stats_percentiles):
         super().__init__(conn, rolling_stats_percentiles)
 
-    def build_where_clause_for_split(self, split):
-        if split in ['overall', 'home', 'away']:
-            return super().build_where_clause_for_split(split)
+    def build_where_clause_for_split(self, split, position=None):
+        # position is now 'B' or 'P', not 'batting' or 'pitching'
+        if split == 'overall':
+            return f"AND gl.position = '{position}'"
+        elif split == 'home':
+            return f"AND gl.is_home = 1 AND gl.position = '{position}'"
+        elif split == 'away':
+            return f"AND gl.is_home = 0 AND gl.position = '{position}'"
         elif split == 'vs_lhp':
-            return """
-            AND gl.position = 'B' AND (
-                (gl.is_home = 1 AND gp.away_pitcher_id IS NOT NULL AND opp_pl.throws = 'L')
-                OR (gl.is_home = 0 AND gp.home_pitcher_id IS NOT NULL AND opp_pl.throws = 'L')
-            )
-            """
+            # vs_lhp and vs_rhp splits only apply to batters
+            if position == 'B':
+                return f"""
+                AND gl.position = 'B' AND (
+                    (gl.is_home = 1 AND gp.away_pitcher_id IS NOT NULL AND opp_pl.throws = 'L')
+                    OR (gl.is_home = 0 AND gp.home_pitcher_id IS NOT NULL AND opp_pl.throws = 'L')
+                )
+                """
+            else:
+                return "AND 1=0"  # No results for pitchers on vs_lhp split
         elif split == 'vs_rhp':
-            return """
-            AND gl.position = 'B' AND (
-                (gl.is_home = 1 AND gp.away_pitcher_id IS NOT NULL AND opp_pl.throws = 'R')
-                OR (gl.is_home = 0 AND gp.home_pitcher_id IS NOT NULL AND opp_pl.throws = 'R')
-            )
-            """
+            # vs_lhp and vs_rhp splits only apply to pitchers
+            if position == 'B':
+                return """
+                AND gl.position = 'B' AND (
+                    (gl.is_home = 1 AND gp.away_pitcher_id IS NOT NULL AND opp_pl.throws = 'R')
+                    OR (gl.is_home = 0 AND gp.home_pitcher_id IS NOT NULL AND opp_pl.throws = 'R')
+                )
+                """
+            else:
+                return "AND 1=0"  # No results for pitchers on vs_rhp split
         return ''
 
     def get_formulas(self):
@@ -73,16 +86,3 @@ class PlayerRollingStats(RollingStats):
             OR
         (gl.is_home = 0 AND opp_pl.player_id = gp.home_pitcher_id)
         """
-
-    def update_advanced_rolling_stats(self, advanced_rolling_stats_table, basic_rolling_stats_table, league_averages_table, update_formulas):
-        logger.info(f"Updating advanced rolling statistics")
-        update_values = ', '.join([f"p.{key} = {formula}" for key, formula in update_formulas.items()])
-        update_query = f"""
-            UPDATE {advanced_rolling_stats_table} p
-            JOIN {league_averages_table} l 
-                ON (p.span_days = l.span_days AND p.split_type = l.split_type)
-            LEFT JOIN {basic_rolling_stats_table} b
-                ON (p.player_id = b.player_id AND p.span_days = b.span_days AND p.split_type = b.split_type)
-            SET {update_values}
-        """
-        self.execute_query_in_transaction(update_query)

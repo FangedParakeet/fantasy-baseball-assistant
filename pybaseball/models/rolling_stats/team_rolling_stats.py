@@ -122,9 +122,13 @@ class TeamRollingStats(RollingStats):
             (gl.is_home = 0 AND gp.home_pitcher_id IS NOT NULL AND opp_pl.player_id = gp.home_pitcher_id)
         """
 
-    def build_where_clause_for_split(self, split):
-        if split in ['overall', 'home', 'away']:
-            return super().build_where_clause_for_split(split)
+    def build_where_clause_for_split(self, split, position=None):
+        if split == 'overall':
+            return ''
+        elif split == 'home':
+            return 'AND gl.is_home = 1'
+        elif split == 'away':
+            return 'AND gl.is_home = 0'
         elif split == 'vs_lhp':
             return """
             AND (

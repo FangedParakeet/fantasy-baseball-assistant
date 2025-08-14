@@ -42,13 +42,18 @@ class PlayerBasicRollingStats(PlayerRollingStats):
             self.purge_all_records_in_transaction(self.rolling_stats_table)
             
             # Include all keys that have formulas, including those with %s placeholders
-            insert_keys = self.SPLIT_WINDOW_KEYS + self.ID_KEYS + self.EXTRA_KEYS + self.DATE_KEYS + self.STATS_KEYS['batting'] + self.STATS_KEYS['pitching']
-            all_formulas = self.get_formulas()
-            select_formulas = [all_formulas[key] for key in insert_keys]
-            join_conditions = super().get_join_conditions()
+            for key, stats_list in self.STATS_KEYS.items():
+                insert_keys = self.SPLIT_WINDOW_KEYS + self.ID_KEYS + self.EXTRA_KEYS + self.DATE_KEYS + stats_list
+                all_formulas = self.get_formulas()
+                select_formulas = [all_formulas[key] for key in insert_keys]
+                join_conditions = super().get_join_conditions()
 
-            logger.info(f"Computing player basic rolling stats")
-            super().compute_rolling_stats(self.rolling_stats_table, self.game_logs_table, insert_keys, select_formulas, join_conditions, 'GROUP BY gl.player_id')
+                logger.info(f"Computing player basic rolling stats for {key}")
+                # Pass the correct position value based on the key
+                position = 'B' if key == 'batting' else 'P'
+                
+                super().compute_rolling_stats(self.rolling_stats_table, self.game_logs_table, insert_keys, select_formulas, join_conditions, 'GROUP BY gl.player_id', position)
+            
             self.compute_percentiles()
             
             # Commit transaction

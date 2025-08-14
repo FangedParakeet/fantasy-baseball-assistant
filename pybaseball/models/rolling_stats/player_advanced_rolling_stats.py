@@ -192,13 +192,26 @@ class PlayerAdvancedRollingStats(PlayerRollingStats):
             logger.info("Clearing all existing advanced player rolling stats")
             self.purge_all_records_in_transaction(self.rolling_stats_table)
             
-            insert_keys = self.SPLIT_WINDOW_KEYS + self.ID_KEYS + self.EXTRA_KEYS + self.DATE_KEYS + self.STATS_KEYS['batting'] + self.STATS_KEYS['pitching']
-            all_formulas = self.get_formulas()
-            select_formulas = [all_formulas[key] for key in insert_keys]
+            for key, stats_list in self.STATS_KEYS.items():
+                insert_keys = self.SPLIT_WINDOW_KEYS + self.ID_KEYS + self.EXTRA_KEYS + self.DATE_KEYS + stats_list
+                all_formulas = self.get_formulas()
+                select_formulas = [all_formulas[key] for key in insert_keys]
+                join_conditions = super().get_join_conditions()
 
-            join_conditions = super().get_join_conditions()
-            logger.info(f"Computing advanced player rolling stats")
-            super().compute_rolling_stats(self.rolling_stats_table, self.game_logs_table, insert_keys, select_formulas, join_conditions, 'GROUP BY gl.player_id')
+                logger.info(f"Computing advanced player rolling stats for {key}")
+                # Pass the correct position value based on the key
+                position = 'B' if key == 'batting' else 'P'
+                
+                # # Define custom splits for each position
+                # if key == 'batting':
+                #     # Batters can have all splits including vs_lhp and vs_rhp
+                #     custom_splits = ['overall', 'home', 'away', 'vs_lhp', 'vs_rhp']
+                # else:
+                #     # Pitchers only have basic splits (vs_lhp and vs_rhp don't apply to pitchers)
+                #     custom_splits = ['overall', 'home', 'away']
+                
+                super().compute_rolling_stats(self.rolling_stats_table, self.game_logs_table, insert_keys, select_formulas, join_conditions, 'GROUP BY gl.player_id', position)
+                
             self.update_advanced_rolling_stats()
             self.compute_percentiles()
             
@@ -214,7 +227,16 @@ class PlayerAdvancedRollingStats(PlayerRollingStats):
     def update_advanced_rolling_stats(self):
         logger.info(f"Updating advanced rolling statistics")
         all_advanced_formulas = self.get_advanced_formulas()
-        super().update_advanced_rolling_stats(self.rolling_stats_table, self.basic_rolling_stats_table, self.LEAGUE_AVERAGE_TABLE, all_advanced_formulas)
+        update_values = ', '.join([f"p.{key} = {formula}" for key, formula in all_advanced_formulas.items()])
+        update_query = f"""
+            UPDATE {self.rolling_stats_table} p
+            JOIN {self.LEAGUE_AVERAGE_TABLE} l 
+                ON (p.span_days = l.span_days AND p.split_type = l.split_type)
+            LEFT JOIN {self.basic_rolling_stats_table} b
+                ON (p.player_id = b.player_id AND p.span_days = b.span_days AND p.split_type = b.split_type)
+            SET {update_values}
+        """
+        self.execute_query_in_transaction(update_query)
 
     def compute_league_averages(self):
         # Clear all existing league averages before computing new ones

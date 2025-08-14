@@ -54,6 +54,8 @@ class DB_Recorder():
         logger.info(f"Purging all records from {table_name}")
         with self.conn.cursor() as cursor:
             cursor.execute(f"DELETE FROM {table_name}")
+            deleted_count = cursor.rowcount
+            logger.info(f"Deleted {deleted_count} records from {table_name}")
 
     def batch_upsert(self, insert_query, rows):
         self.reset_connection_state()

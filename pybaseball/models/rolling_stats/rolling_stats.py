@@ -13,22 +13,13 @@ class RollingStats(DB_Recorder):
         self.game_pitchers_table = GamePitchers.GAME_PITCHERS_TABLE
         self.player_lookups_table = PlayerLookups.LOOKUP_TABLE
         
-    def build_where_clause_for_split(self, split):
-        if split == 'overall':
-            return ''
-        elif split == 'home':
-            return 'AND gl.is_home = 1'
-        elif split == 'away':
-            return 'AND gl.is_home = 0'
-        return ''
-
     def get_formulas(self):
         return {
             'split_type': '%s AS split_type',
             'span_days': '%s AS span_days'
         }
 
-    def compute_rolling_stats(self, rolling_stats_table, game_logs_table, insert_keys, select_formulas, join_conditions, group_by=''):
+    def compute_rolling_stats(self, rolling_stats_table, game_logs_table, insert_keys, select_formulas, join_conditions, group_by='', position=None):
         insert_values = ', '.join(insert_keys)
         select_values = ', '.join(select_formulas)
         
@@ -39,8 +30,8 @@ class RollingStats(DB_Recorder):
 
         for split in SPLITS:
             for window in ROLLING_WINDOWS:
-                logger.info(f"Computing rolling stats for {split} for {window} days")
-                where_clause = self.build_where_clause_for_split(split)
+                logger.info(f"Computing rolling stats for {split} for {window} days for position {position}")
+                where_clause = self.build_where_clause_for_split(split, position)
                 insert_query = f"""
                     INSERT INTO {rolling_stats_table} ({insert_values})
                     SELECT {select_values}

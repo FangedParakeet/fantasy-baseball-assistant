@@ -1,10 +1,14 @@
 const { db } = require('../db');
 const util = require('util');
-const { positionMap, normalisedName } = require('../utils');
+const { POSITION_MAP, normalisedName, convertYahooTeamAbbr } = require('../utils');
 
 class Team {
-    constructor(yahooInstance) {
+    constructor(yahooInstance=null, playerHydrator=null) {
         this.yahoo = yahooInstance;
+        this.teamsTable = 'teams';
+        this.playersTable = 'players';
+        this.syncMetadataTable = 'sync_metadata';
+        this.playerHydrator = playerHydrator;
     }
 
     async syncMyRoster() {
@@ -32,7 +36,7 @@ class Team {
 
           // Upsert team
           const [teamResult] = await db.query(
-            `INSERT INTO teams (yahoo_team_id, team_name, is_user_team)
+            `INSERT INTO ${this.teamsTable} (yahoo_team_id, team_name, is_user_team)
              VALUES (?, ?, true)
              ON DUPLICATE KEY UPDATE team_name = VALUES(team_name), is_user_team = true`,
             [teamKey, teamName, true]
@@ -62,7 +66,7 @@ class Team {
     }
 
     async getAllLeagueTeams() {
-      let [teams] = await db.query('SELECT id, yahoo_team_id, team_name FROM teams');
+      let [teams] = await db.query(`SELECT id, yahoo_team_id, team_name FROM ${this.teamsTable}`);
       if (teams.length < 10) {
         const leagueKey = await this.getMyLeagueKey();
         const leagueTeams = await this.getMyLeagueTeams( leagueKey );
@@ -74,19 +78,19 @@ class Team {
 
           // Upsert team
           const [teamResult] = await db.query(
-            `INSERT INTO teams (yahoo_team_id, team_name, is_user_team)
+            `INSERT INTO ${this.teamsTable} (yahoo_team_id, team_name, is_user_team)
             VALUES (?, ?, ?)
             ON DUPLICATE KEY UPDATE team_name = VALUES(team_name)`,
             [teamKey, teamName, isUserTeam]
           );
         }
       }
-      [teams] = await db.query('SELECT id, yahoo_team_id, team_name FROM teams');
+      [teams] = await db.query(`SELECT id, yahoo_team_id, team_name FROM ${this.teamsTable}`);
       return { success: true, teams };
     }
 
     async getAllOpponentLeagueTeams() {
-      let [teams] = await db.query('SELECT id, team_name FROM teams WHERE is_user_team = false');
+      let [teams] = await db.query(`SELECT id, team_name FROM ${this.teamsTable} WHERE is_user_team = false`);
       if (teams.length === 0) {
         const leagueKey = await this.getMyLeagueKey();
         const leagueTeams = await this.getMyLeagueTeams( leagueKey );
@@ -100,19 +104,19 @@ class Team {
 
           // Upsert team
           const [teamResult] = await db.query(
-            `INSERT INTO teams (yahoo_team_id, team_name, is_user_team)
+            `INSERT INTO ${this.teamsTable} (yahoo_team_id, team_name, is_user_team)
             VALUES (?, ?, false)
             ON DUPLICATE KEY UPDATE team_name = VALUES(team_name)`,
             [teamKey, teamName]
           );
         }
-        [teams] = await db.query('SELECT id, team_name FROM teams WHERE is_user_team = false');
+        [teams] = await db.query(`SELECT id, team_name FROM ${this.teamsTable} WHERE is_user_team = false`);
       }
       return { success: true, teams };
     }
 
     async syncRosterForTeam( teamKey ) {
-      const [[{ id: teamId }]] = await db.query('SELECT id FROM teams WHERE yahoo_team_id = ?', [teamKey]);
+      const [[{ id: teamId }]] = await db.query(`SELECT id FROM ${this.teamsTable} WHERE yahoo_team_id = ?`, [teamKey]);
 
       // Step 2: Get the current roster
       console.log('getting my team roster');
@@ -122,12 +126,12 @@ class Team {
       const players = rosterRes.fantasy_content.team.roster.players.player;
       
       // Clear existing rostered players for this team
-      await db.query('UPDATE players SET status = "free_agent", team_id = NULL WHERE team_id = ?', [teamId]);
+      await db.query(`UPDATE ${this.playersTable} SET status = "free_agent", team_id = NULL WHERE team_id = ?`, [teamId]);
   
       for (const player of players) {
-        const playerId = player.player_id;
+        const playerId = player.player_key;
         const name = player.name.full;
-        const mlbTeam = player.editorial_team_abbr;
+        const mlbTeam = convertYahooTeamAbbr(player.editorial_team_abbr);
         const eligiblePositions = JSON.stringify(player.eligible_positions.position || []);
         const selectedPosition = player.selected_position.position || '';
         const headshotUrl = player.headshot?.url || '';
@@ -167,9 +171,9 @@ class Team {
           : [];
         
         positions.forEach(pos => {
-          // Normalize position to uppercase to match positionMap keys
+          // Normalize position to uppercase to match POSITION_MAP keys
           const normalizedPos = pos ? pos.toUpperCase() : '';
-          const flagKey = positionMap[normalizedPos];
+          const flagKey = POSITION_MAP[normalizedPos];
           if (flagKey) {
             positionFlags[flagKey] = 1;
           } else {
@@ -178,17 +182,27 @@ class Team {
           }
         });
 
+        let position = 'B';
+        if (positionFlags.is_sp === 1 || positionFlags.is_rp === 1) {
+          position = 'P';
+        }
+
         // console.log('Inserting player:', {
         //   playerId, teamId, name, mlbTeam, eligiblePositions, selectedPosition, headshotUrl, positionFlags
         // });
   
         await db.query(
-          `INSERT INTO players 
-            (yahoo_player_id, team_id, name, normalised_name, mlb_team, eligible_positions, selected_position, headshot_url, status, is_c, is_1b, is_2b, is_3b, is_ss, is_of, is_util, is_sp, is_rp)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO ${this.playersTable} 
+            (yahoo_player_id, team_id, name, normalised_name, mlb_team, eligible_positions, selected_position, position, headshot_url, status, is_c, is_1b, is_2b, is_3b, is_ss, is_of, is_util, is_sp, is_rp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
               team_id = VALUES(team_id),
               status = VALUES(status),
+              mlb_team = VALUES(mlb_team),
+              eligible_positions = VALUES(eligible_positions),
+              selected_position = VALUES(selected_position),
+              position = VALUES(position),
+              headshot_url = VALUES(headshot_url),
               is_c = VALUES(is_c),
               is_1b = VALUES(is_1b),
               is_2b = VALUES(is_2b),
@@ -198,9 +212,11 @@ class Team {
               is_util = VALUES(is_util),
               is_sp = VALUES(is_sp),
               is_rp = VALUES(is_rp)`,
-          [playerId, teamId, name, normalisedName(name), mlbTeam, eligiblePositions, selectedPosition, headshotUrl, 'rostered', positionFlags.is_c, positionFlags.is_1b, positionFlags.is_2b, positionFlags.is_3b, positionFlags.is_ss, positionFlags.is_of, positionFlags.is_util, positionFlags.is_sp, positionFlags.is_rp]
+          [playerId, teamId, name, normalisedName(name), mlbTeam, eligiblePositions, selectedPosition, position, headshotUrl, 'rostered', positionFlags.is_c, positionFlags.is_1b, positionFlags.is_2b, positionFlags.is_3b, positionFlags.is_ss, positionFlags.is_of, positionFlags.is_util, positionFlags.is_sp, positionFlags.is_rp]
         );
       }
+
+      await this.playerHydrator.hydratePlayerIds();
 
       const roster = await this.getRosterForTeam(teamId);
       if (roster.error) {
@@ -210,22 +226,22 @@ class Team {
     }
 
     async getAllPlayersWithPosition( position ) {
-      const flagKey = positionMap[position];
+      const flagKey = POSITION_MAP[position];
       if (!flagKey) {
         throw new Error(`Invalid position ${position}`);
       }
       const [players] = await db.query(
-        `SELECT name, mlb_team FROM players WHERE ${flagKey} = 1 AND status = 'rostered'`
+        `SELECT name, mlb_team FROM ${this.playersTable} WHERE ${flagKey} = 1 AND status = 'rostered'`
       );
       return players;
     }
 
     async getAvailablePlayersForPositions( eligiblePositions ) {
       const conditions = eligiblePositions
-        .filter(pos => positionMap[pos])
-        .map(pos => `${positionMap[pos]} = 1`)
+        .filter(pos => POSITION_MAP[pos])
+        .map(pos => `${POSITION_MAP[pos]} = 1`)
         .join(' OR ');
-      const [rostered] = await db.query(`SELECT name, mlb_team FROM players WHERE (${conditions}) AND status = 'rostered'`);
+      const [rostered] = await db.query(`SELECT name, mlb_team FROM ${this.playersTable} WHERE (${conditions}) AND status = 'rostered'`);
       return rostered;
     }
 
@@ -266,7 +282,7 @@ class Team {
 
     async getMyRoster() {
         const [[team]] = await db.query(
-          'SELECT id FROM teams WHERE is_user_team = true LIMIT 1'
+          `SELECT id FROM ${this.teamsTable} WHERE is_user_team = true LIMIT 1`
         );
         if (!team) {
           return { error: 'No user team found' };
@@ -277,7 +293,7 @@ class Team {
 
     async getTeamKeyForTeam( teamId ) {
       const [team] = await db.query(
-        'SELECT yahoo_team_id FROM teams WHERE id = ?',
+        `SELECT yahoo_team_id FROM ${this.teamsTable} WHERE id = ?`,
         [teamId]
       );
       return team.yahoo_team_id;
@@ -285,14 +301,14 @@ class Team {
 
     async getTeamKeyForUser() {
       const [team] = await db.query(
-        'SELECT yahoo_team_id FROM teams WHERE is_user_team = true LIMIT 1'
+        `SELECT yahoo_team_id FROM ${this.teamsTable} WHERE is_user_team = true LIMIT 1`
       );
       return team.yahoo_team_id;
     }
 
     async getPlayer( playerId ) {
       const [player] = await db.query(
-        'SELECT id, name, mlb_team, eligible_positions, selected_position, headshot_url FROM players WHERE id = ?',
+        `SELECT id, name, mlb_team, eligible_positions, selected_position, headshot_url FROM ${this.playersTable} WHERE id = ?`,
         [playerId]
       );
       return player[0];
@@ -300,7 +316,7 @@ class Team {
   
     async getRosterForTeam( teamId ) {
       const [players] = await db.query(
-        'SELECT id, name, mlb_team, eligible_positions, selected_position, headshot_url FROM players WHERE team_id = ?',
+        `SELECT id, name, mlb_team, eligible_positions, selected_position, headshot_url FROM ${this.playersTable} WHERE team_id = ?`,
         [teamId]
       );
       return { success: true, players };
@@ -308,14 +324,14 @@ class Team {
 
     async storeSyncTimestamp() {
       await db.query(
-        `INSERT INTO sync_metadata (key_name, last_synced) VALUES ('league_rosters', NOW())
+        `INSERT INTO ${this.syncMetadataTable} (key_name, last_synced) VALUES ('league_rosters', NOW())
          ON DUPLICATE KEY UPDATE last_synced = NOW()`
       );
     }
 
     async isSyncStale() {
       const [rows] = await db.query(
-        `SELECT last_synced FROM sync_metadata WHERE key_name = 'league_rosters'`
+        `SELECT last_synced FROM ${this.syncMetadataTable} WHERE key_name = 'league_rosters'`
       );
       
       return !rows[0] || new Date() - new Date(rows[0].last_synced) > (1000 * 60 * 60);

@@ -10,6 +10,28 @@ const db = mysql.createPool({
   queueLimit: 0
 });
 
+/**
+ * Helper method to execute database operations within a transaction
+ * @param {Function} operation - Async function that receives the connection and performs operations
+ * @returns {Promise<any>} - Result of the operation
+ */
+const executeInTransaction = async (operation) => {
+  const connection = await db.getConnection();
+  
+  try {
+      await connection.beginTransaction();
+      const result = await operation(connection);
+      await connection.commit();
+      return result;
+  } catch (error) {
+      await connection.rollback();
+      throw error;
+  } finally {
+      connection.release();
+  }
+};
+
+
 // YAHOO FANTASY BASEBALL
 async function runMigrations() {
   await db.query(`CREATE TABLE IF NOT EXISTS tokens (
@@ -665,6 +687,7 @@ async function runMigrations() {
       UNIQUE KEY unique_game_team (game_date, game_id, team),
       INDEX idx_normalised_name_pp (normalised_name),
       INDEX idx_game_date_team (game_date, team),
+      INDEX idx_pp_date_opp (game_date, opponent),
       INDEX idx_player_id (player_id),
       INDEX idx_qs_likelihood_score (qs_likelihood_score)
     )
@@ -982,5 +1005,6 @@ async function runMigrations() {
 
 module.exports = {
   runMigrations,
-  db
+  db,
+  executeInTransaction
 }
