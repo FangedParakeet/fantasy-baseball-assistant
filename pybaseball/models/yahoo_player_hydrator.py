@@ -19,6 +19,7 @@ class YahooPlayerHydrator(DB_Recorder):
 
     def hydrate_all_players(self, force: bool=False):
         if not self.sync_status.should_sync(self.HYDRATE_ALL_YAHOO_PLAYERS_SYNC_NAME, force):
+            logger.info(f"Skipping {self.HYDRATE_ALL_YAHOO_PLAYERS_SYNC_NAME} sync")
             return
 
         players = self.yahoo_api.get_all_league_players()
@@ -43,6 +44,7 @@ class YahooPlayerHydrator(DB_Recorder):
 
     def hydrate_existing_players(self, force: bool=False):
         if not self.sync_status.should_sync(self.HYDRATE_EXISTING_YAHOO_PLAYERS_SYNC_NAME, force):
+            logger.info(f"Skipping {self.HYDRATE_EXISTING_YAHOO_PLAYERS_SYNC_NAME} sync")
             return
 
         all_existing_players = self.get_records_with_conditions(self.PLAYER_TABLE_NAME, None, ['yahoo_player_id'], ['yahoo_player_id IS NOT NULL'])
