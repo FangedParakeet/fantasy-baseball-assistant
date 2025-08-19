@@ -35,7 +35,6 @@ class FangraphsStats(SeasonStats):
             logger.info(f"Upserting {all_pitcher_stats.get_row_count()} pitcher stats")
             self.upsert_stats(self.PLAYER_STATS_TABLE, all_pitcher_stats)
 
-
         if batter_data_response is None:
             logger.error("No batter data found from Fangraphs")
         else:

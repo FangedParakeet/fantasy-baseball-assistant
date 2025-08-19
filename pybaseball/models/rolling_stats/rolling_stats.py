@@ -22,6 +22,8 @@ class RollingStats(DB_Recorder):
     def compute_rolling_stats(self, rolling_stats_table, game_logs_table, insert_keys, select_formulas, join_conditions, group_by='', position=None):
         insert_values = ', '.join(insert_keys)
         select_values = ', '.join(select_formulas)
+
+        duplicate_values = ','.join([f'{key} = VALUES({key})' for key in insert_keys])
         
         # Count %s placeholders more precisely
         insert_placeholder_count = sum(item.count('%s') for item in insert_keys)
@@ -43,6 +45,7 @@ class RollingStats(DB_Recorder):
                     WHERE gl.game_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
                     {where_clause}
                     {group_by}
+                    ON DUPLICATE KEY UPDATE {duplicate_values}
                 """
                 # Parameters: split, span_days, (start_date), window (for the WHERE clause)
                 # First placeholder is split, then window repeated (total_placeholders) times (+1 for the WHERE clause)

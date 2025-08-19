@@ -112,24 +112,25 @@ class QSScoreCalculator(ScoreCalculator):
                     LEFT JOIN (
                         SELECT pars.player_id, pars.ip, pars.games
                         FROM {self.player_advanced_rolling_stats_table} pars
-                        WHERE pars.span_days = %s AND pars.split_type = 'overall'
+                        WHERE pars.span_days = %s AND pars.split_type = 'overall' AND pars.position = 'P'
                     ) pr  ON pr.player_id = u.player_id
 
                     LEFT JOIN (
                         SELECT prs.player_id, prs.qs, prs.games AS qs_games
                         FROM {self.player_rolling_stats_table} prs
-                        WHERE prs.span_days = %s AND prs.split_type = 'overall'
+                        WHERE prs.span_days = %s AND prs.split_type = 'overall' AND prs.position = 'P'
                     ) pq  ON pq.player_id = u.player_id
 
                     LEFT JOIN (
                         SELECT ps.player_id, ps.k_pct_pct, ps.bb_pct_pct, ps.hr_per_9_pct
                         FROM {self.player_season_stats_percentiles_table} ps
+                        WHERE ps.position = 'P'
                     ) ps ON ps.player_id = u.player_id
 
                     LEFT JOIN (
                         SELECT pars_pct.player_id, pars_pct.fip_minus_pct
                         FROM {self.player_advanced_rolling_stats_percentiles_table} pars_pct
-                        WHERE pars_pct.span_days = %s AND pars_pct.split_type = 'overall'
+                        WHERE pars_pct.span_days = %s AND pars_pct.split_type = 'overall' AND pars_pct.position = 'P'
                     ) prp ON prp.player_id = u.player_id
 
                     -- Opponent recent runs by home/away split (team_rolling_stats_percentiles)
@@ -176,6 +177,9 @@ class QSScoreCalculator(ScoreCalculator):
         self.begin_transaction()
         try:                
 
+            # Drop any existing temporary table first
+            self.execute_query_in_transaction("DROP TEMPORARY TABLE IF EXISTS tmp_qs_scores")
+            
             # Create temporary table
             self.execute_query_in_transaction("""
                 CREATE TEMPORARY TABLE tmp_qs_scores (
@@ -197,5 +201,10 @@ class QSScoreCalculator(ScoreCalculator):
             self.rollback_transaction()
             raise e
         finally:
+            # Ensure we always try to drop the temp table
+            try:
+                self.execute_query_in_transaction("DROP TEMPORARY TABLE IF EXISTS tmp_qs_scores")
+            except:
+                pass  # Ignore errors when dropping temp table
             self.commit_transaction()
             logger.info("QS likelihood scores updated successfully")

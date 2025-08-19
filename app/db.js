@@ -813,8 +813,8 @@ async function runMigrations() {
       age INT,
       last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
 
-      UNIQUE KEY unique_player_season (player_id),
-      UNIQUE KEY unique_fangraphs_player_season (fangraphs_player_id),
+      UNIQUE KEY unique_player_season (player_id, position),
+      UNIQUE KEY unique_fangraphs_player_season (fangraphs_player_id, position),
       INDEX idx_normalised_name_ps (normalised_name),
       INDEX idx_player_id (player_id)
     );
@@ -892,8 +892,8 @@ async function runMigrations() {
       is_reliable BOOLEAN GENERATED ALWAYS AS (reliability_score >= 70) STORED,
 
 
-      UNIQUE KEY unique_player_season_percentiles (player_id),
-      UNIQUE KEY unique_fangraphs_player_season_percentiles (fangraphs_player_id),
+      UNIQUE KEY unique_player_season_percentiles (player_id, position),
+      UNIQUE KEY unique_fangraphs_player_season_percentiles (fangraphs_player_id, position),
       INDEX idx_normalised_name_ps_percentiles (normalised_name),
       INDEX idx_player_id_percentiles (player_id)
     )

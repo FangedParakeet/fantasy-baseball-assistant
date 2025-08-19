@@ -1,9 +1,10 @@
 from models.game_logs.fangraphs_player_stat_log import FangraphsPlayerStatLog
+from utils.logger import logger
 
 class FangraphsBatterStatLog(FangraphsPlayerStatLog):
     KEYS = [
         'fangraphs_player_id', 'normalised_name', 'team', 'position', 'last_updated', # ID
-        'games', 'pa', 'ab', 'hits', 'hr', 'rbi', 'runs', 'sb', 'avg', 'obp', 'slg', 'ops', 'bb_rate', 'k_rate', # Basic stats
+        'pa', 'avg', 'obp', 'slg', 'ops', 'bb_rate', 'k_rate', # Basic stats
         'iso', 'babip', 'woba', 'wrc_plus', 'wraa' # Advanced batting stats
     ]
 
@@ -17,12 +18,6 @@ class FangraphsBatterStatLog(FangraphsPlayerStatLog):
             return 'B'
         elif key == 'pa':
             return int(self.player_info.get('PA', 0)) if self.player_info.get('PA') else None
-        elif key == 'ab':
-            return int(self.player_info.get('AB', 0)) if self.player_info.get('AB') else None
-        elif key == 'rbi':
-            return int(self.player_info.get('RBI', 0)) if self.player_info.get('RBI') else None
-        elif key == 'sb':
-            return int(self.player_info.get('SB', 0)) if self.player_info.get('SB') else None
         elif key == 'ops':
             return float(self.player_info.get('OPS', 0)) if self.player_info.get('OPS') else None
         elif key == 'bb_rate':

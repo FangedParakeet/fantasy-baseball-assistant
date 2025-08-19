@@ -4,7 +4,10 @@ from utils.constants import FIP_CONSTANT, WOBASCALE
 from utils.logger import logger
 
 class PlayerAdvancedRollingStats(PlayerRollingStats):
-    LEAGUE_AVERAGE_KEYS = ['obp', 'slg', 'ops', 'woba', 'fip']
+    LEAGUE_AVERAGE_KEYS = {
+        'batting': ['obp', 'slg', 'ops', 'woba'],
+        'pitching': ['fip']
+    }
     LEAGUE_AVERAGE_TABLE = 'league_advanced_rolling_stats'
     STATS_KEYS = {
         'batting': ['obp', 'slg', 'ops', 'bb_rate', 'k_rate', 'babip', 'iso', 'contact_pct', 'gb_fb_ratio', 'lob_batting_pct', 'woba'],
@@ -243,12 +246,19 @@ class PlayerAdvancedRollingStats(PlayerRollingStats):
         logger.info("Clearing all existing league averages")
         self.purge_all_records_in_transaction(self.LEAGUE_AVERAGE_TABLE)
         
-        insert_keys = self.SPLIT_WINDOW_KEYS + self.DATE_KEYS + self.LEAGUE_AVERAGE_KEYS
-        all_formulas = self.get_formulas()
-        select_formulas = [all_formulas[key] for key in insert_keys]
-        logger.info(f"Computing league averages for {self.LEAGUE_AVERAGE_KEYS}")
-        join_conditions = super().get_join_conditions()
-        super().compute_rolling_stats(self.LEAGUE_AVERAGE_TABLE, self.game_logs_table, insert_keys, select_formulas, join_conditions)
+        # Compute league averages separately for batters and pitchers
+        for key, stats_list in self.LEAGUE_AVERAGE_KEYS.items():
+            # Only include stats that are relevant for this position
+            position = 'B' if key == 'batting' else 'P'
+            
+            insert_keys = self.SPLIT_WINDOW_KEYS + self.DATE_KEYS + stats_list
+            all_formulas = self.get_formulas()
+            select_formulas = [all_formulas[key] for key in insert_keys]
+            logger.info(f"Computing league averages for {key} stats: {stats_list}")
+            join_conditions = super().get_join_conditions()
+            
+            # Pass the position parameter to properly filter the data
+            super().compute_rolling_stats(self.LEAGUE_AVERAGE_TABLE, self.game_logs_table, insert_keys, select_formulas, join_conditions, '', position)
 
     def compute_percentiles(self):
         logger.info(f"Computing percentiles for advanced rolling stats")

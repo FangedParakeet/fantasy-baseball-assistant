@@ -60,13 +60,25 @@ class SavantApi:
         }
 
     def get_advanced_batting_params(self):
+        selections = [
+            'ab', 'hit', 'home_run', 'b_rbi', 'r_total_stolen_base', 'b_game', 'r_run', 'player_age', 
+            'oz_swing_percent', 'out_zone_swing', 'iz_contact_percent', 'oz_contact_percent', 'in_zone_swing', 'whiff_percent', 
+            'sprint_speed'
+        ]
         return self.get_advanced_params('B') | {
-            'selections': 'player_age,oz_swing_percent,out_zone_swing,iz_contact_percent,in_zone_swing,whiff_percent,sprint_speed',
+            'selections': ','.join(selections),
         }
 
     def get_advanced_pitching_params(self):
+        selections = [
+            'player_age', 'p_game', 'hit', 'home_run', 
+            'batting_avg', 'slg_percent', 'on_base_percent', 
+            'p_run', 'woba', 'p_era',
+            'p_save', 'p_quality_start', 'p_called_strike', 'p_hold', 
+            'p_swinging_strike', 'pitch_count', 'groundballs_percent', 'flyballs_percent'
+        ]
         return self.get_advanced_params('P') | {
-            'selections': 'player_age,p_save,p_quality_start,p_called_strike,p_hold,p_swinging_strike,pitch_count,groundballs_percent,flyballs_percent',
+            'selections': ','.join(selections),
         }
 
     def get_batting_stats(self):

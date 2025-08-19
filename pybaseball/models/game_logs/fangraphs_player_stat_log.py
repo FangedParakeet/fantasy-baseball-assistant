@@ -18,14 +18,6 @@ class FangraphsPlayerStatLog(MlbLog):
             return self.player_info.get('TeamNameAbb', '')
         elif key == 'last_updated':
             return datetime.now(timezone.utc)
-        elif key == 'games':
-            return int(self.player_info.get('G', 0)) if self.player_info.get('G') else None
-        elif key == 'hits':
-            return int(self.player_info.get('H', 0)) if self.player_info.get('H') else None
-        elif key == 'hr':
-            return int(self.player_info.get('HR', 0)) if self.player_info.get('HR') else None
-        elif key == 'runs':
-            return int(self.player_info.get('R', 0)) if self.player_info.get('R') else None
         elif key == 'avg':
             return float(self.player_info.get('AVG', 0)) if self.player_info.get('AVG') else None
         elif key == 'obp':

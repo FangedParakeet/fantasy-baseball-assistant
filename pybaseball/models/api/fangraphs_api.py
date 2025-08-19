@@ -36,7 +36,7 @@ class FangraphsApi:
             "strSplitTeams": False,
             "dctFilters": [],
             "strStatType": "player",
-            "strAutoPt": True,
+            "strAutoPt": False,  # Remove auto qualification to include players with limited data
             "arrPlayerId": [],
             "strSplitArrPitch": [],
             "arrWxTemperature": None,
