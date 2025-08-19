@@ -566,17 +566,21 @@ class Player {
         return relieverScores;
     }
 
-    async getPlayerRankings(spanDays=14, page=1, batterOrPitcher='B', isRostered=false, position=false, orderBy=false) {
+    async getPlayerFantasyRankings(spanDays=14, page=1, batterOrPitcher='B', isRostered=false, position=false, orderBy=false) {
         const playerFields = this.getPlayerFields();
         const pitcherScoringFields = this.getPitcherScoringFields();
         const hitterScoringFields = this.getHitterScoringFields();
         const scoringFields = batterOrPitcher === 'B' ? hitterScoringFields : pitcherScoringFields;
         const isRosteredFilter = ! isRostered ? `AND p.status = 'free_agent'` : '';
         const positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
-        const orderByClause = orderBy ? `ORDER BY prs_pct.${orderBy}_pct` : '';
         const minDataClause = batterOrPitcher === 'B' ? `AND prs_raw.abs >= ?` : `AND prs_raw.ip >= ?`;
         const minDataValue = batterOrPitcher === 'B' ? 15 : 4;
         const offset = (page - 1) * this.pageSize;
+        
+        let orderByClause = batterOrPitcher === 'B' ? `batter_score DESC` : `pitcher_score DESC`;
+        if ( orderBy ) {
+            orderByClause = `prs_pct.${orderBy}_pct DESC, ${orderByClause}`;
+        }
 
         const [playerRankings] = await db.query(`
             SELECT 
@@ -584,8 +588,21 @@ class Player {
                 ${scoringFields},
                 prs_pct.span_days,
                 prs_pct.split_type,
-                (0.60*prs_pct.avg_pct + 0.45*pars.obp_pct + 0.25*pars.bb_rate_pct - 0.30*pars.k_rate_pct) AS contact_onbase_score
-                () AS pitcher_score
+
+                /* Batter fantasy score: All 5 hitting categories */
+                (0.25 * prs_pct.runs_pct + 
+                0.25 * prs_pct.hr_pct + 
+                0.25 * prs_pct.rbi_pct + 
+                0.15 * prs_pct.sb_pct + 
+                0.10 * prs_pct.avg_pct) AS batter_score,
+
+                /* Pitcher fantasy score: K, QS, SVH heavy, with ERA/WHIP control */
+                (0.25 * prs_pct.strikeouts_pct + 
+                0.25 * prs_pct.qs_pct + 
+                0.20 * GREATEST(prs_pct.sv_pct, prs_pct.hld_pct) + 
+                0.15 * (100 - prs_pct.era_pct) + 
+                0.15 * (100 - prs_pct.whip_pct)) AS pitcher_score
+                
             FROM ${this.playerRollingStatsPercentilesTable} prs_pct
             JOIN ${this.playerAdvancedRollingStatsPercentilesTable} pars
                 ON pars.player_id = prs_pct.player_id AND pars.span_days = prs_pct.span_days AND pars.split_type = prs_pct.split_type AND pars.position = ?
@@ -596,7 +613,7 @@ class Player {
                 ${isRosteredFilter}
                 ${positionFilter}
                 ${minDataClause}
-            ORDER BY ${orderByClause} DESC
+            ORDER BY ${orderByClause}
             LIMIT ? OFFSET ?;
         `, [batterOrPitcher, spanDays, 'overall', batterOrPitcher, batterOrPitcher, spanDays, 'overall', minDataValue, this.pageSize, offset]);
         return playerRankings;
