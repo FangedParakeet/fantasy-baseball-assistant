@@ -17,6 +17,109 @@ class Player {
         this.pageSize = 25
     }
 
+    async searchPlayers(query) {
+        const {
+            positionType,
+            position,
+            isRostered,
+            spanDays,
+            page,
+            orderBy,
+        } = query;
+
+        if ( positionType === 'B' || positionType === 'P' ) {
+            return await this.getPlayerFantasyRankings(page, spanDays, positionType, isRostered, position, orderBy);
+        } else if ( positionType === 'speed' ) {
+            return await this.getHitterSpeedWatchlist(page, spanDays, position);
+        } else if ( positionType === 'contact' ) {
+            return await this.getHitterContactOnBaseWatchlist(page, spanDays, position);
+        } else if ( positionType === 'power' ) {
+            return await this.getHitterPowerWatchlist(page, spanDays, position);
+        } else if ( positionType === 'starter' ) {
+            return await this.getPitcherStarterWatchlist(page, spanDays);
+        } else if ( positionType === 'reliever' ) {
+            return await this.getPitcherRelieverWatchlist(page, spanDays);
+        } else {
+            return await this.getPlayerFantasyRankings(page, spanDays, 'B', isRostered, position, orderBy);
+        }
+    }
+
+    async getAvailablePitchers(query, type='daily-streamer') {
+        const {
+            startDate,
+            endDate,
+        } = this.getDateRange(query);
+        if ( type === 'daily-streamer' ) {
+            return await this.getAvailableDailyStreamingPitchers(startDate, endDate);
+        } else if ( type === 'two-start' ) {
+            return await this.getAvailableTwoStartPitchers(startDate, endDate);
+        } else {
+            throw new Error('Invalid type');
+        }
+    }
+
+    async getProbablePitchersForTeam(teamId, query) {
+        const {
+            startDate,
+            endDate,
+        } = this.getDateRange(query);
+        const twoStartPitchers = await this.getTwoStartPitchersForTeam(teamId, startDate, endDate);
+        const probablePitchers = await this.getProbablePitchersForTeam(teamId, startDate, endDate);
+        return {
+            twoStartPitchers,
+            probablePitchers,
+        };
+    }
+
+    async getStatsForTeam(teamId, query, type='batting') {
+        const {
+            spanDays,
+            orderBy,
+        } = query;
+        if ( type === 'batters' ) {
+            return await this.getScoringStatsForTeamBatters(teamId, spanDays, orderBy);
+        } else if ( type === 'pitchers' ) {
+            return await this.getScoringStatsForTeamPitchers(teamId, spanDays, orderBy);
+        } else {
+            throw new Error('Invalid type');
+        }
+    }
+
+    async getScheduleStrengthForTeam(teamId, query, type='batting') {
+        const {
+            startDate,
+            endDate,
+            spanDays,
+        } = this.getDateRange(query);
+        if ( type === 'batting' ) {
+            return await this.getWeeklyHitterScheduleStrengthPreviewForTeam(teamId, startDate, endDate, spanDays);
+        } else if ( type === 'pitching' ) {
+            return await this.getWeeklyPitcherScheduleStrengthPreviewForTeam(teamId, startDate, endDate, spanDays);
+        } else {
+            throw new Error('Invalid type');
+        }
+    }
+
+    getDateRange(query) {
+        const {
+            startDate,
+            endDate,
+        } = query;
+        
+        if ( ! startDate ) {
+            startDate = new Date();
+            startDate.setDate(startDate.getDate() - startDate.getDay());
+        }
+        if ( ! endDate ) {
+            endDate = new Date();
+            endDate.setDate(endDate.getDate() - endDate.getDay() + 6);
+        }
+        return {
+            startDate,
+            endDate,
+        };
+    }
+
     getPlayerFields() {
         return this.defaultPlayerFields.map(field => `p.${field}`).join(', ');
     }
@@ -566,7 +669,7 @@ class Player {
         return relieverScores;
     }
 
-    async getPlayerFantasyRankings(spanDays=14, page=1, batterOrPitcher='B', isRostered=false, position=false, orderBy=false) {
+    async getPlayerFantasyRankings(page=1, spanDays=14, batterOrPitcher='B', isRostered=false, position=false, orderBy=false) {
         const playerFields = this.getPlayerFields();
         const pitcherScoringFields = this.getPitcherScoringFields();
         const hitterScoringFields = this.getHitterScoringFields();

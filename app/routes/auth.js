@@ -2,6 +2,7 @@ const express = require('express');
 const Token = require('../classes/token');
 const Yahoo = require('../classes/yahoo');
 const { db } = require('../db');
+const { sendSuccess, sendError } = require('../utils');
 
 const router = express.Router();
 const token = new Token();
@@ -11,11 +12,10 @@ const yahoo = new Yahoo();
 router.get('/token-status', async (req, res) => {
   try {
     const status = await token.status();
-
-    res.json(status);
+    sendSuccess(res, status, 'Token status retrieved successfully');
   } catch (error) {
     console.error('Token status error:', error);
-    res.status(500).json({ error: 'Failed to get token status' });
+    sendError(res, 500, 'Failed to get token status');
   }
 });
 
@@ -26,7 +26,7 @@ router.get('/login', async (req, res) => {
     res.redirect(authUrl);
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Failed to generate auth URL' });
+    sendError(res, 500, 'Failed to generate auth URL');
   }
 });
 
@@ -36,7 +36,7 @@ router.get('/redirect', async (req, res) => {
     const { code } = req.query;
     
     if (!code) {
-      return res.status(400).json({ error: 'Authorization code required' });
+      return sendError(res, 400, 'Authorization code required');
     }
 
     console.log('=== OAUTH REDIRECT DEBUG ===');
@@ -48,7 +48,7 @@ router.get('/redirect', async (req, res) => {
 
     if (tokensResponse.error) {
       console.error('OAuth error:', tokensResponse);
-      return res.status(400).json({ error: 'OAuth failed', details: tokensResponse });
+      return sendError(res, 400, 'OAuth failed');
     }
 
     await token.set(tokensResponse);
@@ -59,7 +59,7 @@ router.get('/redirect', async (req, res) => {
     res.redirect(`https://${process.env.SITE_DOMAIN}/?oauth=success`);
   } catch (error) {
     console.error('OAuth redirect error:', error);
-    res.status(500).json({ error: 'OAuth authentication failed' });
+    sendError(res, 500, 'OAuth authentication failed');
   }
 });
 
@@ -70,21 +70,21 @@ router.post('/refresh-token', async (req, res) => {
     console.log('oldTokens', oldTokens);
     
     if (!oldTokens.refresh_token) {
-      return res.status(400).json({ error: 'No refresh token available' });
+      return sendError(res, 400, 'No refresh token available');
     }
 
     const newTokens = await yahoo.refreshTokens(oldTokens.refresh_token);
     
     if (newTokens.error) {
-      return res.status(400).json({ error: 'Token refresh failed', details: newTokens });
+      return sendError(res, 400, 'Token refresh failed');
     }
 
     await token.set(newTokens);
 
-    res.json({ message: 'Token refreshed successfully' });
+    sendSuccess(res, { message: 'Token refreshed successfully' }, 'Token refreshed successfully');
   } catch (error) {
     console.error('Token refresh error:', error);
-    res.status(500).json({ error: 'Token refresh failed' });
+    sendError(res, 500, 'Token refresh failed');
   }
 });
 
@@ -94,19 +94,19 @@ router.get('/access-token', async (req, res) => {
     const tokens = await token.get();
     
     if (!tokens.access_token) {
-      return res.status(404).json({ error: 'No access token available' });
+      return sendError(res, 404, 'No access token available');
     }
 
     const isExpired = !tokens.expires_at || new Date(tokens.expires_at) <= new Date();
 
     if (isExpired) {
-      return res.status(401).json({ error: 'Token expired' });
+      return sendError(res, 401, 'Token expired');
     }
 
-    res.json({ access_token: tokens.access_token });
+    sendSuccess(res, { access_token: tokens.access_token }, 'Access token retrieved successfully');
   } catch (error) {
     console.error('Get access token error:', error);
-    res.status(500).json({ error: 'Failed to get access token' });
+    sendError(res, 500, 'Failed to get access token');
   }
 });
 

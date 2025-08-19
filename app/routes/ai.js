@@ -4,21 +4,20 @@ const AI = require('../classes/ai');
 const Team = require('../classes/team');
 const Yahoo = require('../classes/yahoo');
 const ai = new AI();
-const { getValidAccessToken, parseEligiblePositions } = require('../utils');
-
+const { getValidAccessToken, parseEligiblePositions, sendSuccess, sendError } = require('../utils');
 
 router.post('/ai/opponent-analysis', async (req, res) => {
-    const { teamId, weekStart } = req.body;
-    
-    if (!teamId || !weekStart) {
-        return res.status(400).json({ error: 'Missing required fields' });
-    }
-    
     try {
+        const { teamId, weekStart } = req.body;
+        
+        if (!teamId || !weekStart) {
+            return sendError(res, 400, 'Missing required fields');
+        }
+        
         const team = new Team();
         const opponentRoster = await team.getRosterForTeam(teamId);
         if (!opponentRoster.players.length) {
-            return res.status(404).json({ error: 'No players found for this team' });
+            return sendError(res, 404, 'No players found for this team');
         }
 
         // Turn roster into prompt input
@@ -36,28 +35,28 @@ router.post('/ai/opponent-analysis', async (req, res) => {
             Return a short bullet point analysis.`;
   
         const result = await ai.getCompletion(prompt, 'opponent_analysis');
-        res.json({ result });
+        sendSuccess(res, { result }, 'Opponent analysis generated successfully');
     } catch (err) {
         console.error('Opponent analysis error:', err);
         if (err.code === 'ECONNABORTED') {
-            return res.status(504).json({ error: 'AI request timed out. Please try again shortly.' });
+            return sendError(res, 504, 'AI request timed out. Please try again shortly.');
         } else if (err.response?.data?.error?.message) {
-            return res.status(500).json({ error: `AI request failed: ${err.response.data.error.message}` });
+            return sendError(res, 500, `AI request failed: ${err.response.data.error.message}`);
         } else if (err.message) {
-            return res.status(500).json({ error: `AI request failed: ${err.message}` });
+            return sendError(res, 500, `AI request failed: ${err.message}`);
         }
-        res.status(500).json({ error: 'Failed to generate opponent analysis' });
+        sendError(res, 500, 'Failed to generate opponent analysis');
     }
 });
 
 router.post('/ai/two-start-pitchers', async (req, res) => {
-    const { weekStart } = req.body;
-  
-    if (!weekStart ) {
-        return res.status(400).json({ error: 'Missing week start date' });
-    }
-  
     try {
+        const { weekStart } = req.body;
+      
+        if (!weekStart ) {
+            return sendError(res, 400, 'Missing week start date');
+        }
+      
         const accessToken = await getValidAccessToken();
         const yahoo = new Yahoo(accessToken);
         const team = new Team(yahoo);
@@ -77,28 +76,28 @@ router.post('/ai/two-start-pitchers', async (req, res) => {
         `;
   
         const result = await ai.getCompletion(prompt, 'two_start_pitchers');
-        res.json({ result });
+        sendSuccess(res, { result }, 'Two-start pitcher recommendations generated successfully');
     } catch (err) {
         console.error('Two-start pitcher error:', err);
         if (err.code === 'ECONNABORTED') {
-            return res.status(504).json({ error: 'AI request timed out. Please try again shortly.' });
+            return sendError(res, 504, 'AI request timed out. Please try again shortly.');
         } else if (err.response?.data?.error?.message) {
-            return res.status(500).json({ error: `AI request failed: ${err.response.data.error.message}` });
+            return sendError(res, 500, `AI request failed: ${err.response.data.error.message}`);
         } else if (err.message) {
-            return res.status(500).json({ error: `AI request failed: ${err.message}` });
+            return sendError(res, 500, `AI request failed: ${err.message}`);
         }
-        res.status(500).json({ error: 'Failed to generate two-start pitcher recommendations' });
+        sendError(res, 500, 'Failed to generate two-start pitcher recommendations');
     }
 });
 
 router.post('/ai/daily-streamers', async (req, res) => {
-    const { weekStart } = req.body;
-
-    if (!weekStart) {
-        return res.status(400).json({ error: 'Missing week start date' });
-    }
-
     try {
+        const { weekStart } = req.body;
+
+        if (!weekStart) {
+            return sendError(res, 400, 'Missing week start date');
+        }
+
         const accessToken = await getValidAccessToken();
         const yahoo = new Yahoo(accessToken);
         const team = new Team(yahoo);
@@ -119,40 +118,40 @@ router.post('/ai/daily-streamers', async (req, res) => {
         `;
 
         const result = await ai.getCompletion(prompt, 'daily_streamers');
-        res.json({ result });
+        sendSuccess(res, { result }, 'Daily streamer recommendations generated successfully');
     } catch (err) {
         console.error('Daily streamer error:', err);
         if (err.code === 'ECONNABORTED') {
-            return res.status(504).json({ error: 'AI request timed out. Please try again shortly.' });
+            return sendError(res, 504, 'AI request timed out. Please try again shortly.');
         } else if (err.response?.data?.error?.message) {
-            return res.status(500).json({ error: `AI request failed: ${err.response.data.error.message}` });
+            return sendError(res, 500, `AI request failed: ${err.response.data.error.message}`);
         } else if (err.message) {
-            return res.status(500).json({ error: `AI request failed: ${err.message}` });
+            return sendError(res, 500, `AI request failed: ${err.message}`);
         }
-        res.status(500).json({ error: 'Failed to generate daily streamer recommendations' });
+        sendError(res, 500, 'Failed to generate daily streamer recommendations');
     }
 });
 
 router.post('/ai/positional-add-drop', async (req, res) => {
-    const { weekStart, playerId, position } = req.body;
-  
-    if (!weekStart || (!playerId && !position)) {
-        return res.status(400).json({ error: 'Missing required fields: weekStart and either playerId or position' });
-    }
-  
     try {
+        const { weekStart, playerId, position } = req.body;
+      
+        if (!weekStart || (!playerId && !position)) {
+            return sendError(res, 400, 'Missing required fields: weekStart and either playerId or position');
+        }
+      
         const accessToken = await getValidAccessToken();
         const yahoo = new Yahoo(accessToken);
         const team = new Team(yahoo);
         await team.syncAllLeagueTeams();
-  
+      
         let unavailable = [];
         let eligiblePositions = [];
-  
+      
         if (playerId) {
             const player = await team.getPlayer(playerId); 
             if (!player) {
-                return res.status(404).json({ error: 'Player not found' });
+                return sendError(res, 404, 'Player not found');
             }
 
             const parsed = JSON.parse(player.eligible_positions);
@@ -182,56 +181,56 @@ router.post('/ai/positional-add-drop', async (req, res) => {
         `;
   
         const result = await ai.getCompletion(prompt, 'positional_add_drop');
-        res.json({ result });  
+        sendSuccess(res, { result }, 'Positional add/drop recommendations generated successfully');
     } catch (err) {
         console.error('Positional add/drop error:', err);
         if (err.code === 'ECONNABORTED') {
-            return res.status(504).json({ error: 'AI request timed out. Please try again shortly.' });
+            return sendError(res, 504, 'AI request timed out. Please try again shortly.');
         } else if (err.response?.data?.error?.message) {
-            return res.status(500).json({ error: `AI request failed: ${err.response.data.error.message}` });
+            return sendError(res, 500, `AI request failed: ${err.response.data.error.message}`);
         } else if (err.message) {
-            return res.status(500).json({ error: `AI request failed: ${err.message}` });
+            return sendError(res, 500, `AI request failed: ${err.message}`);
         }
-        res.status(500).json({ error: 'Failed to generate positional recommendations' });
+        sendError(res, 500, 'Failed to generate positional recommendations');
     }
-  });
+});
   
 router.post('/ai/context', async (req, res) => {
-    const { key, content } = req.body;
     try {
+        const { key, content } = req.body;
         await ai.setContext(key, content);
-        res.json({ success: true });
+        sendSuccess(res, { success: true }, 'Context stored successfully');
     } catch (err) {
-        res.status(500).json({ error: 'Failed to store context' });
+        sendError(res, 500, 'Failed to store context');
     }
 });
 
 router.get('/ai/context', async (req, res) => {
     try {
         const contexts = await ai.getContexts();
-        res.json({ contexts });
+        sendSuccess(res, { contexts }, 'Contexts retrieved successfully');
     } catch (err) {
-        res.status(500).json({ error: 'Failed to retrieve contexts' });
+        sendError(res, 500, 'Failed to retrieve contexts');
     }
 });
 
 router.get('/ai/context/:key', async (req, res) => {
-    const { key } = req.params;
     try {
+        const { key } = req.params;
         const content = await ai.getContext(key);
-        res.json({ content });
+        sendSuccess(res, { content }, 'Context retrieved successfully');
     } catch (err) {
-        res.status(500).json({ error: 'Failed to retrieve context' });
+        sendError(res, 500, 'Failed to retrieve context');
     }
 });
 
 router.post('/ai/analyse', async (req, res) => {
-    const { prompt, contextKey } = req.body;
     try {
+        const { prompt, contextKey } = req.body;
         const result = await ai.getCompletion(prompt, contextKey);
-        res.json({ result });
+        sendSuccess(res, { result }, 'AI analysis completed successfully');
     } catch (err) {
-        res.status(500).json({ error: 'AI analysis failed' });
+        sendError(res, 500, 'AI analysis failed');
     }
 });
 

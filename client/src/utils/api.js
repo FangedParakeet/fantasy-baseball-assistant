@@ -33,6 +33,12 @@ api.interceptors.response.use(
 
 // Helper function to handle API responses consistently
 export const handleApiResponse = (response) => {
+  // Handle new standardized response format
+  if (response.data && response.data.success !== undefined) {
+    // New format: { success: true, message: "...", data: {...} }
+    return response.data.data;
+  }
+  // Fallback to old format: direct data
   return response.data;
 };
 
@@ -40,7 +46,15 @@ export const handleApiResponse = (response) => {
 export const handleApiError = (error) => {
   if (error.response) {
     // Server responded with error status
-    return error.response.data?.error || `HTTP ${error.response.status}: ${error.response.statusText}`;
+    const errorData = error.response.data;
+    
+    // Handle new standardized error format
+    if (errorData && errorData.success === false && errorData.error) {
+      return errorData.error;
+    }
+    
+    // Fallback to old format
+    return errorData?.error || `HTTP ${error.response.status}: ${error.response.statusText}`;
   } else if (error.request) {
     // Network error
     return 'Network error - please check your connection';
