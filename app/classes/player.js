@@ -764,6 +764,9 @@ class Player {
                 ${playerFields}, 
                 ${pitcherScoringFields},
                 ${pitcherAdvancedScoringFields},
+                team_rs_pct.nrfi_pct AS team_nrfi_pct,
+                opponent_rs_pct.nrfi_pct AS opponent_nrfi_pct,
+                prs_pct.nrfi_pct AS player_nrfi_pct,
                 AVG(pp.nrfi_likelihood_score) OVER (PARTITION BY pp.game_id) AS avg_nrfi_score
             FROM ${this.probablePitchersTable} pp
             LEFT JOIN ${this.playersTable} p ON p.player_id = pp.player_id
@@ -774,11 +777,15 @@ class Player {
                 ON prs_pct.player_id = pp.player_id AND prs_pct.span_days = ? AND prs_pct.split_type = 'overall' AND prs_pct.position = 'P'
             LEFT JOIN ${this.playerRollingStatsTable} prs_raw
                 ON prs_raw.player_id = pp.player_id AND prs_raw.span_days = ? AND prs_raw.split_type = 'overall' AND prs_raw.position = 'P'
+            RIGHT JOIN ${this.teamRollingStatsPercentilesTable} team_rs_pct
+                ON team_rs_pct.team = pp.team AND team_rs_pct.span_days = ? AND team_rs_pct.split_type = 'overall'
+            RIGHT JOIN ${this.teamRollingStatsPercentilesTable} opponent_rs_pct
+                ON opponent_rs_pct.team = pp.opponent AND opponent_rs_pct.span_days = ? AND opponent_rs_pct.split_type = 'overall'
             WHERE pp.game_date BETWEEN ? AND ? 
                 AND pp.avg_nrfi_score IS NOT NULL
             ORDER BY pp.game_date ASC, avg_nrfi_score DESC
             `, 
-            [spanDays, spanDays, spanDays, startDate, endDate]
+            [spanDays, spanDays, spanDays, spanDays, spanDays, spanDays, startDate, endDate]
         );
         return nrfiRankings;
     }
