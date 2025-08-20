@@ -37,6 +37,16 @@ router.get('/search/pitchers/daily-streamer', async (req, res) => {
     }
 });
 
+router.get('/search/pitchers/nrfi', async (req, res) => {
+    try {
+        const player = new Player();
+        const pitchers = await player.getAvailablePitchers(req.query, 'nrfi');
+        sendSuccess(res, pitchers, 'NRFI rankings retrieved successfully');
+    } catch (error) {
+        console.error('Error getting NRFI rankings:', error);
+        sendError(res, 500, 'Failed to get NRFI rankings');
+    }
+});
 
 // Preview team
 router.get('/preview/team/:teamId/probable-pitchers', async (req, res) => {

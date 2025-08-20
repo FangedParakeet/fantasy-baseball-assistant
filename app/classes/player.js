@@ -14,7 +14,7 @@ class Player {
         this.defaultPlayerFields = [
             'id', 'name', 'mlb_team', 'eligible_positions', 'selected_position', 'headshot_url'
         ]
-        this.pageSize = 25
+        this.pageSize = 25;
     }
 
     async searchPlayers(query) {
@@ -53,6 +53,8 @@ class Player {
             return await this.getAvailableDailyStreamingPitchers(startDate, endDate);
         } else if ( type === 'two-start' ) {
             return await this.getAvailableTwoStartPitchers(startDate, endDate);
+        } else if ( type === 'nrfi' ) {
+            return await this.getNRFIRankings(startDate, endDate);
         } else {
             throw new Error('Invalid type');
         }
@@ -114,9 +116,11 @@ class Player {
             endDate = new Date();
             endDate.setDate(endDate.getDate() - endDate.getDay() + 6);
         }
+        const formattedStartDate = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        const formattedEndDate = endDate.toISOString().split('T')[0]; // YYYY-MM-DD
         return {
-            startDate,
-            endDate,
+            startDate: formattedStartDate,
+            endDate: formattedEndDate,
         };
     }
 
@@ -140,6 +144,20 @@ class Player {
         return this.getFields(pitcherScoringFields, rawFields);
     }
 
+    getPitcherAdvancedScoringFields() {
+        const pitcherAdvancedScoringFields = [
+            'k_per_9', 'bb_per_9', 'fip'
+        ];
+        return pitcherAdvancedScoringFields.map(field => `pars.${field}_pct`).join(', ');
+    }
+
+    getHitterAdvancedScoringFields() {
+        const hitterAdvancedScoringFields = [
+            'obp', 'slg', 'ops', 'k_rate', 'bb_rate', 'iso', 'wraa'
+        ];
+        return hitterAdvancedScoringFields.map(field => `pars.${field}_pct`).join(', ');
+    }
+
     getHitterScoringFields() {
         const hitterScoringFields = [
             'runs', 'hr', 'rbi', 'sb', 'avg'
@@ -154,15 +172,14 @@ class Player {
         }
         const playerFields = this.getPlayerFields();
         const pitcherScoringFields = this.getPitcherScoringFields();
+        const pitcherAdvancedScoringFields = this.getPitcherAdvancedScoringFields();
         const spanDays = 30;
         const [probablePitchers] = await db.query(
             `SELECT 
                 pp.game_date, pp.team, pp.opponent, pp.home, pp.player_id, pp.accuracy, pp.qs_likelihood_score,
                 ${playerFields}, 
                 ${pitcherScoringFields},
-                pars.k_per_9_pct,
-                pars.bb_per_9_pct,
-                pars.fip_pct,
+                ${pitcherAdvancedScoringFields},
                 AVG(pp.qs_likelihood_score) OVER (PARTITION BY pp.player_id) AS avg_qs_score
             FROM ${this.probablePitchersTable} pp
             LEFT JOIN ${this.playersTable} p ON p.player_id = pp.player_id
@@ -197,13 +214,12 @@ class Player {
         const spanDays = 30;
         const playerFields = this.getPlayerFields();
         const pitcherScoringFields = this.getPitcherScoringFields();
+        const pitcherAdvancedScoringFields = this.getPitcherAdvancedScoringFields();
         const [probablePitchers] = await db.query(
             `SELECT pp.game_date, pp.team, pp.opponent, pp.home, pp.player_id, pp.normalised_name, pp.accuracy, pp.qs_likelihood_score,
                 ${playerFields}, 
                 ${pitcherScoringFields},
-                pars.k_per_9_pct,
-                pars.bb_per_9_pct,
-                pars.fip_pct
+                ${pitcherAdvancedScoringFields}
             FROM ${this.probablePitchersTable} pp
             LEFT JOIN ${this.playersTable} p ON p.player_id = pp.player_id
             LEFT JOIN ${this.playerLookupsTable} pl ON pl.player_id = pp.player_id
@@ -277,6 +293,7 @@ class Player {
         }
         const playerFields = this.getPlayerFields();
         const hitterScoringFields = this.getHitterScoringFields();
+        const hitterAdvancedScoringFields = this.getHitterAdvancedScoringFields();
         let orderByClause = '';
         if (orderBy) {
             orderByClause = `ORDER BY prs_pct.${orderBy}_pct DESC`;
@@ -284,7 +301,8 @@ class Player {
         const [playerStats] = await db.query(
             `SELECT 
                 ${playerFields}, 
-                ${hitterScoringFields}
+                ${hitterScoringFields},
+                ${hitterAdvancedScoringFields}
             FROM ${this.playersTable} p
             LEFT JOIN ${this.playerRollingStatsTable} prs_raw
                 ON prs_raw.player_id = p.player_id 
@@ -296,10 +314,14 @@ class Player {
                 AND prs_pct.position = p.position
                 AND prs_pct.span_days = ?
                 AND prs_pct.split_type = 'overall'
+            LEFT JOIN ${this.playerAdvancedRollingStatsPercentilesTable} pars
+                ON pars.player_id = p.player_id 
+                AND pars.span_days = ? 
+                AND pars.split_type = 'overall' AND pars.position = 'B'
             WHERE p.team_id = ? AND p.position = 'B'
             ${orderByClause}
             `,
-            [spanDays, spanDays, teamId]
+            [spanDays, spanDays, spanDays, teamId]
         );
         return playerStats;
     }
@@ -310,6 +332,7 @@ class Player {
         }
         const playerFields = this.getPlayerFields();
         const pitcherScoringFields = this.getPitcherScoringFields();
+        const pitcherAdvancedScoringFields = this.getPitcherAdvancedScoringFields();
         let orderByClause = '';
         if (orderBy) {
             orderByClause = `ORDER BY prs_pct.${orderBy}_pct DESC`;
@@ -317,7 +340,8 @@ class Player {
         const [playerStats] = await db.query(
             `SELECT 
                 ${playerFields}, 
-                ${pitcherScoringFields}
+                ${pitcherScoringFields},
+                ${pitcherAdvancedScoringFields}
             FROM ${this.playersTable} p
             LEFT JOIN ${this.playerRollingStatsTable} prs_raw
                 ON prs_raw.player_id = p.player_id 
@@ -329,10 +353,14 @@ class Player {
                 AND prs_pct.position = p.position
                 AND prs_pct.span_days = ?
                 AND prs_pct.split_type = 'overall'
+            LEFT JOIN ${this.playerAdvancedRollingStatsPercentilesTable} pars
+                ON pars.player_id = p.player_id 
+                AND pars.span_days = ? 
+                AND pars.split_type = 'overall' AND pars.position = 'P'
             WHERE p.team_id = ? AND p.position = 'P'
             ${orderByClause}
             `,
-            [spanDays, spanDays, teamId]
+            [spanDays, spanDays, spanDays, teamId]
         );
         return playerStats;
     }
@@ -501,14 +529,14 @@ class Player {
         const minAbs = 15;
         const playerFields = this.getPlayerFields();
         const hitterScoringFields = this.getHitterScoringFields();
+        const hitterAdvancedScoringFields = this.getHitterAdvancedScoringFields();
         const [hitterScores] = await db.query(`
             SELECT 
                 ${playerFields}, 
+                ${hitterScoringFields},
+                ${hitterAdvancedScoringFields},
                 prs_pct.span_days,
                 prs_pct.split_type,
-                ${hitterScoringFields},
-                pars.obp_pct,
-                pars.k_rate_pct,
                 /* score: SB heavy, OBP/contact support, light AVG, penalise K% */
                 ( 1.00*prs_pct.sb_pct
                 + 0.35*pars.obp_pct
@@ -540,15 +568,14 @@ class Player {
         const minAbs = 15;
         const playerFields = this.getPlayerFields();
         const hitterScoringFields = this.getHitterScoringFields();
+        const hitterAdvancedScoringFields = this.getHitterAdvancedScoringFields();
         const [hitterScores] = await db.query(`
             SELECT 
                 ${playerFields}, 
+                ${hitterScoringFields},
+                ${hitterAdvancedScoringFields},
                 prs_pct.span_days,
                 prs_pct.split_type,
-                ${hitterScoringFields},
-                pars.obp_pct,
-                pars.bb_rate_pct,
-                pars.k_rate_pct,
                 (0.60*prs_pct.avg_pct + 0.45*pars.obp_pct + 0.25*pars.bb_rate_pct - 0.30*pars.k_rate_pct) AS contact_onbase_score
             FROM ${this.playerRollingStatsPercentilesTable} prs_pct
             JOIN ${this.playerAdvancedRollingStatsPercentilesTable} pars
@@ -573,15 +600,14 @@ class Player {
         const minAbs = 15;
         const playerFields = this.getPlayerFields();
         const hitterScoringFields = this.getHitterScoringFields();
+        const hitterAdvancedScoringFields = this.getHitterAdvancedScoringFields();
         const [hitterScores] = await db.query(`
             SELECT 
                 ${playerFields}, 
                 ${hitterScoringFields},
+                ${hitterAdvancedScoringFields},
                 prs_pct.span_days,
                 prs_pct.split_type,
-                pars.iso_pct,
-                pars.slg_pct,
-                pars.k_rate_pct,
                 (0.70*prs_pct.hr_pct + 0.40*pars.iso_pct + 0.35*pars.slg_pct - 0.20*pars.k_rate_pct + 0.15*prs_pct.rbi_pct) AS power_score
             FROM ${this.playerRollingStatsPercentilesTable} prs_pct
             JOIN ${this.playerAdvancedRollingStatsPercentilesTable} pars
@@ -605,15 +631,14 @@ class Player {
         const minIp = 6;
         const playerFields = this.getPlayerFields();
         const pitcherScoringFields = this.getPitcherScoringFields();
+        const pitcherAdvancedScoringFields = this.getPitcherAdvancedScoringFields();
         const [starterScores] = await db.query(`
             SELECT 
                 ${playerFields}, 
                 ${pitcherScoringFields},
+                ${pitcherAdvancedScoringFields},
                 prs_pct.span_days,
                 prs_pct.split_type,
-                pars.k_per_9_pct,
-                pars.bb_per_9_pct,
-                pars.fip_pct,
                 (0.45*pars.k_per_9_pct - 0.30*pars.bb_per_9_pct + 0.30*prs_pct.qs_pct + 0.25*pars.fip_pct
                     + 0.15*prs_pct.whip_pct + 0.10*prs_pct.era_pct) AS k_qs_score
             FROM ${this.playerRollingStatsPercentilesTable} prs_pct
@@ -637,15 +662,14 @@ class Player {
         const minIp = 4;
         const playerFields = this.getPlayerFields();
         const pitcherScoringFields = this.getPitcherScoringFields();
+        const pitcherAdvancedScoringFields = this.getPitcherAdvancedScoringFields();
         const [relieverScores] = await db.query(`
             SELECT 
                 ${playerFields}, 
                 ${pitcherScoringFields},
+                ${pitcherAdvancedScoringFields},
                 prs_pct.span_days,
                 prs_pct.split_type,
-                pars.k_per_9_pct,
-                pars.bb_per_9_pct,
-                pars.fip_pct,
                 /* Emphasise recent role (SV/HLD), then skills; punish walks */
                 (0.55*GREATEST(prs_pct.sv_pct, prs_pct.hld_pct)
                     + 0.25*pars.k_per_9_pct
@@ -673,7 +697,10 @@ class Player {
         const playerFields = this.getPlayerFields();
         const pitcherScoringFields = this.getPitcherScoringFields();
         const hitterScoringFields = this.getHitterScoringFields();
+        const hitterAdvancedScoringFields = this.getHitterAdvancedScoringFields();
+        const pitcherAdvancedScoringFields = this.getPitcherAdvancedScoringFields();
         const scoringFields = batterOrPitcher === 'B' ? hitterScoringFields : pitcherScoringFields;
+        const advancedScoringFields = batterOrPitcher === 'B' ? hitterAdvancedScoringFields : pitcherAdvancedScoringFields;
         const isRosteredFilter = ! isRostered ? `AND p.status = 'free_agent'` : '';
         const positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
         const minDataClause = batterOrPitcher === 'B' ? `AND prs_raw.abs >= ?` : `AND prs_raw.ip >= ?`;
@@ -689,6 +716,7 @@ class Player {
             SELECT 
                 ${playerFields}, 
                 ${scoringFields},
+                ${advancedScoringFields},
                 prs_pct.span_days,
                 prs_pct.split_type,
 
@@ -721,6 +749,39 @@ class Player {
         `, [batterOrPitcher, spanDays, 'overall', batterOrPitcher, batterOrPitcher, spanDays, 'overall', minDataValue, this.pageSize, offset]);
         return playerRankings;
     }
-}
+
+    async getNRFIRankings(startDate, endDate) {
+        if (!startDate || !endDate) {
+            throw new Error('Missing required parameters');
+        }
+        const spanDays = 30;
+        const playerFields = this.getPlayerFields();
+        const pitcherScoringFields = this.getPitcherScoringFields();
+        const pitcherAdvancedScoringFields = this.getPitcherAdvancedScoringFields();
+        const [nrfiRankings] = await db.query(`
+            SELECT 
+                pp.game_date, pp.team, pp.opponent, pp.home, pp.player_id, pp.accuracy, pp.nrfi_likelihood_score,
+                ${playerFields}, 
+                ${pitcherScoringFields},
+                ${pitcherAdvancedScoringFields},
+                AVG(pp.nrfi_likelihood_score) OVER (PARTITION BY pp.game_id) AS avg_nrfi_score
+            FROM ${this.probablePitchersTable} pp
+            LEFT JOIN ${this.playersTable} p ON p.player_id = pp.player_id
+            LEFT JOIN ${this.playerLookupsTable} pl ON pl.player_id = pp.player_id
+            LEFT JOIN ${this.playerAdvancedRollingStatsPercentilesTable} pars 
+                ON pars.player_id = pp.player_id AND pars.span_days = ? AND pars.split_type = 'overall' AND pars.position = 'P'
+            LEFT JOIN ${this.playerRollingStatsPercentilesTable} prs_pct
+                ON prs_pct.player_id = pp.player_id AND prs_pct.span_days = ? AND prs_pct.split_type = 'overall' AND prs_pct.position = 'P'
+            LEFT JOIN ${this.playerRollingStatsTable} prs_raw
+                ON prs_raw.player_id = pp.player_id AND prs_raw.span_days = ? AND prs_raw.split_type = 'overall' AND prs_raw.position = 'P'
+            WHERE pp.game_date BETWEEN ? AND ? 
+                AND pp.avg_nrfi_score IS NOT NULL
+            ORDER BY pp.game_date ASC, avg_nrfi_score DESC
+            `, 
+            [spanDays, spanDays, spanDays, startDate, endDate]
+        );
+        return nrfiRankings;
+    }
+    }
 
 module.exports = Player;
