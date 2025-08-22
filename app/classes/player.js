@@ -25,22 +25,23 @@ class Player {
             spanDays,
             page,
             orderBy,
+            teamId,
         } = query;
 
         if ( positionType === 'B' || positionType === 'P' ) {
-            return await this.getPlayerFantasyRankings(page, spanDays, positionType, isRostered, position, orderBy);
+            return await this.getPlayerFantasyRankings(page, spanDays, positionType, isRostered, position, orderBy, teamId);
         } else if ( positionType === 'speed' ) {
-            return await this.getHitterSpeedWatchlist(page, spanDays, position);
+            return await this.getHitterSpeedWatchlist(page, spanDays, position, teamId);
         } else if ( positionType === 'contact' ) {
-            return await this.getHitterContactOnBaseWatchlist(page, spanDays, position);
+            return await this.getHitterContactOnBaseWatchlist(page, spanDays, position, teamId);
         } else if ( positionType === 'power' ) {
-            return await this.getHitterPowerWatchlist(page, spanDays, position);
+            return await this.getHitterPowerWatchlist(page, spanDays, position, teamId);
         } else if ( positionType === 'starter' ) {
-            return await this.getPitcherStarterWatchlist(page, spanDays);
+            return await this.getPitcherStarterWatchlist(page, spanDays, teamId);
         } else if ( positionType === 'reliever' ) {
-            return await this.getPitcherRelieverWatchlist(page, spanDays);
+            return await this.getPitcherRelieverWatchlist(page, spanDays, teamId);
         } else {
-            return await this.getPlayerFantasyRankings(page, spanDays, 'B', isRostered, position, orderBy);
+            return await this.getPlayerFantasyRankings(page, spanDays, 'B', isRostered, position, orderBy, teamId);
         }
     }
 
@@ -554,10 +555,12 @@ class Player {
         });
     }
 
-    async getHitterSpeedWatchlist(page=1, spanDays=14, position=false) {
+    async getHitterSpeedWatchlist(page=1, spanDays=14, position=false, teamId=false) {
         let positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
         const offset = (page - 1) * this.pageSize;
         const minAbs = 15;
+        const playerFilter = teamId ? `AND p.team_id = ?` : `AND p.status = ?`;
+        const playerFilterValue = teamId ? teamId : 'free_agent';
         const playerFields = this.getPlayerFields();
         const hitterScoringFields = this.getHitterScoringFields();
         const hitterAdvancedScoringFields = this.getHitterAdvancedScoringFields();
@@ -585,18 +588,20 @@ class Player {
                 AND prs_pct.split_type = ?
                 AND prs_pct.reliability_score >= 60
                 AND prs_raw.abs >= ?
-                AND p.status = 'free_agent'
+                ${playerFilter}
                 ${positionFilter}
             ORDER BY sb_pickup_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minAbs, offset, this.pageSize]);
+        `, [spanDays, 'overall', spanDays, 'overall', minAbs, playerFilterValue, offset, this.pageSize]);
         return hitterScores;
     }
 
-    async getHitterContactOnBaseWatchlist(page=1, spanDays=14, position=false) {
+    async getHitterContactOnBaseWatchlist(page=1, spanDays=14, position=false, teamId=false) {
         let positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
         const offset = (page - 1) * this.pageSize;
         const minAbs = 15;
+        const playerFilter = teamId ? `AND p.team_id = ?` : `AND p.status = ?`;
+        const playerFilterValue = teamId ? teamId : 'free_agent';
         const playerFields = this.getPlayerFields();
         const hitterScoringFields = this.getHitterScoringFields();
         const hitterAdvancedScoringFields = this.getHitterAdvancedScoringFields();
@@ -617,18 +622,20 @@ class Player {
             WHERE prs_pct.span_days = ? AND prs_pct.split_type = ?
                 AND prs_pct.reliability_score >= 60
                 AND prs_raw.abs >= ?
-                AND p.status = 'free_agent'
+                ${playerFilter}
                 ${positionFilter}
             ORDER BY contact_onbase_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minAbs, this.pageSize, offset]);
+        `, [spanDays, 'overall', spanDays, 'overall', minAbs, playerFilterValue, offset, this.pageSize]);
         return hitterScores;
     }
 
-    async getHitterPowerWatchlist(page=1, spanDays=14, position=false) {
+    async getHitterPowerWatchlist(page=1, spanDays=14, position=false, teamId=false) {
         let positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
         const offset = (page - 1) * this.pageSize;
         const minAbs = 15;
+        const playerFilter = teamId ? `AND p.team_id = ?` : `AND p.status = ?`;
+        const playerFilterValue = teamId ? teamId : 'free_agent';
         const playerFields = this.getPlayerFields();
         const hitterScoringFields = this.getHitterScoringFields();
         const hitterAdvancedScoringFields = this.getHitterAdvancedScoringFields();
@@ -649,17 +656,19 @@ class Player {
             WHERE prs_pct.span_days = ? AND prs_pct.split_type = ?
                 AND prs_pct.reliability_score >= 60
                 AND prs_raw.abs >= ?
-                AND p.status = 'free_agent'
+                ${playerFilter}
                 ${positionFilter}
             ORDER BY power_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minAbs, this.pageSize, offset]);
+        `, [spanDays, 'overall', spanDays, 'overall', minAbs, playerFilterValue, offset, this.pageSize]);
         return hitterScores;
     }
 
-    async getPitcherStarterWatchlist(page=1, spanDays=14) {
+    async getPitcherStarterWatchlist(page=1, spanDays=14, teamId=false) {
         const offset = (page - 1) * this.pageSize;
         const minIp = 6;
+        const playerFilter = teamId ? `AND p.team_id = ?` : `AND p.status = ?`;
+        const playerFilterValue = teamId ? teamId : 'free_agent';
         const playerFields = this.getPlayerFields();
         const pitcherScoringFields = this.getPitcherScoringFields();
         const pitcherAdvancedScoringFields = this.getPitcherAdvancedScoringFields();
@@ -681,16 +690,18 @@ class Player {
             WHERE prs_pct.span_days = ? AND prs_pct.split_type = ?
                 AND prs_pct.reliability_score >= 60
                 AND prs_raw.ip >= ?
-                AND p.status = 'free_agent'
+                ${playerFilter}
             ORDER BY k_qs_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minIp, this.pageSize, offset]);
+        `, [spanDays, 'overall', spanDays, 'overall', minIp, playerFilterValue, offset, this.pageSize]);
         return starterScores;
     }
 
-    async getPitcherRelieverWatchlist(page=1, spanDays=14) {
+    async getPitcherRelieverWatchlist(page=1, spanDays=14, teamId=false) {
         const offset = (page - 1) * this.pageSize;
         const minIp = 4;
+        const playerFilter = teamId ? `AND p.team_id = ?` : `AND p.status = ?`;
+        const playerFilterValue = teamId ? teamId : 'free_agent';
         const playerFields = this.getPlayerFields();
         const pitcherScoringFields = this.getPitcherScoringFields();
         const pitcherAdvancedScoringFields = this.getPitcherAdvancedScoringFields();
@@ -717,14 +728,14 @@ class Player {
             WHERE prs_pct.span_days = ? AND prs_pct.split_type = ?
                 AND prs_pct.reliability_score >= 55
                 AND prs_raw.ip >= ?
-                AND p.status = 'free_agent'
+                ${playerFilter}
             ORDER BY leverage_relief_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minIp, this.pageSize, offset]);
+        `, [spanDays, 'overall', spanDays, 'overall', minIp, playerFilterValue, offset, this.pageSize]);
         return relieverScores;
     }
 
-    async getPlayerFantasyRankings(page=1, spanDays=14, batterOrPitcher='B', isRostered=false, position=false, orderBy=false) {
+    async getPlayerFantasyRankings(page=1, spanDays=14, batterOrPitcher='B', isRostered=false, position=false, orderBy=false, teamId=false) {
         const playerFields = this.getPlayerFields();
         const pitcherScoringFields = this.getPitcherScoringFields();
         const hitterScoringFields = this.getHitterScoringFields();
@@ -733,6 +744,7 @@ class Player {
         const scoringFields = batterOrPitcher === 'B' ? hitterScoringFields : pitcherScoringFields;
         const advancedScoringFields = batterOrPitcher === 'B' ? hitterAdvancedScoringFields : pitcherAdvancedScoringFields;
         const isRosteredFilter = ! isRostered ? `AND p.status = 'free_agent'` : '';
+        const teamFilter = teamId ? `AND p.team_id = ?` : '';
         const positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
         const minDataClause = batterOrPitcher === 'B' ? `AND prs_raw.abs >= ?` : `AND prs_raw.ip >= ?`;
         const minDataValue = batterOrPitcher === 'B' ? 15 : 4;
@@ -743,6 +755,9 @@ class Player {
             orderByClause = `prs_pct.${orderBy}_pct DESC, ${orderByClause}`;
         }
 
+        const params = teamId ? 
+        [spanDays, 'overall', batterOrPitcher, batterOrPitcher, batterOrPitcher, spanDays, 'overall', minDataValue, teamId, this.pageSize, offset] : 
+        [spanDays, 'overall', batterOrPitcher, batterOrPitcher, batterOrPitcher, spanDays, 'overall', minDataValue, this.pageSize, offset];
         const [playerRankings] = await db.query(`
             SELECT 
                 ${playerFields}, 
@@ -775,9 +790,10 @@ class Player {
                 ${isRosteredFilter}
                 ${positionFilter}
                 ${minDataClause}
+                ${teamFilter}
             ORDER BY ${orderByClause}
             LIMIT ? OFFSET ?;
-        `, [batterOrPitcher, spanDays, 'overall', batterOrPitcher, batterOrPitcher, spanDays, 'overall', minDataValue, this.pageSize, offset]);
+        `, params);
         return playerRankings;
     }
 
