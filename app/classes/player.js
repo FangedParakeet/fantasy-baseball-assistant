@@ -60,7 +60,7 @@ class Player {
         }
     }
 
-    async getProbablePitchersForTeam(teamId, query) {
+    async getProbablesStatsForTeam(teamId, query) {
         const {
             startDate,
             endDate,
@@ -78,9 +78,9 @@ class Player {
             spanDays,
             orderBy,
         } = query;
-        if ( type === 'batters' ) {
+        if ( type === 'batting' ) {
             return await this.getScoringStatsForTeamBatters(teamId, spanDays, orderBy);
-        } else if ( type === 'pitchers' ) {
+        } else if ( type === 'pitching' ) {
             return await this.getScoringStatsForTeamPitchers(teamId, spanDays, orderBy);
         } else {
             throw new Error('Invalid type');
@@ -103,7 +103,7 @@ class Player {
     }
 
     getDateRange(query) {
-        const {
+        let {
             startDate,
             endDate,
         } = query;
@@ -111,10 +111,14 @@ class Player {
         if ( ! startDate ) {
             startDate = new Date();
             startDate.setDate(startDate.getDate() - startDate.getDay());
+        } else {
+            startDate = new Date(startDate);
         }
         if ( ! endDate ) {
             endDate = new Date();
             endDate.setDate(endDate.getDate() - endDate.getDay() + 6);
+        } else {
+            endDate = new Date(endDate);
         }
         const formattedStartDate = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
         const formattedEndDate = endDate.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -150,20 +154,20 @@ class Player {
         ];
         return pitcherAdvancedScoringFields.map(field => `pars.${field}_pct`).join(', ');
     }
-
-    getHitterAdvancedScoringFields() {
-        const hitterAdvancedScoringFields = [
-            'obp', 'slg', 'ops', 'k_rate', 'bb_rate', 'iso', 'wraa'
-        ];
-        return hitterAdvancedScoringFields.map(field => `pars.${field}_pct`).join(', ');
-    }
-
+    
     getHitterScoringFields() {
         const hitterScoringFields = [
             'runs', 'hr', 'rbi', 'sb', 'avg'
         ];
         const rawFields = [ 'hits', 'abs' ];
         return this.getFields(hitterScoringFields, rawFields);
+    }
+
+    getHitterAdvancedScoringFields() {
+        const hitterAdvancedScoringFields = [
+            'obp', 'slg', 'ops', 'k_rate', 'bb_rate', 'iso', 'wraa'
+        ];
+        return hitterAdvancedScoringFields.map(field => `pars.${field}_pct`).join(', ');
     }
 
     async getAvailableTwoStartPitchers(startDate, endDate) {
@@ -302,7 +306,14 @@ class Player {
             `SELECT 
                 ${playerFields}, 
                 ${hitterScoringFields},
-                ${hitterAdvancedScoringFields}
+                ${hitterAdvancedScoringFields},
+                
+                /* Batter fantasy score: All 5 hitting categories */
+                (0.25 * prs_pct.runs_pct + 
+                0.25 * prs_pct.hr_pct + 
+                0.25 * prs_pct.rbi_pct + 
+                0.15 * prs_pct.sb_pct + 
+                0.10 * prs_pct.avg_pct) AS fantasy_score
             FROM ${this.playersTable} p
             LEFT JOIN ${this.playerRollingStatsTable} prs_raw
                 ON prs_raw.player_id = p.player_id 
@@ -341,7 +352,15 @@ class Player {
             `SELECT 
                 ${playerFields}, 
                 ${pitcherScoringFields},
-                ${pitcherAdvancedScoringFields}
+                ${pitcherAdvancedScoringFields},
+
+                /* Pitcher fantasy score: K, QS, SVH heavy, with ERA/WHIP control */
+                (0.25 * prs_pct.strikeouts_pct + 
+                0.25 * prs_pct.qs_pct + 
+                0.20 * GREATEST(prs_pct.sv_pct, prs_pct.hld_pct) + 
+                0.15 * (100 - prs_pct.era_pct) + 
+                0.15 * (100 - prs_pct.whip_pct)) AS fantasy_score
+
             FROM ${this.playersTable} p
             LEFT JOIN ${this.playerRollingStatsTable} prs_raw
                 ON prs_raw.player_id = p.player_id 
@@ -375,9 +394,11 @@ class Player {
             const [pitcherScores] = await connection.query(`
                 SELECT 
                     ${outerPlayerFields}, 
-                    AVG(start_score) AS week_stream_score, COUNT(*) AS starts, 
-                    MAX(qs_pct) AS qs_pct, MAX(fip_pct) AS fip_pct, 100 - AVG(opp_ops_vs_hand_pct) AS opp_ops_vs_hand_pct,
-                    MAX(bb_per_9_pct) AS bb_per_9_pct
+                    AVG(start_score) AS pitcher_week_score, COUNT(*) AS starts, 
+                    MAX(qs_pct) AS qs_pct, MAX(sv_pct) AS sv_pct, MAX(hld_pct) AS hld_pct, 
+                    100 - AVG(opp_ops_vs_hand_pct) AS opp_ops_vs_hand_pct,
+                    MAX(fip_pct) AS fip_pct, MAX(bb_per_9_pct) AS bb_per_9_pct, MAX(k_per_9_pct) AS k_per_9_pct, 
+                    MAX(reliability_score) AS reliability_score
                     FROM (
                         SELECT
                             ${innerPlayerFields}, 
@@ -389,7 +410,11 @@ class Player {
                             tvp.ops_pct     AS opp_ops_vs_hand_pct,
                             pars.fip_pct,
                             prs_pct.qs_pct,
+                            prs_pct.sv_pct,
+                            prs_pct.hld_pct,
                             pars.bb_per_9_pct,
+                            pars.k_per_9_pct,
+                            pars.reliability_score,
                             /* start_score formula - handle NULLs gracefully */
                             (0.45*(100 - COALESCE(tvp.ops_pct, 50))  -- Default to 50 if missing
                                 + 0.25*COALESCE(pars.fip_pct, 50)    -- Default to 50 if missing
@@ -410,7 +435,7 @@ class Player {
                             AND p.team_id = ?
                         ) s
                     GROUP BY player_id
-                    ORDER BY week_stream_score DESC
+                    ORDER BY pitcher_week_score DESC
                 `, [spanDays, 'overall', spanDays, 'overall', spanDays, startDate, endDate, teamId]);
             return pitcherScores;
         });
@@ -494,10 +519,14 @@ class Player {
             
             // Query the aggregated results from temporary table
             const playerFields = this.getPlayerFields();
+            const advancedScoringFields = this.getHitterAdvancedScoringFields();
             const [hitterScores] = await connection.query(`
                 SELECT
                     ${playerFields}, 
+                    ${advancedScoringFields},
                     p.player_id,
+                    SUM(t.games) AS games,
+                    pars.reliability_score,
                     SUM(t.games * (
                         0.50*(100 - trs.whip_pct)
                         + 0.30*(100 - trs.fip_pct)
@@ -506,13 +535,15 @@ class Player {
                 FROM temp_opponents t
                 JOIN ${this.playerLookupsTable} lu ON lu.player_id = t.player_id
                 JOIN ${this.playersTable} p ON p.player_id = lu.player_id AND p.position = 'B'
+                JOIN ${this.playerAdvancedRollingStatsPercentilesTable} pars
+                    ON pars.player_id = t.player_id AND pars.span_days = ? AND pars.split_type = 'overall' AND pars.position = 'B'
                 JOIN ${this.teamRollingStatsPercentilesTable} trs
-                    ON trs.team = t.opponent_team AND trs.split_type = 'overall' AND trs.span_days = ? AND trs.position = 'B'
+                    ON trs.team = t.opponent_team AND trs.split_type = 'overall' AND trs.span_days = ?
                 JOIN ${this.teamVsBatterSplitsPercentilesTable} tvb
                     ON tvb.team = t.opponent_team AND tvb.bats = lu.bats AND tvb.span_days = ?
                 GROUP BY t.player_id
                 ORDER BY hitter_week_score DESC;
-            `, [spanDays, spanDays, teamId]);
+            `, [spanDays, spanDays, spanDays, teamId]);
 
             // Drop the temporary table
             await connection.query(`

@@ -57,7 +57,7 @@ router.get('/preview/team/:teamId/probable-pitchers', async (req, res) => {
         }
         
         const player = new Player();
-        const pitchers = await player.getProbablePitchersForTeam(teamId, req.query);
+        const pitchers = await player.getProbablesStatsForTeam(teamId, req.query);
         sendSuccess(res, pitchers, 'Probable pitchers retrieved successfully');
     } catch (error) {
         console.error('Error getting probable pitchers:', error);
