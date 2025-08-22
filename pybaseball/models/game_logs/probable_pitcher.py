@@ -1,5 +1,6 @@
 from models.game_logs.mlb_log import MlbLog
 from utils.functions import normalise_name, convert_utc_date
+from utils.constants import ESPN_TO_BACKEND_TEAM_MAP
 
 class ProbablePitcher(MlbLog):
     KEYS = ['game_id', 'game_date', 'team', 'opponent', 'espn_pitcher_id', 'home', 'pitcher_name', 'normalised_name', 'accuracy']
@@ -22,9 +23,9 @@ class ProbablePitcher(MlbLog):
         elif key == 'game_date':
             return convert_utc_date(self.event_data.get('date', None))
         elif key == 'team':
-            return self.team_data.get('team', {}).get('abbreviation', None)
+            return ESPN_TO_BACKEND_TEAM_MAP.get(self.team_data.get('team', {}).get('abbreviation', None), None)
         elif key == 'opponent':
-            return self.opponent_data.get('team', {}).get('abbreviation', None)
+            return ESPN_TO_BACKEND_TEAM_MAP.get(self.opponent_data.get('team', {}).get('abbreviation', None), None)
         elif key == 'espn_pitcher_id':
             return self.pitcher_data.get('playerId', None)
         elif key == 'home':

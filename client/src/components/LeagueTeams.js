@@ -614,7 +614,7 @@ function LeagueTeams() {
                   ISO %{sortField === 'iso_pct' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
                 <th onClick={() => handleSort('wraa_pct')} className="sortable-header">
-                  WRAAs %{sortField === 'wraa_pct' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  WRAA %{sortField === 'wraa_pct' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
                 <th onClick={() => handleSort('hitter_week_score')} className="sortable-header">
                   Week Schedule Score {sortField === 'hitter_week_score' && (sortDirection === 'asc' ? '↑' : '↓')}
