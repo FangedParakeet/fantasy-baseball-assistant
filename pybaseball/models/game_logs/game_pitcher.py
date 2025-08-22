@@ -1,5 +1,6 @@
 from utils.functions import convert_utc_date
 from models.game_logs.mlb_log import MlbLog
+from utils.constants import MLB_TO_BACKEND_TEAM_MAP
 
 class GamePitcher(MlbLog):
     KEYS = ['game_id', 'home_team', 'away_team', 'home_pitcher_id', 'away_pitcher_id', 'game_date']
@@ -15,9 +16,9 @@ class GamePitcher(MlbLog):
 
     def get_value_for_key(self, key):
         if key == 'home_team':
-            return self.game_data.get('home_team', None)
+            return MLB_TO_BACKEND_TEAM_MAP.get(self.game_data.get('home_team', None), self.game_data.get('home_team', None))
         elif key == 'away_team':
-            return self.game_data.get('away_team', None)
+            return MLB_TO_BACKEND_TEAM_MAP.get(self.game_data.get('away_team', None), self.game_data.get('away_team', None))
         elif key == 'home_pitcher_id':
             return self.home_pitcher_id
         elif key == 'away_pitcher_id':

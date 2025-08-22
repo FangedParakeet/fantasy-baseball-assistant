@@ -17,7 +17,7 @@ const YAHOO_TO_BACKEND_TEAM_MAP = {
     'KC': 'KC',   // Kansas City Royals (same)
     'CWS': 'CWS', // Chicago White Sox (same)
     'LAA': 'LAA', // Los Angeles Angels (same)
-    'ATH': 'OAK', // Oakland Athletics
+    'ATH': 'ATH', // Oakland Athletics
     'SEA': 'SEA', // Seattle Mariners (same)
     'ATL': 'ATL', // Atlanta Braves (same)
     'MIA': 'MIA', // Miami Marlins (same)

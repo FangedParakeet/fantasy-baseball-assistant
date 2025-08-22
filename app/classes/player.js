@@ -4,6 +4,7 @@ class Player {
     constructor() {
         this.probablePitchersTable = 'probable_pitchers';
         this.playersTable = 'players';
+        this.teamsTable = 'teams';
         this.playerLookupsTable = 'player_lookup';
         this.playerRollingStatsTable = 'player_rolling_stats';
         this.playerRollingStatsPercentilesTable = 'player_rolling_stats_percentiles';
@@ -25,8 +26,10 @@ class Player {
             spanDays,
             page,
             orderBy,
-            teamId,
+            isUserTeam,
         } = query;
+
+        const teamId = isUserTeam ? await this.getUserTeamId() : false;
 
         if ( positionType === 'B' || positionType === 'P' ) {
             return await this.getPlayerFantasyRankings(page, spanDays, positionType, isRostered, position, orderBy, teamId);
@@ -169,6 +172,22 @@ class Player {
             'obp', 'slg', 'ops', 'k_rate', 'bb_rate', 'iso', 'wraa'
         ];
         return hitterAdvancedScoringFields.map(field => `pars.${field}_pct`).join(', ');
+    }
+
+    async getUserTeamId() {
+        try {
+            const [[team]] = await db.query(
+                `SELECT id FROM ${this.teamsTable} WHERE is_user_team = true LIMIT 1`
+            );
+            if (!team) {
+                return false;
+            }
+            const teamId = team.id;
+            return teamId;            
+        } catch (error) {
+            console.error('Error getting user team id:', error);
+            return false;
+        }
     }
 
     async getAvailableTwoStartPitchers(startDate, endDate) {

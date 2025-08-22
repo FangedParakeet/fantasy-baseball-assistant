@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api, { handleApiResponse, handleApiError } from '../utils/api';
-import { ucfirst } from '../utils/functions';
+import { ucfirst, formatIP, sortPlayers, getPercentileColor, formatDate, formatEligiblePositions } from '../utils/functions';
 
 function LeagueTeams() {
   const [teams, setTeams] = useState([]);
@@ -19,11 +19,6 @@ function LeagueTeams() {
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('desc');
 
-  // Position ordering for display
-  const positionOrder = {
-    'C': 1, '1B': 2, '2B': 3, '3B': 4, 'SS': 5, 'OF': 6, 'Util': 7,
-    'SP': 8, 'RP': 9, 'P': 10, 'BN': 11
-  };
 
   useEffect(() => {
     fetchTeams();
@@ -173,60 +168,7 @@ function LeagueTeams() {
     }
   };
 
-  const sortPlayers = (players, field, direction) => {
-    if (!field) return players;
-    
-    return [...players].sort((a, b) => {
-      let aVal = a[field] || 0;
-      let bVal = b[field] || 0;
-      
-      if (field === 'position') {
-        const aPos = positionOrder[a.selected_position] || 999;
-        const bPos = positionOrder[b.selected_position] || 999;
-        return direction === 'asc' ? aPos - bPos : bPos - aPos;
-      }
-      else if (field === 'game_date') {
-        return direction === 'asc' ? new Date(aVal) - new Date(bVal) : new Date(bVal) - new Date(aVal);
-      }
-      else if (field === 'era' || field === 'whip') {
-        // For ERA/WHIP, lower is better
-        return direction === 'asc' ? aVal - bVal : bVal - aVal;
-      } else {
-        // For other stats, higher is better
-        return direction === 'asc' ? aVal - bVal : bVal - aVal;
-      }
-    });
-  };
-
-  const getPercentileColor = (percentile, reliabilityScore) => {
-    // Handle missing data
-    if (!percentile || !reliabilityScore || reliabilityScore < 70) {
-      return 'rgba(171, 178, 183, 0.75)'; // Gray for low reliability or missing data
-    }
-    
-    if (percentile >= 90) return 'rgba(120, 200, 65, 1)'; // Green
-    if (percentile >= 80) return 'rgba(180, 229, 130, 1)'; // Green
-    if (percentile >= 70) return 'rgba(229, 245, 190, 1)'; // Light green
-    if (percentile >= 60) return 'rgba(245, 245, 190, 1)'; // Yellow
-    if (percentile >= 50) return 'rgba(245, 229, 190, 1)'; // Orange
-    if (percentile >= 40) return 'rgba(245, 200, 190, 1)'; // Red
-    return 'rgba(244, 120, 124, 1)'; // Red
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return `${days[date.getDay()]} ${date.getMonth() + 1}/${date.getDate()}`;
-  };
-
-  const formatEligiblePositions = (eligiblePositions) => {
-    try {
-      return JSON.parse(eligiblePositions).join(', ');
-    } catch (error) {
-      return eligiblePositions.replace(/["\[\]]/g, '');
-    }
-  };
-
+  
   const renderBattersTable = (data, title) => {
     if (!data || data.length === 0) {
       return (
@@ -407,7 +349,7 @@ function LeagueTeams() {
                       </div>
                     </div>
                   </td>
-                  <td>{player.ip || 0}</td>
+                  <td>{formatIP(player.ip) || 0}</td>
                   <td 
                     className="stat-cell"
                     style={{ backgroundColor: getPercentileColor(player.strikeouts_pct, player.reliability_score) }}

@@ -1,6 +1,7 @@
 import re
 from utils.functions import convert_utc_date
 from models.game_logs.mlb_log import MlbLog
+from utils.constants import MLB_TO_BACKEND_TEAM_MAP
 
 class GameLog(MlbLog):    
     def __init__(self, team_home_or_away, game_data, box_score_data):
@@ -15,7 +16,7 @@ class GameLog(MlbLog):
 
     def get_value_for_key(self, key):
         if key == 'team':
-            return self.team
+            return MLB_TO_BACKEND_TEAM_MAP.get(self.team, self.team)
         elif key == 'opponent':
             return self.game_data.get(f'{self.opponent_team_home_or_away}_team', None)
         elif key == 'is_home':
