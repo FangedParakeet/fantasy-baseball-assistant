@@ -71,6 +71,7 @@ class Player {
         } = this.getDateRange(query);
         const twoStartPitchers = await this.getTwoStartPitchersForTeam(teamId, startDate, endDate);
         const probablePitchers = await this.getProbablePitchersForTeam(teamId, startDate, endDate);
+                
         return {
             twoStartPitchers,
             probablePitchers,
@@ -115,26 +116,29 @@ class Player {
         if ( ! startDate ) {
             startDate = new Date();
             startDate.setDate(startDate.getDate() - startDate.getDay());
-        } else {
-            startDate = new Date(startDate);
+            // Format default date
+            startDate = startDate.toISOString().split('T')[0];
         }
         if ( ! endDate ) {
             endDate = new Date();
             endDate.setDate(endDate.getDate() - endDate.getDay() + 6);
-        } else {
-            endDate = new Date(endDate);
+            // Format default date
+            endDate = endDate.toISOString().split('T')[0];
         }
-        const formattedStartDate = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
-        const formattedEndDate = endDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        
+        // If dates are already strings in YYYY-MM-DD format, use them as-is
+        // The database stores dates in this format, so no conversion needed
         return {
-            startDate: formattedStartDate,
-            endDate: formattedEndDate,
+            startDate: startDate,
+            endDate: endDate,
         };
     }
 
     getPlayerFields() {
         return this.defaultPlayerFields.map(field => `p.${field}`).join(', ');
     }
+
+
 
     getFields(scoringFields, rawFields) {
         return scoringFields
@@ -200,7 +204,7 @@ class Player {
         const spanDays = 30;
         const [probablePitchers] = await db.query(
             `SELECT 
-                pp.game_date, pp.team, pp.opponent, pp.home, pp.player_id, pp.accuracy, pp.qs_likelihood_score,
+                DATE_FORMAT(pp.game_date, '%Y-%m-%d') AS game_date, pp.team, pp.opponent, pp.home, pp.player_id, pp.accuracy, pp.qs_likelihood_score,
                 ${playerFields}, 
                 ${pitcherScoringFields},
                 ${pitcherAdvancedScoringFields},
@@ -240,7 +244,8 @@ class Player {
         const pitcherScoringFields = this.getPitcherScoringFields();
         const pitcherAdvancedScoringFields = this.getPitcherAdvancedScoringFields();
         const [probablePitchers] = await db.query(
-            `SELECT pp.game_date, pp.team, pp.opponent, pp.home, pp.player_id, pp.normalised_name, pp.accuracy, pp.qs_likelihood_score,
+            `SELECT DATE_FORMAT(pp.game_date, '%Y-%m-%d') AS game_date, pp.team, pp.opponent, pp.home, 
+                pp.player_id, pp.normalised_name, pp.accuracy, pp.qs_likelihood_score,
                 ${playerFields}, 
                 ${pitcherScoringFields},
                 ${pitcherAdvancedScoringFields}
@@ -269,7 +274,7 @@ class Player {
         const playerFields = this.getPlayerFields();
         const [probablePitchers] = await db.query(`
             SELECT 
-                pp.game_date, pp.team, pp.opponent, pp.home, pp.player_id, pp.accuracy, pp.qs_likelihood_score,
+                DATE_FORMAT(pp.game_date, '%Y-%m-%d') AS game_date, pp.team, pp.opponent, pp.home, pp.player_id, pp.accuracy, pp.qs_likelihood_score,
                 ${playerFields},
                 AVG(pp.qs_likelihood_score) OVER (PARTITION BY pp.player_id) AS avg_qs_score
             FROM ${this.probablePitchersTable} pp
@@ -298,7 +303,7 @@ class Player {
         const playerFields = this.getPlayerFields();
         const [probablePitchers] = await db.query(
             `SELECT 
-                pp.game_date, pp.team, pp.opponent, pp.home, p.player_id, pp.accuracy, pp.qs_likelihood_score,
+                DATE_FORMAT(pp.game_date, '%Y-%m-%d') AS game_date, pp.team, pp.opponent, pp.home, p.player_id, pp.accuracy, pp.qs_likelihood_score,
                 ${playerFields}
             FROM ${this.probablePitchersTable} pp
             JOIN ${this.playersTable} p ON p.player_id = pp.player_id
@@ -826,7 +831,7 @@ class Player {
         const pitcherAdvancedScoringFields = this.getPitcherAdvancedScoringFields();
         const [nrfiRankings] = await db.query(`
             SELECT 
-                pp.game_date, pp.team, pp.opponent, pp.home, pp.player_id, pp.accuracy, pp.nrfi_likelihood_score,
+                DATE_FORMAT(pp.game_date, '%Y-%m-%d') AS game_date, pp.team, pp.opponent, pp.home, pp.player_id, pp.accuracy, pp.nrfi_likelihood_score,
                 ${playerFields}, 
                 ${pitcherScoringFields},
                 ${pitcherAdvancedScoringFields},

@@ -60,7 +60,20 @@ const sortPlayers = (players, field, direction) => {
   };
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
+    // Handle both UTC timestamps and EST date strings
+    let date;
+    
+    if (dateString.includes('T') && dateString.includes('Z')) {
+      // UTC timestamp format (e.g., "2025-08-18T00:00:00.000Z")
+      date = new Date(dateString);
+      // Convert to EST (UTC-5) for proper display
+      const estOffset = -5 * 60 * 60 * 1000; // EST is UTC-5
+      date = new Date(date.getTime() + estOffset);
+    } else {
+      // EST date string format (e.g., "2025-08-18")
+      date = new Date(dateString + 'T00:00:00-05:00');
+    }
+    
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     return `${days[date.getDay()]} ${date.getMonth() + 1}/${date.getDate()}`;
   };
