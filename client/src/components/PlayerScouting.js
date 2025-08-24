@@ -224,9 +224,9 @@ function PlayerScouting() {
 
   const getPlayerPercentile = (player, field) => {
     if (['era', 'whip', 'k_rate', 'bb_per_9', 'fip'].includes(field)) {
-      return 100 - player[field + '_pct'];
+      return Number.parseFloat(100 - player[field + '_pct']).toFixed(2);
     }
-    return player[field + '_pct'] || 0;
+    return Number.parseFloat(player[field + '_pct']).toFixed(2) || 0;
   }
 
   const renderPlayerTable = (players, title, isMyTeam) => {
