@@ -9,6 +9,7 @@ import MyTeam from './components/MyTeam';
 import LeagueTeams from './components/LeagueTeams';
 import Settings from './components/Settings';
 import TwoStartPitchers from './components/TwoStartPitchers';
+import PlayerScouting from './components/PlayerScouting';
 
 // Main App Component
 function App() {
@@ -23,6 +24,7 @@ function App() {
         <Route path="/league-teams" element={<LeagueTeams />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/two-start-pitchers" element={<TwoStartPitchers />} />
+        <Route path="/player-scouting" element={<PlayerScouting />} />
         <Route path="*" element={<div>404 - Page not found</div>} />
       </Routes>
     </Router>

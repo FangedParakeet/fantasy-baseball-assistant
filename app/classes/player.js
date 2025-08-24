@@ -15,11 +15,11 @@ class Player {
         this.defaultPlayerFields = [
             'id', 'name', 'mlb_team', 'eligible_positions', 'selected_position', 'headshot_url'
         ]
-        this.pageSize = 25;
+        this.pageSize = 15;
     }
 
     async searchPlayers(query) {
-        const {
+        let {
             positionType,
             position,
             isRostered,
@@ -28,6 +28,11 @@ class Player {
             orderBy,
             isUserTeam,
         } = query;
+
+        position = position !== 'false' ? position : false;
+        isRostered = isRostered !== 'false' ? isRostered : false;
+        isUserTeam = isUserTeam !== 'false' ? isUserTeam : false;
+        orderBy = orderBy !== 'false' ? orderBy : false;
 
         const teamId = isUserTeam ? await this.getUserTeamId() : false;
 
@@ -44,7 +49,7 @@ class Player {
         } else if ( positionType === 'reliever' ) {
             return await this.getPitcherRelieverWatchlist(page, spanDays, teamId);
         } else {
-            return await this.getPlayerFantasyRankings(page, spanDays, 'B', isRostered, position, orderBy, teamId);
+            throw new Error('Invalid position type');
         }
     }
 
@@ -286,6 +291,7 @@ class Player {
                     LEFT JOIN ${this.playersTable} p2 ON p2.player_id = pp2.player_id
                     WHERE pp2.normalised_name = pp.normalised_name
                         AND p2.team_id = ?
+                        AND p2.position = 'P'
                         AND pp2.game_date BETWEEN ? AND ?
                     HAVING COUNT(*) > 1
                 )
@@ -308,6 +314,7 @@ class Player {
             FROM ${this.probablePitchersTable} pp
             JOIN ${this.playersTable} p ON p.player_id = pp.player_id
             WHERE pp.game_date BETWEEN ? AND ?
+                AND p.position = 'P'
                 AND p.team_id = ?
             ORDER BY pp.game_date ASC, pp.qs_likelihood_score DESC, pp.normalised_name ASC
             `,
@@ -610,13 +617,14 @@ class Player {
             LEFT JOIN ${this.playersTable} p ON p.player_id = prs_pct.player_id AND p.position = 'B'
             WHERE prs_pct.span_days = ?
                 AND prs_pct.split_type = ?
+                AND prs_pct.position = 'B'
                 AND prs_pct.reliability_score >= 60
                 AND prs_raw.abs >= ?
                 ${playerFilter}
                 ${positionFilter}
             ORDER BY sb_pickup_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minAbs, playerFilterValue, offset, this.pageSize]);
+        `, [spanDays, 'overall', spanDays, 'overall', minAbs, playerFilterValue, this.pageSize, offset]);
         return hitterScores;
     }
 
@@ -643,14 +651,14 @@ class Player {
             JOIN ${this.playerRollingStatsTable} prs_raw ON prs_raw.player_id = prs_pct.player_id AND prs_raw.span_days = ? AND prs_raw.split_type = ? AND prs_raw.position = 'B'
             LEFT JOIN ${this.playerLookupsTable} pls ON pls.player_id = prs_pct.player_id
             LEFT JOIN ${this.playersTable} p ON p.player_id = prs_pct.player_id AND p.position = 'B'
-            WHERE prs_pct.span_days = ? AND prs_pct.split_type = ?
+            WHERE prs_pct.span_days = ? AND prs_pct.split_type = ? AND prs_pct.position = 'B'
                 AND prs_pct.reliability_score >= 60
                 AND prs_raw.abs >= ?
                 ${playerFilter}
                 ${positionFilter}
             ORDER BY contact_onbase_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minAbs, playerFilterValue, offset, this.pageSize]);
+        `, [spanDays, 'overall', spanDays, 'overall', minAbs, playerFilterValue, this.pageSize, offset]);
         return hitterScores;
     }
 
@@ -677,14 +685,14 @@ class Player {
             JOIN ${this.playerRollingStatsTable} prs_raw ON prs_raw.player_id = prs_pct.player_id AND prs_raw.span_days = ? AND prs_raw.split_type = ? AND prs_raw.position = 'B'
             LEFT JOIN ${this.playerLookupsTable} pls ON pls.player_id = prs_pct.player_id
             LEFT JOIN ${this.playersTable} p ON p.player_id = prs_pct.player_id AND p.position = 'B'
-            WHERE prs_pct.span_days = ? AND prs_pct.split_type = ?
+            WHERE prs_pct.span_days = ? AND prs_pct.split_type = ? AND prs_pct.position = 'B'
                 AND prs_pct.reliability_score >= 60
                 AND prs_raw.abs >= ?
                 ${playerFilter}
                 ${positionFilter}
             ORDER BY power_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minAbs, playerFilterValue, offset, this.pageSize]);
+        `, [spanDays, 'overall', spanDays, 'overall', minAbs, playerFilterValue, this.pageSize, offset]);
         return hitterScores;
     }
 
@@ -711,13 +719,13 @@ class Player {
             JOIN ${this.playerRollingStatsTable} prs_raw ON prs_raw.player_id = prs_pct.player_id AND prs_raw.span_days = ? AND prs_raw.split_type = ? AND prs_raw.position = 'P'
             LEFT JOIN ${this.playerLookupsTable} pls ON pls.player_id = prs_pct.player_id
             LEFT JOIN ${this.playersTable} p ON p.player_id = prs_pct.player_id AND p.position = 'P'
-            WHERE prs_pct.span_days = ? AND prs_pct.split_type = ?
+            WHERE prs_pct.span_days = ? AND prs_pct.split_type = ? AND prs_pct.position = 'P'
                 AND prs_pct.reliability_score >= 60
                 AND prs_raw.ip >= ?
                 ${playerFilter}
             ORDER BY k_qs_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minIp, playerFilterValue, offset, this.pageSize]);
+        `, [spanDays, 'overall', spanDays, 'overall', minIp, playerFilterValue, this.pageSize, offset]);
         return starterScores;
     }
 
@@ -749,13 +757,13 @@ class Player {
                 ON prs_raw.player_id = prs_pct.player_id AND prs_raw.span_days = ? AND prs_raw.split_type = ? AND prs_raw.position = 'P'
             LEFT JOIN ${this.playerLookupsTable} pls ON pls.player_id = prs_pct.player_id
             LEFT JOIN ${this.playersTable} p ON p.player_id = prs_pct.player_id AND p.position = 'P'
-            WHERE prs_pct.span_days = ? AND prs_pct.split_type = ?
+            WHERE prs_pct.span_days = ? AND prs_pct.split_type = ? AND prs_pct.position = 'P'
                 AND prs_pct.reliability_score >= 55
                 AND prs_raw.ip >= ?
                 ${playerFilter}
             ORDER BY leverage_relief_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minIp, playerFilterValue, offset, this.pageSize]);
+        `, [spanDays, 'overall', spanDays, 'overall', minIp, playerFilterValue, this.pageSize, offset]);
         return relieverScores;
     }
 
@@ -779,10 +787,17 @@ class Player {
             orderByClause = `prs_pct.${orderBy}_pct DESC, ${orderByClause}`;
         }
 
-        const params = teamId ? 
-        [spanDays, 'overall', batterOrPitcher, batterOrPitcher, batterOrPitcher, spanDays, 'overall', minDataValue, teamId, this.pageSize, offset] : 
-        [spanDays, 'overall', batterOrPitcher, batterOrPitcher, batterOrPitcher, spanDays, 'overall', minDataValue, this.pageSize, offset];
-        const [playerRankings] = await db.query(`
+        // Build parameters array - ensure all placeholders are bound
+        let params;
+        if (teamId) {
+            // 11 placeholders when teamId exists (including the conditional team_id = ?)
+            params = [batterOrPitcher, spanDays, 'overall', batterOrPitcher, batterOrPitcher, spanDays, 'overall', batterOrPitcher, minDataValue, teamId, this.pageSize, offset];
+        } else {
+            // 10 placeholders when teamId doesn't exist (no conditional team_id = ?)
+            params = [batterOrPitcher, spanDays, 'overall', batterOrPitcher, batterOrPitcher, spanDays, 'overall', batterOrPitcher, minDataValue, this.pageSize, offset];
+        }
+
+        const sqlQuery = `
             SELECT 
                 ${playerFields}, 
                 ${scoringFields},
@@ -810,14 +825,16 @@ class Player {
             JOIN ${this.playerRollingStatsTable} prs_raw ON prs_raw.player_id = prs_pct.player_id AND prs_raw.span_days = ? AND prs_raw.split_type = ? AND prs_raw.position = ?
             LEFT JOIN ${this.playerLookupsTable} pls ON pls.player_id = prs_pct.player_id
             LEFT JOIN ${this.playersTable} p ON p.player_id = prs_pct.player_id AND p.position = ?
-            WHERE prs_pct.span_days = ? AND prs_pct.split_type = ?
+            WHERE prs_pct.span_days = ? AND prs_pct.split_type = ? AND prs_pct.position = ?
                 ${isRosteredFilter}
                 ${positionFilter}
                 ${minDataClause}
                 ${teamFilter}
             ORDER BY ${orderByClause}
             LIMIT ? OFFSET ?;
-        `, params);
+        `;
+
+        const [playerRankings] = await db.query(sqlQuery, params);
         return playerRankings;
     }
 

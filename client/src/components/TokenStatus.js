@@ -130,6 +130,14 @@ function TokenStatus() {
           </li>
           <li>
             <button 
+              onClick={() => window.location.href = '/player-scouting'}
+              className="btn btn-primary btn-full"
+            >
+              Player Scouting
+            </button>
+          </li>
+          <li>
+            <button 
               disabled
               className="btn btn-secondary btn-full"
             >

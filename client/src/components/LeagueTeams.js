@@ -168,7 +168,7 @@ function LeagueTeams() {
     }
   };
 
-  
+
   const renderBattersTable = (data, title) => {
     if (!data || data.length === 0) {
       return (
@@ -834,7 +834,7 @@ function LeagueTeams() {
           </div>
 
           <div className="form-group">
-            <label>Span Days:</label>
+            <label>Collected Data Span (Days):</label>
             <select
               value={spanDays}
               onChange={handleSpanDaysChange}
