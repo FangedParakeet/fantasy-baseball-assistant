@@ -153,11 +153,11 @@ function PlayerScouting() {
   };
 
   const handleSort = (field) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    setSortField(field);
+    if (field === 'era' || field === 'whip') {
+      setSortDirection('asc');
     } else {
-      setSortField(field);
-      setSortDirection(field === 'era' || field === 'whip' ? 'asc' : 'desc');
+      setSortDirection('desc');
     }
     setCurrentPage(1);
   };
@@ -221,6 +221,13 @@ function PlayerScouting() {
       setAiLoading(false);
     }
   };
+
+  const getPlayerPercentile = (player, field) => {
+    if (['era', 'whip', 'k_rate', 'bb_per_9', 'fip'].includes(field)) {
+      return 100 - player[field + '_pct'];
+    }
+    return player[field + '_pct'] || 0;
+  }
 
   const renderPlayerTable = (players, title, isMyTeam) => {
     if (!players || players.length === 0) {
@@ -331,8 +338,8 @@ function PlayerScouting() {
                           <td 
                             key={field}
                             className="stat-cell"
-                            style={{ backgroundColor: getPercentileColor(player[`${field}_pct`], player.reliability_score) }}
-                            title={player[`${field}_pct`] ? `${player[`${field}_pct`]}th %-ile` : 'No data'}
+                            style={{ backgroundColor: getPercentileColor(getPlayerPercentile(player, field), player.reliability_score) }}
+                            title={getPlayerPercentile(player, field) ? `${getPlayerPercentile(player, field)}th %-ile` : 'No data'}
                           >
                             {field === 'avg' 
                               ? (player.hits && player.abs ? Number.parseFloat((player.hits / player.abs).toFixed(3)) : 'N/A')
@@ -348,8 +355,8 @@ function PlayerScouting() {
                           <td 
                             key={field}
                             className="stat-cell"
-                            style={{ backgroundColor: getPercentileColor(player[`${field}_pct`], player.reliability_score) }}
-                            title={player[`${field}_pct`] ? `${player[`${field}_pct`]}th %-ile` : 'No data'}
+                            style={{ backgroundColor: getPercentileColor(getPlayerPercentile(player, field), player.reliability_score) }}
+                            title={getPlayerPercentile(player, field) ? `${getPlayerPercentile(player, field)}th %-ile` : 'No data'}
                           >
                             {field === 'era' || field === 'whip'
                               ? (player[field] ? Number.parseFloat(player[field]).toFixed(2) : 'N/A')
@@ -363,10 +370,10 @@ function PlayerScouting() {
                       <td 
                         key={field}
                         className="stat-cell"
-                        style={{ backgroundColor: getPercentileColor(player[`${field}_pct`], player.reliability_score) }}
-                        title={player[`${field}_pct`] ? `${player[`${field}_pct`]}th %-ile` : 'No data'}
+                        style={{ backgroundColor: getPercentileColor(getPlayerPercentile(player, field), player.reliability_score) }}
+                        title={getPlayerPercentile(player, field) ? `${getPlayerPercentile(player, field)}th %-ile` : 'No data'}
                       >
-                        {player[`${field}_pct`] ? Number.parseFloat(player[`${field}_pct`]).toFixed(2) : 'N/A'}
+                        {getPlayerPercentile(player, field) ? Number.parseFloat(getPlayerPercentile(player, field)).toFixed(2) : 'N/A'}
                       </td>
                     ))}
                   </tr>

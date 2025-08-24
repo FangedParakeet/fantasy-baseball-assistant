@@ -359,15 +359,15 @@ function LeagueTeams() {
                   </td>
                   <td 
                     className="stat-cell"
-                    style={{ backgroundColor: getPercentileColor(player.era_pct, player.reliability_score) }}
-                    title={player.era_pct ? `${player.era_pct}th %-ile` : 'No data'}
+                    style={{ backgroundColor: getPercentileColor(100 - player.era_pct, player.reliability_score) }}
+                    title={player.era_pct ? `${100 - player.era_pct}th %-ile` : 'No data'}
                   >
                     {player.era ? Number.parseFloat(player.era).toFixed(2) : 'N/A'}
                   </td>
                   <td 
                     className="stat-cell"
-                    style={{ backgroundColor: getPercentileColor(player.whip_pct, player.reliability_score) }}
-                    title={player.whip_pct ? `${player.whip_pct}th %-ile` : 'No data'}
+                    style={{ backgroundColor: getPercentileColor(100 - player.whip_pct, player.reliability_score) }}
+                    title={player.whip_pct ? `${100 - player.whip_pct}th %-ile` : 'No data'}
                   >
                     {player.whip ? Number.parseFloat(player.whip).toFixed(2) : 'N/A'}
                   </td>
@@ -470,10 +470,10 @@ function LeagueTeams() {
                   <td>{player.starts || 0}</td>
                   <td 
                     className="stat-cell"
-                    style={{ backgroundColor: getPercentileColor(player.fip_pct, player.reliability_score) }}
-                    title={player.fip_pct ? `${player.fip_pct}th %-ile` : 'No data'}
+                    style={{ backgroundColor: getPercentileColor(100 - player.fip_pct, player.reliability_score) }}
+                    title={player.fip_pct ? `${100 - player.fip_pct}th %-ile` : 'No data'}
                   >
-                    {player.fip_pct ? Number.parseFloat(player.fip_pct).toFixed(2) : 'N/A'}
+                    {player.fip_pct ? Number.parseFloat(100 - player.fip_pct).toFixed(2) : 'N/A'}
                   </td>
                   <td 
                     className="stat-cell"
@@ -484,10 +484,10 @@ function LeagueTeams() {
                   </td>
                   <td 
                     className="stat-cell"
-                    style={{ backgroundColor: getPercentileColor(player.bb_per_9_pct, player.reliability_score) }}
-                    title={player.bb_per_9_pct ? `${player.bb_per_9_pct}th %-ile` : 'No data'}
+                    style={{ backgroundColor: getPercentileColor(100 - player.bb_per_9_pct, player.reliability_score) }}
+                    title={player.bb_per_9_pct ? `${100 - player.bb_per_9_pct}th %-ile` : 'No data'}
                   >
-                    {player.bb_per_9_pct ? Number.parseFloat(player.bb_per_9_pct).toFixed(2) : 'N/A'}
+                    {player.bb_per_9_pct ? Number.parseFloat(100 - player.bb_per_9_pct).toFixed(2) : 'N/A'}
                   </td>
                   <td 
                     className="stat-cell"
@@ -604,10 +604,10 @@ function LeagueTeams() {
                   </td>
                   <td 
                     className="stat-cell"
-                    style={{ backgroundColor: getPercentileColor(player.k_rate_pct, player.reliability_score) }}
-                    title={player.k_rate_pct ? `${player.k_rate_pct}th %-ile` : 'No data'}
+                    style={{ backgroundColor: getPercentileColor(100 - player.k_rate_pct, player.reliability_score) }}
+                    title={player.k_rate_pct ? `${100 - player.k_rate_pct}th %-ile` : 'No data'}
                   >
-                    {player.k_rate_pct ? Number.parseFloat(player.k_rate_pct).toFixed(2) : 'N/A'}
+                    {player.k_rate_pct ? Number.parseFloat(100 - player.k_rate_pct).toFixed(2) : 'N/A'}
                   </td>
                   <td 
                     className="stat-cell"
