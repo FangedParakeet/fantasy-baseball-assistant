@@ -118,6 +118,8 @@ class Player {
             endDate,
         } = query;
         
+        console.log(`getDateRange - input query:`, query);
+        
         if ( ! startDate ) {
             startDate = new Date();
             startDate.setDate(startDate.getDate() - startDate.getDay());
@@ -130,6 +132,8 @@ class Player {
             // Format default date
             endDate = endDate.toISOString().split('T')[0];
         }
+        
+        console.log(`getDateRange - output: startDate: ${startDate}, endDate: ${endDate}`);
         
         // If dates are already strings in YYYY-MM-DD format, use them as-is
         // The database stores dates in this format, so no conversion needed
@@ -842,6 +846,7 @@ class Player {
         if (!startDate || !endDate) {
             throw new Error('Missing required parameters');
         }
+        console.log(`getNRFIRankings - startDate: ${startDate}, endDate: ${endDate}`);
         const spanDays = 30;
         const playerFields = this.getPlayerFields();
         const pitcherScoringFields = this.getPitcherScoringFields();
@@ -870,11 +875,12 @@ class Player {
             RIGHT JOIN ${this.teamRollingStatsPercentilesTable} opponent_rs_pct
                 ON opponent_rs_pct.team = pp.opponent AND opponent_rs_pct.span_days = ? AND opponent_rs_pct.split_type = 'overall'
             WHERE pp.game_date BETWEEN ? AND ? 
-                AND pp.avg_nrfi_score IS NOT NULL
+                AND pp.nrfi_likelihood_score IS NOT NULL
             ORDER BY pp.game_date ASC, avg_nrfi_score DESC
             `, 
-            [spanDays, spanDays, spanDays, spanDays, spanDays, spanDays, startDate, endDate]
+            [spanDays, spanDays, spanDays, spanDays, spanDays, startDate, endDate]
         );
+        console.log(`Query returned ${nrfiRankings ? nrfiRankings.length : 0} rows`);
         return nrfiRankings;
     }
     }

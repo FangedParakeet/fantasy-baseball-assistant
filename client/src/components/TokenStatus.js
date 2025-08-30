@@ -106,26 +106,10 @@ function TokenStatus() {
         <ul className="quick-actions">
           <li>
             <button 
-              onClick={() => window.location.href = '/my-team'}
-              className="btn btn-primary btn-full"
-            >
-              My Team
-            </button>
-          </li>
-          <li>
-            <button 
               onClick={() => window.location.href = '/league-teams'}
               className="btn btn-primary btn-full"
             >
               League Teams
-            </button>
-          </li>
-          <li>
-            <button 
-              onClick={() => window.location.href = '/two-start-pitchers'}
-              className="btn btn-primary btn-full"
-            >
-              Two-Start Pitchers
             </button>
           </li>
           <li>
@@ -138,18 +122,18 @@ function TokenStatus() {
           </li>
           <li>
             <button 
-              disabled
-              className="btn btn-secondary btn-full"
+              onClick={() => window.location.href = '/streaming-pitchers'}
+              className="btn btn-primary btn-full"
             >
-              Player Recommendations (Coming Soon)
+              Streaming Pitchers
             </button>
           </li>
           <li>
             <button 
-              disabled
-              className="btn btn-secondary btn-full"
+              onClick={() => window.location.href = '/nrfi-analysis'}
+              className="btn btn-primary btn-full"
             >
-              Trade Analyzer (Coming Soon)
+              NRFI Analysis
             </button>
           </li>
           <li className="quick-actions-separator">

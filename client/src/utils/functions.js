@@ -86,5 +86,13 @@ const sortPlayers = (players, field, direction) => {
     }
   };
 
+  const getEligiblePositions = (eligiblePositions) => {
+    try {
+      return JSON.parse(eligiblePositions);
+    } catch (error) {
+      return [eligiblePositions.replace(/["\[\]]/g, '')];
+    }
+  };
 
-export { ucfirst, formatIP, sortPlayers, getPercentileColor, formatDate, formatEligiblePositions };
+
+export { ucfirst, formatIP, sortPlayers, getPercentileColor, formatDate, formatEligiblePositions, getEligiblePositions };

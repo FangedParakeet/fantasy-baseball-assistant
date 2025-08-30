@@ -39,6 +39,7 @@ router.get('/search/pitchers/daily-streamer', async (req, res) => {
 
 router.get('/search/pitchers/nrfi', async (req, res) => {
     try {
+        console.log('NRFI query params:', req.query);
         const player = new Player();
         const pitchers = await player.getAvailablePitchers(req.query, 'nrfi');
         sendSuccess(res, pitchers, 'NRFI rankings retrieved successfully');

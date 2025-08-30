@@ -10,6 +10,8 @@ import LeagueTeams from './components/LeagueTeams';
 import Settings from './components/Settings';
 import TwoStartPitchers from './components/TwoStartPitchers';
 import PlayerScouting from './components/PlayerScouting';
+import StreamingPitchers from './components/StreamingPitchers';
+import NRFIAnalysis from './components/NRFIAnalysis';
 
 // Main App Component
 function App() {
@@ -25,6 +27,8 @@ function App() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/two-start-pitchers" element={<TwoStartPitchers />} />
         <Route path="/player-scouting" element={<PlayerScouting />} />
+        <Route path="/streaming-pitchers" element={<StreamingPitchers />} />
+        <Route path="/nrfi-analysis" element={<NRFIAnalysis />} />
         <Route path="*" element={<div>404 - Page not found</div>} />
       </Routes>
     </Router>
