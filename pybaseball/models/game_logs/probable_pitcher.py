@@ -3,7 +3,7 @@ from utils.functions import normalise_name, convert_utc_date
 from utils.constants import ESPN_TO_BACKEND_TEAM_MAP
 
 class ProbablePitcher(MlbLog):
-    KEYS = ['game_id', 'game_date', 'team', 'opponent', 'espn_pitcher_id', 'home', 'pitcher_name', 'normalised_name', 'accuracy']
+    KEYS = ['game_id', 'game_date', 'team', 'opponent', 'espn_pitcher_id', 'player_id', 'home', 'pitcher_name', 'normalised_name', 'accuracy']
     ID_KEYS = ['game_id', 'team']
     
     def __init__(self, event_data, team_data, competitors_data, pitcher_data):
@@ -28,6 +28,8 @@ class ProbablePitcher(MlbLog):
             return ESPN_TO_BACKEND_TEAM_MAP.get(self.opponent_data.get('team', {}).get('abbreviation', None), None)
         elif key == 'espn_pitcher_id':
             return self.pitcher_data.get('playerId', None)
+        elif key == 'player_id':
+            return None
         elif key == 'home':
             return self.home_or_away
         elif key == 'pitcher_name':
