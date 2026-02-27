@@ -197,6 +197,7 @@ type WatchlistType = 'speed' | 'contact' | 'power' | 'starter' | 'reliever';
 type DateQuery = {
     startDate: string | false;
     endDate: string | false;
+    spanDays?: SpanDays;
 }
 type TeamStatsQuery = {
     spanDays: SpanDays;
@@ -321,7 +322,7 @@ class Player {
 
     async getScheduleStrengthForTeam(
         teamId: number, 
-        query: TeamStatsQuery, 
+        query: DateQuery, 
         type: 'batting' | 'pitching'
     ): Promise<ScheduleStrengthResult[]> {
         const {
