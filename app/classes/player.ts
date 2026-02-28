@@ -2,12 +2,30 @@ import { executeInTransaction, QueryableDB } from '../db';
 import type { Team } from './team';
 
 type DefaultPlayerFields = 'id' | 'name' | 'mlb_team' | 'eligible_positions' | 'selected_position' | 'headshot_url';
-type PitcherBasicScoringFields = 'strikeouts' | 'era' | 'whip' | 'qs' | 'sv' | 'hld' | 'ip';
-type PitcherAdvancedScoringFields = 'k_per_9' | 'bb_per_9' | 'fip';
-type HitterBasicScoringFields = 'runs' | 'hr' | 'rbi' | 'sb' | 'avg' | 'hits' | 'abs';
-type HitterAdvancedScoringFields = 'obp' | 'slg' | 'ops' | 'k_rate' | 'bb_rate' | 'iso' | 'wraa';
+
+/** Single source of truth for scoring field names; types are derived from these for runtime validation (e.g. orderBy). */
+const PITCHER_BASIC_SCORING_FIELDS = ['strikeouts', 'era', 'whip', 'qs', 'sv', 'hld', 'ip'] as const;
+const PITCHER_ADVANCED_SCORING_FIELDS = ['k_per_9', 'bb_per_9', 'fip'] as const;
+const HITTER_BASIC_SCORING_FIELDS = ['runs', 'hr', 'rbi', 'sb', 'avg', 'hits', 'abs'] as const;
+const HITTER_ADVANCED_SCORING_FIELDS = ['obp', 'slg', 'ops', 'k_rate', 'bb_rate', 'iso', 'wraa'] as const;
+
+type PitcherBasicScoringFields = typeof PITCHER_BASIC_SCORING_FIELDS[number];
+type PitcherAdvancedScoringFields = typeof PITCHER_ADVANCED_SCORING_FIELDS[number];
+type HitterBasicScoringFields = typeof HITTER_BASIC_SCORING_FIELDS[number];
+type HitterAdvancedScoringFields = typeof HITTER_ADVANCED_SCORING_FIELDS[number];
 type PlayerScoringFields = PitcherBasicScoringFields | HitterBasicScoringFields;
 type PlayerAdvancedScoringFields = PitcherAdvancedScoringFields | HitterAdvancedScoringFields;
+
+/** Allowed orderBy values for pitcher stats (runtime whitelist for SQL safety). */
+const PITCHER_ORDER_BY_ALLOWED = new Set<string>([
+    ...PITCHER_BASIC_SCORING_FIELDS,
+    ...PITCHER_ADVANCED_SCORING_FIELDS,
+]);
+/** Allowed orderBy values for hitter stats (runtime whitelist for SQL safety). */
+const HITTER_ORDER_BY_ALLOWED = new Set<string>([
+    ...HITTER_BASIC_SCORING_FIELDS,
+    ...HITTER_ADVANCED_SCORING_FIELDS,
+]);
 
 interface PlayerSelectScoringFields {
     basic: PlayerScoringFields[];
@@ -201,15 +219,15 @@ type DateQuery = {
 }
 type TeamStatsQuery = {
     spanDays: SpanDays;
-    orderBy?: string;
+    orderBy?: PlayerScoringFields | PlayerAdvancedScoringFields | false;
 }
 type SearchPlayersQuery = {
-    positionType: PitcherOrBatter | WatchlistType | false;
+    positionType: PitcherOrBatter | WatchlistType;
     position: Position | false;
     isRostered: boolean;
     spanDays: SpanDays;
     page: number;
-    orderBy: string | false;
+    orderBy: PlayerScoringFields | PlayerAdvancedScoringFields | false;
     isUserTeam: boolean;
 }
 type SearchPlayersResult = PlayerFantasyRanking 
@@ -250,7 +268,7 @@ class Player {
         const teamId = isUserTeam ? await this.getUserTeamId() : false;
 
         if ( positionType === 'B' || positionType === 'P' ) {
-            return await this.getPlayerFantasyRankings(page, spanDays, positionType as 'B' | 'P', isRostered as boolean, position, orderBy, teamId);
+            return await this.getPlayerFantasyRankings(page, spanDays, positionType, isRostered, position, orderBy, teamId);
         } else if ( positionType === 'speed' ) {
             return await this.getHitterSpeedWatchlist(page, spanDays, position, teamId);
         } else if ( positionType === 'contact' ) {
@@ -312,9 +330,9 @@ class Player {
             orderBy,
         } = query;
         if ( type === 'batting' ) {
-            return await this.getScoringStatsForTeamBatters(teamId, spanDays, orderBy);
+            return await this.getScoringStatsForTeamBatters(teamId, spanDays, orderBy as HitterBasicScoringFields | HitterAdvancedScoringFields | false);
         } else if ( type === 'pitching' ) {
-            return await this.getScoringStatsForTeamPitchers(teamId, spanDays, orderBy);
+            return await this.getScoringStatsForTeamPitchers(teamId, spanDays, orderBy as PitcherBasicScoringFields | PitcherAdvancedScoringFields | false);
         } else {
             throw new Error('Invalid type');
         }
@@ -376,9 +394,9 @@ class Player {
     }
 
     mergeScoringFields(...selectScoringFields: PlayerSelectScoringFields[]): PlayerSelectScoringFields {
-        const basic = selectScoringFields.flatMap(field => field.basic);
-        const advanced = selectScoringFields.flatMap(field => field.advanced);
-        const raw = selectScoringFields.flatMap(field => field.raw);
+        const basic = [...new Set(selectScoringFields.flatMap(field => field.basic))];
+        const advanced = [...new Set(selectScoringFields.flatMap(field => field.advanced))];
+        const raw = [...new Set(selectScoringFields.flatMap(field => field.raw))];
         return {
             basic: basic,
             advanced: advanced,
@@ -405,47 +423,35 @@ class Player {
     }
 
     getPitcherScoringFields(): PlayerSelectScoringFields {
-        const pitcherScoringFields = [
-            'strikeouts', 'era', 'whip', 'qs', 'sv', 'hld'
-        ] as PitcherBasicScoringFields[];
-        const rawFields = [ 'ip' ] as PitcherBasicScoringFields[];
+        const basic = PITCHER_BASIC_SCORING_FIELDS.filter((f): f is PitcherBasicScoringFields => f !== 'ip');
         return {
-            basic: pitcherScoringFields,
+            basic,
             advanced: [],
-            raw: rawFields,
+            raw: ['ip'],
         };
     }
 
     getPitcherAdvancedScoringFields(): PlayerSelectScoringFields {
-        const pitcherAdvancedScoringFields = [
-            'k_per_9', 'bb_per_9', 'fip'
-        ] as PitcherAdvancedScoringFields[];
         return {
             basic: [],
-            advanced: pitcherAdvancedScoringFields,
+            advanced: [...PITCHER_ADVANCED_SCORING_FIELDS],
             raw: [],
         };
     }
-    
+
     getHitterScoringFields(): PlayerSelectScoringFields {
-        const hitterScoringFields = [
-            'runs', 'hr', 'rbi', 'sb', 'avg'
-        ] as HitterBasicScoringFields[];
-        const rawFields = [ 'hits', 'abs' ] as HitterBasicScoringFields[];
+        const basic = HITTER_BASIC_SCORING_FIELDS.filter((f): f is HitterBasicScoringFields => f !== 'hits' && f !== 'abs');
         return {
-            basic: hitterScoringFields,
+            basic,
             advanced: [],
-            raw: rawFields,
+            raw: ['hits', 'abs'],
         };
     }
 
     getHitterAdvancedScoringFields(): PlayerSelectScoringFields {
-        const hitterAdvancedScoringFields = [
-            'obp', 'slg', 'ops', 'k_rate', 'bb_rate', 'iso', 'wraa'
-        ] as HitterAdvancedScoringFields[];
         return {
             basic: [],
-            advanced: hitterAdvancedScoringFields,
+            advanced: [...HITTER_ADVANCED_SCORING_FIELDS],
             raw: [],
         };
     }
@@ -489,9 +495,9 @@ class Player {
                 ${PROBABLE_PITCHERS_TABLE_ALIAS}.normalised_name AS normalised_name,
                 ${PROBABLE_PITCHERS_TABLE_ALIAS}.accuracy AS accuracy, 
                 ${PROBABLE_PITCHERS_TABLE_ALIAS}.qs_likelihood_score AS qs_likelihood_score,
-                AVG(${PROBABLE_PITCHERS_TABLE_ALIAS}.qs_likelihood_score) OVER (PARTITION BY ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id) AS avg_qs_score
+                AVG(${PROBABLE_PITCHERS_TABLE_ALIAS}.qs_likelihood_score) OVER (PARTITION BY ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id) AS avg_qs_score,
 
-                ${this.getFields(pitcherScoringFields).join(', ')},
+                ${this.getFields(pitcherScoringFields).join(', ')}
 
             FROM ${PROBABLE_PITCHERS_TABLE} ${PROBABLE_PITCHERS_TABLE_ALIAS}
             LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
@@ -556,7 +562,7 @@ class Player {
                 ${PROBABLE_PITCHERS_TABLE_ALIAS}.accuracy AS accuracy, 
                 ${PROBABLE_PITCHERS_TABLE_ALIAS}.qs_likelihood_score AS qs_likelihood_score,
 
-                ${this.getFields(pitcherScoringFields).join(', ')},
+                ${this.getFields(pitcherScoringFields).join(', ')}
                 
             FROM ${PROBABLE_PITCHERS_TABLE} ${PROBABLE_PITCHERS_TABLE_ALIAS}
             LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
@@ -597,9 +603,9 @@ class Player {
                 ${PROBABLE_PITCHERS_TABLE_ALIAS}.normalised_name AS normalised_name,
                 ${PROBABLE_PITCHERS_TABLE_ALIAS}.accuracy AS accuracy, 
                 ${PROBABLE_PITCHERS_TABLE_ALIAS}.qs_likelihood_score AS qs_likelihood_score,
-                AVG(${PROBABLE_PITCHERS_TABLE_ALIAS}.qs_likelihood_score) OVER (PARTITION BY ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id) AS avg_qs_score
+                AVG(${PROBABLE_PITCHERS_TABLE_ALIAS}.qs_likelihood_score) OVER (PARTITION BY ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id) AS avg_qs_score,
 
-                ${this.getFields(defaultPlayerFields).join(', ')},
+                ${this.getFields(defaultPlayerFields).join(', ')}
             
                 FROM ${PROBABLE_PITCHERS_TABLE} ${PROBABLE_PITCHERS_TABLE_ALIAS}
             LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
@@ -645,7 +651,7 @@ class Player {
                 ${PROBABLE_PITCHERS_TABLE_ALIAS}.accuracy AS accuracy, 
                 ${PROBABLE_PITCHERS_TABLE_ALIAS}.qs_likelihood_score AS qs_likelihood_score,
 
-                ${this.getFields(defaultPlayerFields).join(', ')},
+                ${this.getFields(defaultPlayerFields).join(', ')}
             
             FROM ${PROBABLE_PITCHERS_TABLE} ${PROBABLE_PITCHERS_TABLE_ALIAS}
             JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
@@ -666,8 +672,8 @@ class Player {
 
     async getScoringStatsForTeamBatters(
         teamId: number, 
-        spanDays: number = 14, 
-        orderBy: string | false = false
+        spanDays: SpanDays = 14, 
+        orderBy: HitterBasicScoringFields | HitterAdvancedScoringFields | false = false
     ): Promise<HitterScoringWatchlist[]> {
         if (!teamId) {
             throw new Error('Missing required parameters');
@@ -678,6 +684,9 @@ class Player {
         );
         let orderByClause = '';
         if (orderBy) {
+            if (!HITTER_ORDER_BY_ALLOWED.has(orderBy)) {
+                throw new Error('Invalid orderBy parameter');
+            }
             orderByClause = `ORDER BY ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${orderBy}_pct DESC`;
         }
         const runs_weight = 0.15;
@@ -726,8 +735,8 @@ class Player {
 
     async getScoringStatsForTeamPitchers(
         teamId: number, 
-        spanDays: number = 14, 
-        orderBy: string | false = false
+        spanDays: SpanDays = 14, 
+        orderBy: PitcherBasicScoringFields | PitcherAdvancedScoringFields | false = false
     ): Promise<PitcherScoringWatchlist[]> {
         if (!teamId) {
             throw new Error('Missing required parameters');
@@ -738,6 +747,9 @@ class Player {
         );
         let orderByClause = '';
         if (orderBy) {
+            if (!PITCHER_ORDER_BY_ALLOWED.has(orderBy)) {
+                throw new Error('Invalid orderBy parameter');
+            }
             orderByClause = `ORDER BY ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${orderBy}_pct DESC`;
         }
         const strikeouts_weight = 0.25;
@@ -754,7 +766,7 @@ class Player {
                 /* Pitcher fantasy score: K, QS, SVH heavy, with ERA/WHIP control */
                 (${strikeouts_weight} * ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.strikeouts_pct
                 + ${qs_weight} * ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.qs_pct
-                + ${svh_weight} * GREATEST(${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.sv_pct, ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.hld_pct) + 
+                + ${svh_weight} * GREATEST(${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.sv_pct, ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.hld_pct)
                 + ${era_weight} * (100 - ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.era_pct)
                 + ${whip_weight} * (100 - ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.whip_pct)) AS fantasy_score
 
@@ -787,7 +799,7 @@ class Player {
         teamId: number, 
         startDate: string, 
         endDate: string, 
-        spanDays: number = 14
+        spanDays: SpanDays = 14
     ): Promise<PitcherScheduleStrength[]> {
         if (!teamId || !startDate || !endDate) {
             throw new Error('Missing required parameters');
@@ -925,7 +937,9 @@ class Player {
                         FROM ${PROBABLE_PITCHERS_TABLE} ${PROBABLE_PITCHERS_TABLE_ALIAS}
                         JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS}
                             ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.team = ${PROBABLE_PITCHERS_TABLE_ALIAS}.team
-                        JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} ON ${PLAYERS_TABLE_ALIAS}.player_id = ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id AND ${PLAYERS_TABLE_ALIAS}.position = 'B'
+                        JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
+                            ON ${PLAYERS_TABLE_ALIAS}.player_id = ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id 
+                            AND ${PLAYERS_TABLE_ALIAS}.position = 'B'
                         WHERE ${PROBABLE_PITCHERS_TABLE_ALIAS}.game_date BETWEEN ? AND ?
                             AND ${PLAYERS_TABLE_ALIAS}.team_id = ?
 
@@ -986,7 +1000,7 @@ class Player {
                     AND ${TEAM_VS_BATTER_SPLITS_PERCENTILES_TABLE_ALIAS}.span_days = ?
                 GROUP BY t.player_id
                 ORDER BY hitter_week_score DESC;
-            `, [spanDays, spanDays, spanDays, teamId]);
+            `, [spanDays, spanDays, spanDays]);
 
             // Drop the temporary table
             await connection.query(`
@@ -999,8 +1013,8 @@ class Player {
 
     async getHitterSpeedWatchlist(
         page: number = 1, 
-        spanDays: number = 14, 
-        position: string | false = false, 
+        spanDays: SpanDays = 14, 
+        position: Position | false = false, 
         teamId: number | false = false
     ): Promise<HitterSpeedWatchlist[]> {
         let positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
@@ -1063,8 +1077,8 @@ class Player {
 
     async getHitterContactOnBaseWatchlist(
         page: number = 1, 
-        spanDays: number = 14, 
-        position: string | false = false, 
+        spanDays: SpanDays = 14, 
+        position: Position | false = false, 
         teamId: number | false = false
     ): Promise<HitterContactOnBaseWatchlist[]> {
         let positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
@@ -1125,8 +1139,8 @@ class Player {
 
     async getHitterPowerWatchlist(
         page: number = 1, 
-        spanDays: number = 14, 
-        position: string | false = false, 
+        spanDays: SpanDays = 14, 
+        position: Position | false = false, 
         teamId: number | false = false
     ): Promise<HitterPowerWatchlist[]> {
         let positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
@@ -1188,7 +1202,7 @@ class Player {
 
     async getPitcherStarterWatchlist(
         page: number = 1, 
-        spanDays: number = 14, 
+        spanDays: SpanDays = 14, 
         teamId: number | false = false
     ): Promise<PitcherStarterWatchlist[]> {
         const offset = (page - 1) * this.pageSize;
@@ -1250,7 +1264,7 @@ class Player {
 
     async getPitcherRelieverWatchlist(
         page: number = 1, 
-        spanDays: number = 14, 
+        spanDays: SpanDays = 14, 
         teamId: number | false = false
     ): Promise<PitcherRelieverWatchlist[]> {
         const offset = (page - 1) * this.pageSize;
@@ -1310,11 +1324,11 @@ class Player {
 
     async getPlayerFantasyRankings(
         page: number = 1, 
-        spanDays: number = 14, 
+        spanDays: SpanDays = 14, 
         batterOrPitcher: PitcherOrBatter = 'B', 
         isRostered: boolean = false, 
         position: Position | false = false, 
-        orderBy: string | false = false, 
+        orderBy: PlayerScoringFields | PlayerAdvancedScoringFields | false = false, 
         teamId: number | false = false
     ): Promise<PlayerFantasyRanking[]> {
         const playerFields: PlayerSelectScoringFields = this.getDefaultPlayerFields();
@@ -1326,6 +1340,9 @@ class Player {
         const orderByClauses: string[] = [];
 
         if ( orderBy ) {
+            if (( batterOrPitcher === 'B' && !HITTER_ORDER_BY_ALLOWED.has(orderBy)) || (batterOrPitcher === 'P' && !PITCHER_ORDER_BY_ALLOWED.has(orderBy))) {
+                throw new Error('Invalid orderBy parameter');
+            }
             orderByClauses.push(`${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${orderBy}_pct DESC`);
         }
 
@@ -1441,11 +1458,12 @@ class Player {
                 team_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.nrfi_pct AS team_nrfi_pct,
                 opponent_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.nrfi_pct AS opponent_nrfi_pct,
                 ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.nrfi_pct AS player_nrfi_pct,
-                AVG(${PROBABLE_PITCHERS_TABLE_ALIAS}.nrfi_likelihood_score) OVER (PARTITION BY ${PROBABLE_PITCHERS_TABLE_ALIAS}.game_id) AS avg_nrfi_score
+                AVG(${PROBABLE_PITCHERS_TABLE_ALIAS}.nrfi_likelihood_score) OVER (PARTITION BY ${PROBABLE_PITCHERS_TABLE_ALIAS}.game_id) AS avg_nrfi_score,
 
                 ${this.getFields(defaultPlayerFields).join(', ')}, 
                 ${this.getFields(pitcherScoringFields).join(', ')},
-                ${this.getFields(pitcherAdvancedScoringFields).join(', ')},
+                ${this.getFields(pitcherAdvancedScoringFields).join(', ')}
+
             FROM ${PROBABLE_PITCHERS_TABLE} ${PROBABLE_PITCHERS_TABLE_ALIAS}
             LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} ON ${PLAYERS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
             LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
