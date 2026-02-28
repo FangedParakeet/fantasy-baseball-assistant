@@ -2,10 +2,21 @@ import axios from 'axios';
 import xml2js from 'xml2js';
 
 interface TokenRequestBody {
-    grant_type: string;
+    grant_type: 'authorization_code' | 'refresh_token';
     code?: string;
     redirect_uri?: string;
     refresh_token?: string;
+}
+
+export type YahooError = {
+    error: string;
+}
+export type YahooResponse = {
+    access_token: string;
+    token_type: string;
+    expires_in: number;
+    refresh_token: string;
+    xoauth_yahoo_guid: string;
 }
 
 class Yahoo {
@@ -14,15 +25,15 @@ class Yahoo {
     private clientId: string;
     private clientSecret: string;
     private redirectUri: string;
-    private accessToken: string | null;
+    private authToken: string | null;
 
-    constructor( accessToken = null ) {
+    constructor( authToken = null ) {
         this.baseLoginUrl = 'https://api.login.yahoo.com/oauth2';
         this.baseApiUrl = 'https://fantasysports.yahooapis.com/fantasy/v2';
         this.clientId = process.env.YAHOO_CLIENT_ID || '';
         this.clientSecret = process.env.YAHOO_CLIENT_SECRET || '';
         this.redirectUri = `https://${process.env.SITE_DOMAIN || ''}/auth/redirect`;
-        this.accessToken = accessToken;
+        this.authToken = authToken;
     }
 
     getAuthUrl(): string {
@@ -30,7 +41,7 @@ class Yahoo {
         return authUrl;
     }
 
-    async tokenRequest(body: TokenRequestBody): Promise<any> {
+    async tokenRequest(body: TokenRequestBody): Promise<YahooResponse | YahooError> {
         try {
             const response = await axios.post(`${this.baseLoginUrl}/get_token`, 
                 new URLSearchParams(body as unknown as Record<string, string>),
@@ -41,10 +52,12 @@ class Yahoo {
                     }
                 }
             );
-            return response.data;
+            return response.data as YahooResponse;
         } catch (error) {
             console.error('Token request failed:', error.response?.data || error.message);
-            throw error;
+            return {
+                error: error.response?.data || error.message
+            } as YahooError;
         }
     }
 
@@ -52,7 +65,7 @@ class Yahoo {
         try {
             const response = await axios.get(`${this.baseApiUrl}/${endpoint}`, {
                 headers: {
-                    'Authorization': `Bearer ${this.accessToken}`,
+                    'Authorization': `Bearer ${this.authToken}`,
                     'Accept': 'application/xml'
                 },
                 params: params
@@ -86,21 +99,21 @@ class Yahoo {
         return this.apiRequest(`/league/${leagueKey}/players;status=FA;position=${position}`);
     }
 
-    async getTokens(code: string): Promise<any> {
-        const tokensResponse = await this.tokenRequest({
+    async getToken(code: string): Promise<YahooResponse | YahooError> {
+        const tokenResponse = await this.tokenRequest({
             grant_type: 'authorization_code',
             code: code,
             redirect_uri: this.redirectUri
         });
-        return tokensResponse;
+        return tokenResponse as YahooResponse | YahooError;
     }
 
-    async refreshTokens(refreshToken: string): Promise<any> {
-        const newTokens = await this.tokenRequest({
+    async getRefreshToken(refreshToken: string): Promise<YahooResponse | YahooError> {
+        const refreshTokenResponse = await this.tokenRequest({
             grant_type: 'refresh_token',
             refresh_token: refreshToken
         });
-        return newTokens;
+        return refreshTokenResponse as YahooResponse | YahooError;
     }
 }
 

@@ -1,6 +1,6 @@
 import type { QueryableDB } from '../db/db';
 
-interface Token {
+export interface AccessToken {
     access_token: string | null;
     refresh_token: string | null;
     expires_in: number | null;
@@ -12,12 +12,6 @@ interface YahooDBToken {
     yahoo_token_expires_at: string | null;
 }
 
-interface TokenResponse {
-    hasToken: boolean;
-    hasValidToken: boolean;
-    expiresAt: string | null;
-}
-
 class Token {
     private db: QueryableDB;
 
@@ -25,27 +19,8 @@ class Token {
         this.db = db;
     }
 
-    async status(): Promise<TokenResponse> {
-        const [rows] = await this.db.query<YahooDBToken[]>('SELECT yahoo_access_token, yahoo_token_expires_at FROM tokens WHERE id = 1');
-    
-        if (!Array.isArray(rows) || rows.length === 0) {
-          return { hasToken: false, hasValidToken: false, expiresAt: null };
-        }
-    
-        const token = rows[0];
-        const hasValidToken: boolean = !!token.yahoo_access_token && 
-                             !!token.yahoo_token_expires_at && 
-                             new Date(token.yahoo_token_expires_at) > new Date();
-
-        return {
-            hasToken: !!token.yahoo_access_token,
-            hasValidToken: hasValidToken,
-            expiresAt: token.yahoo_token_expires_at
-        }
-    }
-
-    async set(tokens: Token): Promise<void> {
-        const { access_token, refresh_token, expires_in } = tokens;
+    async set(token: AccessToken): Promise<void> {
+        const { access_token, refresh_token, expires_in } = token;
 
         // Store tokens in database (upsert)
         await this.db.query(
@@ -59,18 +34,18 @@ class Token {
         );  
     }
 
-    async get(): Promise<Token> {
+    async get(): Promise<AccessToken> {
         const [rows] = await this.db.query<YahooDBToken[]>('SELECT yahoo_access_token, yahoo_refresh_token, yahoo_token_expires_at FROM tokens WHERE id = 1');
         
         if (!Array.isArray(rows) || rows.length === 0) {
-            return { access_token: null, refresh_token: null, expires_in: null } as Token;
+            return { access_token: null, refresh_token: null, expires_in: null } as AccessToken;
         }
         
         return {
             access_token: rows[0].yahoo_access_token,
             refresh_token: rows[0].yahoo_refresh_token,
             expires_in: rows[0].yahoo_token_expires_at
-        } as Token;
+        } as AccessToken;
     }
 }
 
