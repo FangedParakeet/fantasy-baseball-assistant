@@ -100,7 +100,8 @@ router.post('/league-teams/sync-all-rosters', async (req, res) => {
         const yahoo = new YahooAPI(accessToken.access_token);
         const rosterController = new RosterController(yahoo, team, hydrator);
         await rosterController.syncAllLeagueTeams();
-        sendSuccess(res, null, 'All league rosters synced successfully');
+        const result = await team.getAllLeagueTeams();
+        sendSuccess(res, result, 'All league rosters synced successfully');
     } catch (error) {
         console.error('Error in /league-teams/sync-all-rosters:', error);
         sendError(res, 500, 'Failed to sync all rosters');

@@ -1,5 +1,5 @@
-import { executeInTransaction, QueryableDB } from '../db';
-import type { Team } from './team';
+import { executeInTransaction, QueryableDB } from '../db/db';
+import type { LeagueTeam } from './team';
 
 type DefaultPlayerFields = 'id' | 'name' | 'mlb_team' | 'eligible_positions' | 'selected_position' | 'headshot_url';
 
@@ -9,12 +9,12 @@ const PITCHER_ADVANCED_SCORING_FIELDS = ['k_per_9', 'bb_per_9', 'fip'] as const;
 const HITTER_BASIC_SCORING_FIELDS = ['runs', 'hr', 'rbi', 'sb', 'avg', 'hits', 'abs'] as const;
 const HITTER_ADVANCED_SCORING_FIELDS = ['obp', 'slg', 'ops', 'k_rate', 'bb_rate', 'iso', 'wraa'] as const;
 
-type PitcherBasicScoringFields = typeof PITCHER_BASIC_SCORING_FIELDS[number];
-type PitcherAdvancedScoringFields = typeof PITCHER_ADVANCED_SCORING_FIELDS[number];
-type HitterBasicScoringFields = typeof HITTER_BASIC_SCORING_FIELDS[number];
-type HitterAdvancedScoringFields = typeof HITTER_ADVANCED_SCORING_FIELDS[number];
-type PlayerScoringFields = PitcherBasicScoringFields | HitterBasicScoringFields;
-type PlayerAdvancedScoringFields = PitcherAdvancedScoringFields | HitterAdvancedScoringFields;
+export type PitcherBasicScoringFields = typeof PITCHER_BASIC_SCORING_FIELDS[number];
+export type PitcherAdvancedScoringFields = typeof PITCHER_ADVANCED_SCORING_FIELDS[number];
+export type HitterBasicScoringFields = typeof HITTER_BASIC_SCORING_FIELDS[number];
+export type HitterAdvancedScoringFields = typeof HITTER_ADVANCED_SCORING_FIELDS[number];
+export type PlayerScoringFields = PitcherBasicScoringFields | HitterBasicScoringFields;
+export type PlayerAdvancedScoringFields = PitcherAdvancedScoringFields | HitterAdvancedScoringFields;
 
 /** Allowed orderBy values for pitcher stats (runtime whitelist for SQL safety). */
 const PITCHER_ORDER_BY_ALLOWED = new Set<string>([
@@ -27,11 +27,11 @@ const HITTER_ORDER_BY_ALLOWED = new Set<string>([
     ...HITTER_ADVANCED_SCORING_FIELDS,
 ]);
 
-interface PlayerSelectScoringFields {
+export type PlayerSelectScoringFields = {
     basic: PlayerScoringFields[];
     advanced: PlayerAdvancedScoringFields[];
     raw: PlayerScoringFields[];
-}
+};
 
 /** Table aliases as const so the same identifiers can be used in type definitions (e.g. TwoStartPitcher) and at runtime. */
 const PLAYERS_TABLE_ALIAS = 'p' as const;
@@ -69,7 +69,7 @@ type TwoStartPitcherBase = {
     qs_likelihood_score: number;
     avg_qs_score: number;
 };
-type TwoStartPitcher = TwoStartPitcherBase
+export type TwoStartPitcher = TwoStartPitcherBase
     & Record<`${typeof PLAYERS_TABLE_ALIAS}.${DefaultPlayerFields}`, string>
     & Partial<Record<`${typeof BASIC_ROLLING_STATS_TABLE_ALIAS}.${PitcherBasicScoringFields}`, number>>
     & Partial<Record<`${typeof BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${PitcherBasicScoringFields}_pct`, number>>
@@ -87,7 +87,7 @@ type ProbablePitcherBase = {
     accuracy: number;
     qs_likelihood_score: number;
 };
-type ProbablePitcher = ProbablePitcherBase
+export type ProbablePitcher = ProbablePitcherBase
     & Record<`${typeof PLAYERS_TABLE_ALIAS}.${DefaultPlayerFields}`, string>
     & Partial<Record<`${typeof BASIC_ROLLING_STATS_TABLE_ALIAS}.${PitcherBasicScoringFields}`, number>>
     & Partial<Record<`${typeof BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${PitcherBasicScoringFields}_pct`, number>>
@@ -102,45 +102,45 @@ type WatchlistBase = {
 type Watchlist = WatchlistBase
     & Record<`${typeof PLAYERS_TABLE_ALIAS}.${DefaultPlayerFields}`, string>;
 
-type HitterWatchlist = Watchlist 
+export type HitterWatchlist = Watchlist 
     & Record<`${typeof BASIC_ROLLING_STATS_TABLE_ALIAS}.${HitterBasicScoringFields}`, number>
     & Record<`${typeof BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${HitterBasicScoringFields}_pct`, number>
     & Record<`${typeof ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${HitterAdvancedScoringFields}_pct`, number>
     & { basic_reliability_score: number; }
     & { advanced_reliability_score: number; }
 
-type PitcherWatchlist = Watchlist 
+export type PitcherWatchlist = Watchlist 
     & Record<`${typeof BASIC_ROLLING_STATS_TABLE_ALIAS}.${PitcherBasicScoringFields}`, number>
     & Record<`${typeof BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${PitcherBasicScoringFields}_pct`, number>
     & Record<`${typeof ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${PitcherAdvancedScoringFields}_pct`, number>
     & { basic_reliability_score: number; }
     & { advanced_reliability_score: number; }
 
-type HitterScoringWatchlist = HitterWatchlist
+export type HitterScoringWatchlist = HitterWatchlist
     & {
         fantasy_score: number;
     };
-type HitterSpeedWatchlist = HitterWatchlist
+export type HitterSpeedWatchlist = HitterWatchlist
     & {
         sb_pickup_score: number;
     };
-type HitterContactOnBaseWatchlist = HitterWatchlist
+export type HitterContactOnBaseWatchlist = HitterWatchlist
     & {
         contact_onbase_score: number;
     };
-type HitterPowerWatchlist = HitterWatchlist
+export type HitterPowerWatchlist = HitterWatchlist
     & {
         power_score: number;
     };
-type PitcherScoringWatchlist = PitcherWatchlist
+export type PitcherScoringWatchlist = PitcherWatchlist
     & {
         fantasy_score: number;
     };
-type PitcherStarterWatchlist = PitcherWatchlist
+export type PitcherStarterWatchlist = PitcherWatchlist
     & {
         k_qs_score: number;
     };
-type PitcherRelieverWatchlist = PitcherWatchlist
+export type PitcherRelieverWatchlist = PitcherWatchlist
     & {
         leverage_relief_score: number;
     };
@@ -148,7 +148,7 @@ type PitcherRelieverWatchlist = PitcherWatchlist
 type ScheduleStrengthBase = {
     reliability_score: number;
 };
-type PitcherScheduleStrength = ScheduleStrengthBase
+export type PitcherScheduleStrength = ScheduleStrengthBase
     & {
         pitcher_week_score: number;
         qs_pct: number;
@@ -160,7 +160,7 @@ type PitcherScheduleStrength = ScheduleStrengthBase
         k_per_9_pct: number;
     }
     & Record<DefaultPlayerFields, string>;
-type HitterScheduleStrength = ScheduleStrengthBase
+export type HitterScheduleStrength = ScheduleStrengthBase
     & {
         hitter_week_score: number;
         player_id: number;
@@ -182,7 +182,7 @@ type NRFIRankingBase = {
     player_nrfi_pct: number;
     avg_nrfi_score: number;
 };
-type NRFIRanking = NRFIRankingBase
+export type NRFIRanking = NRFIRankingBase
     & Record<`${typeof PLAYERS_TABLE_ALIAS}.${DefaultPlayerFields}`, string>
     & Record<`${typeof BASIC_ROLLING_STATS_TABLE_ALIAS}.${PitcherBasicScoringFields}`, number>
     & Record<`${typeof BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${PitcherBasicScoringFields}_pct`, number>
@@ -190,13 +190,13 @@ type NRFIRanking = NRFIRankingBase
     & { basic_reliability_score: number; }
     & { advanced_reliability_score: number; }
 
-type PlayerFantasyRankingBase = {
+export type PlayerFantasyRankingBase = {
     span_days: number;
     split_type: string;
     batter_score: number;
     pitcher_score: number;
 }
-type PlayerFantasyRanking = PlayerFantasyRankingBase
+export type PlayerFantasyRanking = PlayerFantasyRankingBase
     & Record<`${typeof PLAYERS_TABLE_ALIAS}.${DefaultPlayerFields}`, string>
     & Partial<Record<`${typeof BASIC_ROLLING_STATS_TABLE_ALIAS}.${PitcherBasicScoringFields}`, number>>
     & Partial<Record<`${typeof BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${PitcherBasicScoringFields}_pct`, number>>
@@ -207,39 +207,10 @@ type PlayerFantasyRanking = PlayerFantasyRankingBase
     & { basic_reliability_score: number; }
     & { advanced_reliability_score: number; }
 
-type SpanDays = 7 | 14 | 30;
-type PitcherOrBatter = 'P' | 'B';
-type Position = '1B' | '2B' | '3B' | 'SS' | 'C' | 'OF' | 'DH' | 'UTIL' | 'P' | 'SP' | 'RP';
-type WatchlistType = 'speed' | 'contact' | 'power' | 'starter' | 'reliever';
-
-type DateQuery = {
-    startDate: string | false;
-    endDate: string | false;
-    spanDays?: SpanDays;
-}
-type TeamStatsQuery = {
-    spanDays: SpanDays;
-    orderBy?: PlayerScoringFields | PlayerAdvancedScoringFields | false;
-}
-type SearchPlayersQuery = {
-    positionType: PitcherOrBatter | WatchlistType;
-    position: Position | false;
-    isRostered: boolean;
-    spanDays: SpanDays;
-    page: number;
-    orderBy: PlayerScoringFields | PlayerAdvancedScoringFields | false;
-    isUserTeam: boolean;
-}
-type SearchPlayersResult = PlayerFantasyRanking 
-    | HitterSpeedWatchlist 
-    | HitterContactOnBaseWatchlist 
-    | HitterPowerWatchlist 
-    | PitcherStarterWatchlist 
-    | PitcherRelieverWatchlist;
-
-type AvailablePitchersResult = ProbablePitcher | TwoStartPitcher | NRFIRanking;
-type TeamStatsResult = HitterScoringWatchlist | PitcherScoringWatchlist;
-type ScheduleStrengthResult = PitcherScheduleStrength | HitterScheduleStrength;
+export type SpanDays = 7 | 14 | 30;
+export type PitcherOrBatter = 'P' | 'B';
+export type Position = '1B' | '2B' | '3B' | 'SS' | 'C' | 'OF' | 'DH' | 'UTIL' | 'P' | 'SP' | 'RP';
+export type WatchlistType = 'speed' | 'contact' | 'power' | 'starter' | 'reliever';
 
 class Player {
     private db: QueryableDB;
@@ -252,137 +223,6 @@ class Player {
             'id', 'name', 'mlb_team', 'eligible_positions', 'selected_position', 'headshot_url'
         ];
         this.pageSize = 15;
-    }
-
-    async searchPlayers(query: SearchPlayersQuery): Promise<SearchPlayersResult[]> {
-        let {
-            positionType,
-            position,
-            isRostered,
-            spanDays,
-            page,
-            orderBy,
-            isUserTeam,
-        } = query;
-
-        const teamId = isUserTeam ? await this.getUserTeamId() : false;
-
-        if ( positionType === 'B' || positionType === 'P' ) {
-            return await this.getPlayerFantasyRankings(page, spanDays, positionType, isRostered, position, orderBy, teamId);
-        } else if ( positionType === 'speed' ) {
-            return await this.getHitterSpeedWatchlist(page, spanDays, position, teamId);
-        } else if ( positionType === 'contact' ) {
-            return await this.getHitterContactOnBaseWatchlist(page, spanDays, position, teamId);
-        } else if ( positionType === 'power' ) {
-            return await this.getHitterPowerWatchlist(page, spanDays, position, teamId);
-        } else if ( positionType === 'starter' ) {
-            return await this.getPitcherStarterWatchlist(page, spanDays, teamId);
-        } else if ( positionType === 'reliever' ) {
-            return await this.getPitcherRelieverWatchlist(page, spanDays, teamId);
-        } else {
-            throw new Error('Invalid position type');
-        }
-    }
-
-    async getAvailablePitchers(
-        query: DateQuery, 
-        type: 'daily-streamer' | 'two-start' | 'nrfi'
-    ): Promise<AvailablePitchersResult[]> {
-        const {
-            startDate,
-            endDate,
-        } = this.getDateRange(query);
-        if ( type === 'daily-streamer' ) {
-            return await this.getAvailableDailyStreamingPitchers(startDate, endDate);
-        } else if ( type === 'two-start' ) {
-            return await this.getAvailableTwoStartPitchers(startDate, endDate);
-        } else if ( type === 'nrfi' ) {
-            return await this.getNRFIRankings(startDate, endDate);
-        } else {
-            throw new Error('Invalid type');
-        }
-    }
-
-    async getProbablesStatsForTeam(
-        teamId: number, 
-        query: DateQuery
-    ): Promise<{ twoStartPitchers: TwoStartPitcher[], probablePitchers: ProbablePitcher[] }> {
-        const {
-            startDate,
-            endDate,
-        } = this.getDateRange(query);
-        const twoStartPitchers = await this.getTwoStartPitchersForTeam(teamId, startDate, endDate);
-        const probablePitchers = await this.getProbablePitchersForTeam(teamId, startDate, endDate);
-                
-        return {
-            twoStartPitchers,
-            probablePitchers,
-        };
-    }
-
-    async getStatsForTeam(
-        teamId: number, 
-        query: TeamStatsQuery, 
-        type: 'batting' | 'pitching'
-    ): Promise<TeamStatsResult[]> {
-        const {
-            spanDays,
-            orderBy,
-        } = query;
-        if ( type === 'batting' ) {
-            return await this.getScoringStatsForTeamBatters(teamId, spanDays, orderBy as HitterBasicScoringFields | HitterAdvancedScoringFields | false);
-        } else if ( type === 'pitching' ) {
-            return await this.getScoringStatsForTeamPitchers(teamId, spanDays, orderBy as PitcherBasicScoringFields | PitcherAdvancedScoringFields | false);
-        } else {
-            throw new Error('Invalid type');
-        }
-    }
-
-    async getScheduleStrengthForTeam(
-        teamId: number, 
-        query: DateQuery, 
-        type: 'batting' | 'pitching'
-    ): Promise<ScheduleStrengthResult[]> {
-        const {
-            spanDays,
-        } = query;
-        const {
-            startDate,
-            endDate,
-        } = this.getDateRange(query);
-        if ( type === 'batting' ) {
-            return await this.getWeeklyHitterScheduleStrengthPreviewForTeam(teamId, startDate, endDate, spanDays);
-        } else if ( type === 'pitching' ) {
-            return await this.getWeeklyPitcherScheduleStrengthPreviewForTeam(teamId, startDate, endDate, spanDays);
-        } else {
-            throw new Error('Invalid type');
-        }
-    }
-
-    getDateRange(query: DateQuery): { startDate: string, endDate: string } {
-        let {
-            startDate,
-            endDate,
-        } = query;
-        if ( ! startDate ) {
-            const start = new Date();
-            start.setDate(start.getDate() - start.getDay());
-            // Format default date
-            startDate = start.toISOString().split('T')[0];
-        }
-        if ( ! endDate ) {
-            const end = new Date();
-            end.setDate(end.getDate() - end.getDay() + 6);
-            // Format default date
-            endDate = end.toISOString().split('T')[0];
-        }
-        
-        // If dates are already strings in YYYY-MM-DD format, use them as-is
-        // The database stores dates in this format, so no conversion needed
-        return {
-            startDate,
-            endDate,
-        };
     }
 
     getDefaultPlayerFields(): PlayerSelectScoringFields { 
@@ -458,18 +298,16 @@ class Player {
 
     async getUserTeamId(): Promise<number | false> {
         try {
-            const [[team]] = await this.db.query<Team[]>(
-                `SELECT id FROM ${TEAMS_TABLE} WHERE is_user_team = ? LIMIT 1`,
-                [true]
+            const [[team]] = await this.db.query<LeagueTeam[]>(
+                `SELECT id FROM ${TEAMS_TABLE} WHERE is_user_team = true LIMIT 1`
             );
             if (!team) {
-                return false;
+                throw new Error('No user team found');
             }
-            const teamId = team.id;
-            return teamId;            
+            return team.id;            
         } catch (error) {
             console.error('Error getting user team id:', error);
-            return false;
+            throw error;
         }
     }
 
