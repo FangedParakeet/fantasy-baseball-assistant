@@ -51,6 +51,11 @@ typings/
 # TypeScript cache
 *.tsbuildinfo
 
+# TypeScript build output (app/db)
+app/db/db.js
+app/db/db.d.ts
+app/db/db.d.ts.map
+
 # Optional npm cache directory
 .npm
 
