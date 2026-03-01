@@ -1,7 +1,7 @@
 import type Token from '../classes/token';
 import type { AccessToken } from '../classes/token';
-import type Yahoo from '../classes/yahoo';
-import type { YahooResponse, YahooError } from '../classes/yahoo';
+import type YahooOAuth from '../classes/yahooOAuth';
+import type { YahooResponse } from '../classes/yahooOAuth';
 
 export type TokenResponse = {
     hasToken: boolean;
@@ -10,7 +10,7 @@ export type TokenResponse = {
 }
 
 class TokenController {
-    constructor(private token: Token, private yahoo: Yahoo) {}
+    constructor(private token: Token, private yahoo: YahooOAuth) {}
 
     getAuthUrl(): string {
         return this.yahoo.getAuthUrl();
@@ -38,18 +38,30 @@ class TokenController {
         if (isExpired) {
             throw new Error('Token expired');
         }
-        
+
+        return token as AccessToken;
+    }
+
+    async getOrRefreshToken(): Promise<AccessToken> {
+        const token = await this.token.get();
+        if (!token.access_token) {
+            throw new Error('No token available. Please authenticate with Yahoo first.');
+        }
+
+        const isExpired: boolean = !!token.expires_in && new Date(token.expires_in) < new Date();
+        if (isExpired) {
+            if (!token.refresh_token) {
+                throw new Error('No refresh token available. Please re-authenticate with Yahoo.');
+            }
+            const newToken: YahooResponse = await this.yahoo.getRefreshToken(token.refresh_token);
+            await this.token.set(newToken as AccessToken);
+            return newToken as AccessToken;
+        }
         return token as AccessToken;
     }
 
     async exchangeCodeForToken(code: string): Promise<void> {
-        const tokenResponse: YahooResponse | YahooError = await this.yahoo.getToken(code);
-        if ('error' in tokenResponse) {
-            if (tokenResponse.error !== null) {
-                throw new Error(tokenResponse.error as string);
-            }
-            throw new Error('Error exchanging code for token');
-        }
+        const tokenResponse: YahooResponse = await this.yahoo.getToken(code);
         await this.token.set(tokenResponse as AccessToken);
     }
 
@@ -58,13 +70,7 @@ class TokenController {
         if (!oldToken.refresh_token) {
             throw new Error('No refresh token available');
         }
-        const newToken: YahooResponse | YahooError = await this.yahoo.getRefreshToken(oldToken.refresh_token);
-        if ('error' in newToken) {
-            if (newToken.error !== null) {
-                throw new Error(newToken.error as string);
-            }
-            throw new Error('Error refreshing token');
-        }
+        const newToken: YahooResponse = await this.yahoo.getRefreshToken(oldToken.refresh_token);
         await this.token.set(newToken as AccessToken);
     }
 }

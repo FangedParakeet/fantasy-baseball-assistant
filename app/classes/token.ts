@@ -1,6 +1,6 @@
 import type { QueryableDB } from '../db/db';
 
-export interface AccessToken {
+export type AccessToken = {
     access_token: string | null;
     refresh_token: string | null;
     expires_in: number | null;
