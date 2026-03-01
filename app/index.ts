@@ -9,15 +9,15 @@ import playerRoutes from './routes/player';
 
 const app = express();
 app.use(cors({
-  origin: true, // Allow all origins for debugging
-  credentials: true,
+	origin: true, // Allow all origins for debugging
+	credentials: true,
 }));
 app.use(express.json());
 
 // Simple request logging middleware
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  next();
+	console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+	next();
 });
 
 app.use('/api/auth', authRoutes);
@@ -27,6 +27,6 @@ app.use('/api', playerRoutes);
 
 const PORT = Number(process.env.APP_PORT) || 3001;
 app.listen(PORT, async () => {
-  await runMigrations();
-  console.log(`Server running on port ${PORT}`);
+	await runMigrations();
+	console.log(`Server running on port ${PORT}`);
 });
