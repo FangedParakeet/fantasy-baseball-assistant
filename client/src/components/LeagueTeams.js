@@ -40,9 +40,9 @@ function LeagueTeams() {
       setTeamsLoading(true);
       const response = await api.get('/league-teams');
       const data = handleApiResponse(response);
-      setTeams(data.teams || []);
-      if (data.teams && data.teams.length > 0) {
-        setSelectedTeamId(data.teams[0].id);
+      setTeams(data || []);
+      if (data && data.length > 0) {
+        setSelectedTeamId(data[0].id);
       }
     } catch (err) {
       setError(handleApiError(err));
@@ -79,7 +79,7 @@ function LeagueTeams() {
         
         console.log('Batters data:', battersData);
         console.log('Pitchers data:', pitchersData);
-        
+
         setBatters(battersData);
         setPitchers(pitchersData);
       } else if (activeTab === 'schedule-strength') {
@@ -87,7 +87,6 @@ function LeagueTeams() {
           api.get(`/preview/team/${selectedTeamId}/schedule-strength/batting`, { params: queryParams }),
           api.get(`/preview/team/${selectedTeamId}/schedule-strength/pitching`, { params: queryParams })
         ]);
-        
         const battersData = handleApiResponse(battersResponse);
         const pitchersData = handleApiResponse(pitchersResponse);
         
@@ -170,6 +169,7 @@ function LeagueTeams() {
 
 
   const renderBattersTable = (data, title) => {
+    console.log(data);
     if (!data || data.length === 0) {
       return (
         <div className="stats-panel">

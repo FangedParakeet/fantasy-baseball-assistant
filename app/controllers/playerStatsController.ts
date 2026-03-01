@@ -73,6 +73,17 @@ class PlayerStatsController {
             isUserTeam,
         } = query;
 
+        // Coerce query string 'false'/'true' to booleans (req.query sends strings)
+        const orderByStr = orderBy as unknown;
+        const positionStr = position as unknown;
+        if ( orderByStr === 'false' || orderByStr === '' || orderByStr == null ) orderBy = false;
+        if ( positionStr === 'false' || positionStr === '' || positionStr == null ) position = false;
+
+        const isRosteredStr = isRostered as unknown;
+        isRostered = isRosteredStr === true || isRosteredStr === 'true';
+        const isUserTeamStr = isUserTeam as unknown;
+        isUserTeam = isUserTeamStr === true || isUserTeamStr === 'true';
+
         const teamId = isUserTeam ? await this.player.getUserTeamId() : false;
 
         // Validate query parameters
@@ -91,10 +102,10 @@ class PlayerStatsController {
         if ( !POSITION_TYPE_SET.has(positionType) ) {
             throw new Error('Invalid position type');
         }
-        if ( !ORDER_BY_SET.has(orderBy as PlayerScoringFields | PlayerAdvancedScoringFields) ) {
+        if ( orderBy !== false && !ORDER_BY_SET.has(orderBy as PlayerScoringFields | PlayerAdvancedScoringFields) ) {
             throw new Error('Invalid orderBy parameter');
         }
-        const orderByValid = orderBy as PlayerScoringFields | PlayerAdvancedScoringFields;
+        const orderByValid = orderBy as PlayerScoringFields | PlayerAdvancedScoringFields | false;
 
         if ( positionType === 'B' || positionType === 'P' ) {
             return await this.player.getPlayerFantasyRankings(page, spanDaysValid, positionType, isRostered, position, orderByValid, teamId);
@@ -173,8 +184,9 @@ class PlayerStatsController {
         type: 'batting' | 'pitching'
     ): Promise<ScheduleStrengthResult[]> {
         const {
-            spanDays,
+            spanDays: querySpanDays,
         } = query;
+        const spanDays = querySpanDays ?? 14;
         const {
             startDate,
             endDate,

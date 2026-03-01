@@ -187,8 +187,7 @@ export type NRFIRanking = NRFIRankingBase
     & Record<`${typeof BASIC_ROLLING_STATS_TABLE_ALIAS}.${PitcherBasicScoringFields}`, number>
     & Record<`${typeof BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${PitcherBasicScoringFields}_pct`, number>
     & Record<`${typeof ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${PitcherAdvancedScoringFields}_pct`, number>
-    & { basic_reliability_score: number; }
-    & { advanced_reliability_score: number; }
+    & { reliability_score: number; }
 
 export type PlayerFantasyRankingBase = {
     span_days: number;
@@ -204,8 +203,7 @@ export type PlayerFantasyRanking = PlayerFantasyRankingBase
     & Partial<Record<`${typeof BASIC_ROLLING_STATS_TABLE_ALIAS}.${HitterBasicScoringFields}`, number>>
     & Partial<Record<`${typeof BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${HitterBasicScoringFields}_pct`, number>>
     & Partial<Record<`${typeof ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${HitterAdvancedScoringFields}_pct`, number>>
-    & { basic_reliability_score: number; }
-    & { advanced_reliability_score: number; }
+    & { reliability_score: number; }
 
 export type SpanDays = 7 | 14 | 30;
 export type PitcherOrBatter = 'P' | 'B';
@@ -250,11 +248,10 @@ class Player {
         if (selectScoringFields.basic.length > 0) {
             scoringFields.push(...selectScoringFields.basic.map(field => `${BASIC_ROLLING_STATS_TABLE_ALIAS}.${field}`));
             scoringFields.push(...selectScoringFields.basic.map(field => `${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${field}_pct`));
-            scoringFields.push(`${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.reliability_score AS basic_reliability_score`);
+            scoringFields.push(`${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.reliability_score AS reliability_score`);
         }
         if (selectScoringFields.advanced.length > 0) {
             scoringFields.push(...selectScoringFields.advanced.map(field => `${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${field}_pct`));
-            scoringFields.push(`${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.reliability_score AS advanced_reliability_score`);
         }
         if (selectScoringFields.raw.length > 0) {
             scoringFields.push(...selectScoringFields.raw.map(field => `${BASIC_ROLLING_STATS_TABLE_ALIAS}.${field}`));
@@ -801,7 +798,7 @@ class Player {
                 ) AS d
                 GROUP BY d.player_id, d.opp_team;
             `, [startDate, endDate, teamId, startDate, endDate, teamId]);
-            
+
             // Query the aggregated results from temporary table
             const defaultPlayerFields = this.getDefaultPlayerFields();
             const advancedScoringFields = this.getHitterAdvancedScoringFields();

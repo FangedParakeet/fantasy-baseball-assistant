@@ -2,5 +2,7 @@
   "watch": ["."],
   "ext": "ts",
   "ignore": ["node_modules"],
-  "exec": "npm run build && node index.js"
+  "legacyWatch": true,
+  "exec": "npm run build && node index.js",
+  "delay": "1"
 }

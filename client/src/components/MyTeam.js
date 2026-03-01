@@ -17,7 +17,7 @@ function MyTeam() {
       const response = await api.get('/my-roster');
       const data = handleApiResponse(response);
       console.log(data);
-      setPlayers(data.players || []);
+      setPlayers(data || []);
     } catch (err) {
       setError(handleApiError(err));
     } finally {

@@ -109,6 +109,8 @@ function PlayerScouting() {
 
       const myTeamData = handleApiResponse(myTeamResponse);
       const availableData = handleApiResponse(availableResponse);
+      console.log(myTeamData);
+      console.log(availableData);
 
       setMyTeamPlayers(myTeamData || []);
       setAvailablePlayers(availableData || []);
