@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS ai_context (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  key_name VARCHAR(255) UNIQUE,
+  content TEXT
+);

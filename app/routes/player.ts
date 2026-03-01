@@ -5,7 +5,7 @@ import Player from '../classes/player';
 import { TwoStartPitcher, ProbablePitcher } from '../classes/player';
 import PlayerStatsController from '../controllers/playerStatsController';
 import { AvailablePitchersResult, DateQuery, SearchPlayersQuery, SearchPlayersResult, TeamStatsQuery, TeamStatsResult, ScheduleStrengthResult } from '../controllers/playerStatsController';
-import { sendSuccess, sendError } from '../utils';
+import { sendSuccess, sendError } from '../utils/functions';
 
 const player = new Player(db);
 const playerStatsController = new PlayerStatsController(player);

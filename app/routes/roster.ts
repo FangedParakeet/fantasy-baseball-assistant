@@ -5,7 +5,7 @@ import YahooOAuth from '../classes/yahooOAuth';
 import Token from '../classes/token';
 import Hydrator from '../classes/hydrator';
 import { db } from '../db/db';
-import { sendSuccess, sendError } from '../utils';
+import { sendSuccess, sendError } from '../utils/functions';
 import TokenController from '../controllers/tokenController';
 import RosterController from '../controllers/rosterController';
 

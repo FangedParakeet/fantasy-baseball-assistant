@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS sync_metadata (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  key_name VARCHAR(255) UNIQUE,
+  last_synced DATETIME
+);

@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS player_lookup (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  player_id INT NOT NULL UNIQUE,
+  espn_player_id INT,
+  yahoo_player_id VARCHAR(50),
+  normalised_name VARCHAR(100) NOT NULL,
+  first_name VARCHAR(50),
+  last_name VARCHAR(50),
+  team VARCHAR(10),
+  bats CHAR(1),
+  throws CHAR(1),
+  status VARCHAR(50),
+  last_updated DATETIME,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_player_id (player_id),
+  INDEX idx_espn_player_id (espn_player_id),
+  INDEX idx_normalised_name (normalised_name),
+  INDEX idx_team (team),
+  INDEX idx_status (status),
+  INDEX idx_last_updated (last_updated)
+);

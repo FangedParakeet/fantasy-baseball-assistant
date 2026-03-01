@@ -2,7 +2,7 @@ import express from 'express';
 import Token from '../classes/token';
 import YahooOAuth from '../classes/yahooOAuth';
 import { db } from '../db/db';
-import { sendSuccess, sendError } from '../utils';
+import { sendSuccess, sendError } from '../utils/functions';
 import TokenController from '../controllers/tokenController';
 import type { TokenResponse } from '../controllers/tokenController';
 import type { AccessToken } from '../classes/token';

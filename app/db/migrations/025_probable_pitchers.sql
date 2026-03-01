@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS probable_pitchers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  game_id VARCHAR(50) NULL,
+  game_date DATE NOT NULL,
+  team VARCHAR(5) NOT NULL,
+  opponent VARCHAR(5) NOT NULL,
+  espn_pitcher_id INT,
+  player_id INT,
+  pitcher_name VARCHAR(100),
+  home BOOLEAN,
+  normalised_name VARCHAR(100),
+  accuracy VARCHAR(50),
+  qs_likelihood_score DECIMAL(5,1) NULL,
+  nrfi_likelihood_score DECIMAL(5,1) NULL,
+  UNIQUE KEY unique_game_team (game_date, game_id, team),
+  INDEX idx_normalised_name_pp (normalised_name),
+  INDEX idx_game_date_team (game_date, team),
+  INDEX idx_pp_date_opp (game_date, opponent),
+  INDEX idx_player_id (player_id),
+  INDEX idx_qs_likelihood_score (qs_likelihood_score)
+);

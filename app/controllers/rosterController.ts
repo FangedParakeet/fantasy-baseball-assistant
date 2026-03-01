@@ -3,7 +3,7 @@ import YahooAPI from "../classes/yahooAPI";
 import type { YahooLeagueTeam, YahooRosterPlayer } from "../classes/yahooAPI";
 import type { LeagueTeam, RosterPlayer } from "../classes/team";
 import Hydrator from "../classes/hydrator";
-import { convertYahooTeamAbbr, normalisedName } from "../utils";
+import { convertYahooTeamAbbr, normalisedName } from "../utils/functions";
 
 class RosterController {
     private yahoo: YahooAPI;

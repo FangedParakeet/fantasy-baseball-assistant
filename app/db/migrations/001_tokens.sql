@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS tokens (
+  id INT PRIMARY KEY DEFAULT 1,
+  yahoo_access_token VARCHAR(1000),
+  yahoo_refresh_token VARCHAR(1000),
+  yahoo_token_expires_at TIMESTAMP NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);

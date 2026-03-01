@@ -1,0 +1,53 @@
+CREATE TABLE IF NOT EXISTS team_rolling_stats (
+  team VARCHAR(10),
+  split_type VARCHAR(10),
+  span_days INT,
+  games_played INT,
+
+  runs_scored INT,
+  runs_allowed INT,
+  run_diff INT,
+  avg_runs_scored DECIMAL(4,2),
+  avg_runs_allowed DECIMAL(4,2),
+
+  avg FLOAT,
+  obp FLOAT,
+  slg FLOAT,
+  ops FLOAT,
+
+  er INT,
+  era FLOAT,
+  whip FLOAT,
+  strikeouts INT,
+  walks INT,
+  ip FLOAT,
+  hits_allowed INT,
+
+  singles INT,
+  doubles INT,
+  triples INT,
+  total_bases INT,
+  sac_flies INT,
+  hit_by_pitch INT,
+  ground_outs INT,
+  air_outs INT,
+  left_on_base INT,
+  ground_into_dp INT,
+  batters_faced INT,
+  wild_pitches INT,
+  balks INT,
+  home_runs_allowed INT,
+  inherited_runners INT,
+  inherited_runners_scored INT,
+  nrfi INT,
+
+  babip DECIMAL(5,3),
+  lob_pct DECIMAL(5,2),
+  fip DECIMAL(5,2),
+  k_per_9 DECIMAL(5,2),
+  bb_per_9 DECIMAL(5,2),
+  hr_per_9 DECIMAL(5,2),
+  k_bb_ratio DECIMAL(5,2),
+
+  PRIMARY KEY (team, split_type, span_days)
+);
