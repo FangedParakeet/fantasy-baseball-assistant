@@ -1,6 +1,6 @@
 import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import type { QueryableDB } from '../db/db';
-import { POSITION_MAP, normalisedName, convertYahooTeamAbbr } from '../utils';
+import { POSITION_MAP } from '../utils/constants';
 
 /** Row shape for SELECTs from the teams table. Extends RowDataPacket so query<T>() accepts it. */
 export interface LeagueTeam extends RowDataPacket {
@@ -238,9 +238,9 @@ class Team {
 		normalisedPositions.forEach((pos: string) => {
             // Normalize position to uppercase to match POSITION_MAP keys
             const cleanPos = pos ? pos.toUpperCase() : '';
-            const flagKey = POSITION_MAP[cleanPos];
+            const flagKey = POSITION_MAP[cleanPos as keyof typeof POSITION_MAP];
             if (flagKey) {
-                positionFlags[flagKey] = 1;
+                positionFlags[flagKey as keyof PositionFlag] = 1;
             } else {
                 // Log unknown positions for debugging
                 console.log(`Unknown position: "${pos}" (normalized: "${cleanPos}")`);

@@ -46,9 +46,10 @@ class YahooOAuth {
                 }
             );
             return response.data as YahooResponse;
-        } catch (error) {
-            console.error('Token request failed:', error.response?.data || error.message);
-            throw new Error(error.response?.data || error.message);
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: unknown }; message?: string };
+            console.error('Token request failed:', err.response?.data || err.message);
+            throw new Error(String(err.response?.data ?? err.message));
         }
     }
 

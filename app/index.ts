@@ -1,17 +1,16 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
-
-const { runMigrations } = require('./db');
-const authRoutes = require('./routes/auth');
-const rosterRoutes = require('./routes/roster');
-const playerRoutes = require('./routes/player');
-const aiRoutes = require('./routes/ai');
+import express from 'express';
+import cors from 'cors';
+import 'dotenv/config';
+import { runMigrations } from './db/db';
+import authRoutes from './routes/auth';
+import rosterRoutes from './routes/roster';
+import playerRoutes from './routes/player';
+// import aiRoutes from './routes/ai';
 
 const app = express();
 app.use(cors({
   origin: true, // Allow all origins for debugging
-  credentials: true
+  credentials: true,
 }));
 app.use(express.json());
 
@@ -23,10 +22,10 @@ app.use((req, res, next) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api', rosterRoutes);
-app.use('/api', aiRoutes);
+// app.use('/api', aiRoutes);
 app.use('/api', playerRoutes);
 
-const PORT = process.env.APP_PORT || 3001;
+const PORT = Number(process.env.APP_PORT) || 3001;
 app.listen(PORT, async () => {
   await runMigrations();
   console.log(`Server running on port ${PORT}`);

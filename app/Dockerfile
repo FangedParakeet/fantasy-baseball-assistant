@@ -7,4 +7,4 @@ COPY . .
 EXPOSE 3001
 COPY wait-for.sh /usr/src/app/wait-for.sh
 RUN chmod +x /usr/src/app/wait-for.sh
-CMD ["./wait-for.sh", "mysql:3306", "npm", "run", "dev"]
+CMD ["./wait-for.sh", "mysql:3306", "sh", "-c", "npm run build && npm run dev"]

@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import Team from '../classes/team';
 import YahooAPI from '../classes/yahooAPI';
 import YahooOAuth from '../classes/yahooOAuth';
@@ -16,7 +16,7 @@ const tokenController = new TokenController(token, yahooOAuth);
 const hydrator = new Hydrator(db);
 const team = new Team(db);
 
-router.post('/sync-roster', async (req, res) => {
+router.post('/sync-roster', async (req: Request, res: Response) => {
     try {
         const accessToken = await tokenController.getOrRefreshToken();
         if (!accessToken.access_token) {
@@ -32,7 +32,7 @@ router.post('/sync-roster', async (req, res) => {
     }
 });
 
-router.get('/my-roster', async (req, res) => {
+router.get('/my-roster', async (req: Request, res: Response) => {
     try {
         const result = await team.getMyRoster();
         sendSuccess(res, result, 'Roster retrieved successfully');
@@ -42,7 +42,7 @@ router.get('/my-roster', async (req, res) => {
     }
 });
 
-router.get('/league-teams', async (req, res) => {
+router.get('/league-teams', async (req: Request, res: Response) => {
   try {
         const result = await team.getAllLeagueTeams();
         sendSuccess(res, result, 'League teams retrieved successfully');
@@ -52,7 +52,7 @@ router.get('/league-teams', async (req, res) => {
   }
 });
 
-router.get('/league-teams/:teamId', async (req, res) => {
+router.get('/league-teams/:teamId', async (req: Request, res: Response) => {
     try {
         const { teamId } = req.params;
         const id = teamId != null ? Number(teamId) : NaN;
@@ -68,7 +68,7 @@ router.get('/league-teams/:teamId', async (req, res) => {
     }
 });
 
-router.post('/league-teams/:teamId/sync-roster', async (req, res) => {
+router.post('/league-teams/:teamId/sync-roster', async (req: Request, res: Response) => {
     try {
         const { teamId } = req.params;
         const id = teamId != null ? Number(teamId) : NaN;
@@ -91,7 +91,7 @@ router.post('/league-teams/:teamId/sync-roster', async (req, res) => {
     }
 });
 
-router.post('/league-teams/sync-all-rosters', async (req, res) => {
+router.post('/league-teams/sync-all-rosters', async (req: Request, res: Response) => {
     try {
         const accessToken = await tokenController.getOrRefreshToken();
         if (!accessToken.access_token) {

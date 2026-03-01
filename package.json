@@ -1,21 +1,23 @@
 {
-    "name": "fantasy-baseball-assistant",
-    "version": "1.0.0",
-    "scripts": {
-        "up": "docker compose up -d",
-        "up:build": "docker compose up -d --build",
-        "up:log": "docker compose up --build",
-        "down": "docker compose down",
-        "logs:client": "docker compose logs -f client",
-        "logs:app": "docker compose logs -f app",
-        "logs:pybaseball": "docker compose logs -f pybaseball",
-        "mysql": "docker exec -it fantasy_mysql mysql -u root -proot fantasy_baseball",
-        "sync:all": "docker exec pybaseball python main.py all",
-        "sync:game_logs": "docker exec pybaseball python main.py game_logs",
-        "sync:compute_stats": "docker exec pybaseball python main.py compute_stats",
-        "sync:season_stats": "docker exec pybaseball python main.py season_stats",
-        "sync:probable_pitchers": "docker exec pybaseball python main.py probable_pitchers",
-        "sync:yahoo_player_data": "docker exec pybaseball python main.py yahoo_player_data"
-    }
+  "name": "fantasy-baseball-assistant",
+  "version": "1.0.0",
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  },
+  "scripts": {
+    "up": "docker compose up -d",
+    "up:build": "docker compose up -d --build",
+    "up:log": "docker compose up --build",
+    "down": "docker compose down",
+    "logs:client": "docker compose logs -f client",
+    "logs:app": "docker compose logs -f app",
+    "logs:pybaseball": "docker compose logs -f pybaseball",
+    "mysql": "docker exec -it fantasy_mysql mysql -u root -proot fantasy_baseball",
+    "sync:all": "docker exec pybaseball python main.py all",
+    "sync:game_logs": "docker exec pybaseball python main.py game_logs",
+    "sync:compute_stats": "docker exec pybaseball python main.py compute_stats",
+    "sync:season_stats": "docker exec pybaseball python main.py season_stats",
+    "sync:probable_pitchers": "docker exec pybaseball python main.py probable_pitchers",
+    "sync:yahoo_player_data": "docker exec pybaseball python main.py yahoo_player_data"
   }
-  
+}

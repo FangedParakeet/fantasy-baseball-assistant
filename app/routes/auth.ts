@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import Token from '../classes/token';
 import YahooOAuth from '../classes/yahooOAuth';
 import { db } from '../db/db';
@@ -13,7 +13,7 @@ const yahooOAuth = new YahooOAuth();
 const tokenController = new TokenController(token, yahooOAuth);
 
 // Get current token status
-router.get('/token-status', async (req, res) => {
+router.get('/token-status', async (req: Request, res: Response) => {
   try {
     const status: TokenResponse = await tokenController.getStatus();
     sendSuccess(res, status, 'Token status retrieved successfully');
@@ -24,7 +24,7 @@ router.get('/token-status', async (req, res) => {
 });
 
 // OAuth login redirect
-router.get('/login', async (req, res) => {
+router.get('/login', async (req: Request, res: Response) => {
   try {
     const authUrl: string = tokenController.getAuthUrl();
     res.redirect(authUrl);
@@ -35,7 +35,7 @@ router.get('/login', async (req, res) => {
 });
 
 // OAuth redirect handler
-router.get('/redirect', async (req, res) => {
+router.get('/redirect', async (req: Request, res: Response) => {
   try {
     const { code } = req.query;
     
@@ -56,7 +56,7 @@ router.get('/redirect', async (req, res) => {
 });
 
 // Refresh Yahoo token
-router.post('/refresh-token', async (req, res) => {
+router.post('/refresh-token', async (req: Request, res: Response) => {
   try {
     await tokenController.refreshToken();
     sendSuccess(res, { message: 'Token refreshed successfully' }, 'Token refreshed successfully');
@@ -67,7 +67,7 @@ router.post('/refresh-token', async (req, res) => {
 });
 
 // Get access token (for API calls)
-router.get('/access-token', async (req, res) => {
+router.get('/access-token', async (req: Request, res: Response) => {
   try {
     const token: AccessToken = await tokenController.getToken();
     sendSuccess(res, { access_token: token.access_token }, 'Access token retrieved successfully');

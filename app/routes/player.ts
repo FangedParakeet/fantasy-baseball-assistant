@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 const router = express.Router();
 import db from '../db/db'; 
 import Player from '../classes/player';
@@ -12,9 +12,9 @@ const playerStatsController = new PlayerStatsController(player);
 
 
 // Search players
-router.get('/search/players', async (req, res) => {
+router.get('/search/players', async (req: Request, res: Response) => {
     try {
-        const rankings: SearchPlayersResult[] = await playerStatsController.searchPlayers(req.query as SearchPlayersQuery);
+        const rankings: SearchPlayersResult[] = await playerStatsController.searchPlayers(req.query as unknown as SearchPlayersQuery);
         sendSuccess(res, rankings, 'Players retrieved successfully');
     } catch (error) {
         console.error('Error searching players:', error);
@@ -22,9 +22,9 @@ router.get('/search/players', async (req, res) => {
     }
 });
 
-router.get('/search/pitchers/two-start', async (req, res) => {
+router.get('/search/pitchers/two-start', async (req: Request, res: Response) => {
     try {
-        const pitchers: AvailablePitchersResult[] = await playerStatsController.getAvailablePitchers(req.query as DateQuery, 'two-start');
+        const pitchers: AvailablePitchersResult[] = await playerStatsController.getAvailablePitchers(req.query as unknown as DateQuery, 'two-start');
         sendSuccess(res, pitchers, 'Two-start pitchers retrieved successfully');
     } catch (error) {
         console.error('Error getting two-start pitchers:', error);
@@ -32,9 +32,9 @@ router.get('/search/pitchers/two-start', async (req, res) => {
     }
 });
 
-router.get('/search/pitchers/daily-streamer', async (req, res) => {
+router.get('/search/pitchers/daily-streamer', async (req: Request, res: Response) => {
     try {
-        const pitchers: AvailablePitchersResult[] = await playerStatsController.getAvailablePitchers(req.query as DateQuery, 'daily-streamer');
+        const pitchers: AvailablePitchersResult[] = await playerStatsController.getAvailablePitchers(req.query as unknown as DateQuery, 'daily-streamer');
         sendSuccess(res, pitchers, 'Daily streamer pitchers retrieved successfully');
     } catch (error) {
         console.error('Error getting daily streamer pitchers:', error);
@@ -42,9 +42,9 @@ router.get('/search/pitchers/daily-streamer', async (req, res) => {
     }
 });
 
-router.get('/search/pitchers/nrfi', async (req, res) => {
+router.get('/search/pitchers/nrfi', async (req: Request, res: Response) => {
     try {
-        const pitchers: AvailablePitchersResult[] = await playerStatsController.getAvailablePitchers(req.query as DateQuery, 'nrfi');
+        const pitchers: AvailablePitchersResult[] = await playerStatsController.getAvailablePitchers(req.query as unknown as DateQuery, 'nrfi');
         sendSuccess(res, pitchers, 'NRFI rankings retrieved successfully');
     } catch (error) {
         console.error('Error getting NRFI rankings:', error);
@@ -53,7 +53,7 @@ router.get('/search/pitchers/nrfi', async (req, res) => {
 });
 
 // Preview team
-router.get('/preview/team/:teamId/probable-pitchers', async (req, res) => {
+router.get('/preview/team/:teamId/probable-pitchers', async (req: Request, res: Response) => {
     try {
         const { teamId } = req.params;
         const id = teamId != null ? Number(teamId) : NaN;
@@ -61,7 +61,7 @@ router.get('/preview/team/:teamId/probable-pitchers', async (req, res) => {
             return sendError(res, 400, 'Valid team ID is required');
         }
 
-        const pitchers: { twoStartPitchers: TwoStartPitcher[], probablePitchers: ProbablePitcher[] } = await playerStatsController.getProbablesStatsForTeam(id, req.query as DateQuery);
+        const pitchers: { twoStartPitchers: TwoStartPitcher[], probablePitchers: ProbablePitcher[] } = await playerStatsController.getProbablesStatsForTeam(id, req.query as unknown as DateQuery);
         sendSuccess(res, pitchers, 'Probable pitchers retrieved successfully');
     } catch (error) {
         console.error('Error getting probable pitchers:', error);
@@ -69,7 +69,7 @@ router.get('/preview/team/:teamId/probable-pitchers', async (req, res) => {
     }
 });
 
-router.get('/preview/team/:teamId/stats/batting', async (req, res) => {
+router.get('/preview/team/:teamId/stats/batting', async (req: Request, res: Response) => {
     try {
         const { teamId } = req.params;
         const id = teamId != null ? Number(teamId) : NaN;
@@ -77,7 +77,7 @@ router.get('/preview/team/:teamId/stats/batting', async (req, res) => {
             return sendError(res, 400, 'Valid team ID is required');
         }
 
-        const stats: TeamStatsResult[] = await playerStatsController.getStatsForTeam(id, req.query as TeamStatsQuery, 'batting');
+        const stats: TeamStatsResult[] = await playerStatsController.getStatsForTeam(id, req.query as unknown as TeamStatsQuery, 'batting');
         sendSuccess(res, stats, 'Team batting stats retrieved successfully');
     } catch (error) {
         console.error('Error getting team batting stats:', error);
@@ -85,7 +85,7 @@ router.get('/preview/team/:teamId/stats/batting', async (req, res) => {
     }
 });
 
-router.get('/preview/team/:teamId/stats/pitching', async (req, res) => {
+router.get('/preview/team/:teamId/stats/pitching', async (req: Request, res: Response) => {
     try {
         const { teamId } = req.params;
         const id = teamId != null ? Number(teamId) : NaN;
@@ -93,7 +93,7 @@ router.get('/preview/team/:teamId/stats/pitching', async (req, res) => {
             return sendError(res, 400, 'Valid team ID is required');
         }
 
-        const stats: TeamStatsResult[] = await playerStatsController.getStatsForTeam(id, req.query as TeamStatsQuery, 'pitching');
+        const stats: TeamStatsResult[] = await playerStatsController.getStatsForTeam(id, req.query as unknown as TeamStatsQuery, 'pitching');
         sendSuccess(res, stats, 'Team pitching stats retrieved successfully');
     } catch (error) {
         console.error('Error getting team pitching stats:', error);
@@ -101,7 +101,7 @@ router.get('/preview/team/:teamId/stats/pitching', async (req, res) => {
     }
 });
 
-router.get('/preview/team/:teamId/schedule-strength/batting', async (req, res) => {
+router.get('/preview/team/:teamId/schedule-strength/batting', async (req: Request, res: Response) => {
     try {
         const { teamId } = req.params;
         const id = teamId != null ? Number(teamId) : NaN;
@@ -109,7 +109,7 @@ router.get('/preview/team/:teamId/schedule-strength/batting', async (req, res) =
             return sendError(res, 400, 'Valid team ID is required');
         }
 
-        const scheduleStrength: ScheduleStrengthResult[] = await playerStatsController.getScheduleStrengthForTeam(id, req.query as DateQuery, 'batting');
+        const scheduleStrength: ScheduleStrengthResult[] = await playerStatsController.getScheduleStrengthForTeam(id, req.query as unknown as DateQuery, 'batting');
         sendSuccess(res, scheduleStrength, 'Team batting schedule strength retrieved successfully');
     } catch (error) {
         console.error('Error getting team batting schedule strength:', error);
@@ -117,7 +117,7 @@ router.get('/preview/team/:teamId/schedule-strength/batting', async (req, res) =
     }
 });
 
-router.get('/preview/team/:teamId/schedule-strength/pitching', async (req, res) => {
+router.get('/preview/team/:teamId/schedule-strength/pitching', async (req: Request, res: Response) => {
     try {
         const { teamId } = req.params;
         const id = teamId != null ? Number(teamId) : NaN;
@@ -125,7 +125,7 @@ router.get('/preview/team/:teamId/schedule-strength/pitching', async (req, res) 
             return sendError(res, 400, 'Valid team ID is required');
         }
 
-        const scheduleStrength: ScheduleStrengthResult[] = await playerStatsController.getScheduleStrengthForTeam(id, req.query as DateQuery, 'pitching');
+        const scheduleStrength: ScheduleStrengthResult[] = await playerStatsController.getScheduleStrengthForTeam(id, req.query as unknown as DateQuery, 'pitching');
         sendSuccess(res, scheduleStrength, 'Team pitching schedule strength retrieved successfully');
     } catch (error) {
         console.error('Error getting team pitching schedule strength:', error);

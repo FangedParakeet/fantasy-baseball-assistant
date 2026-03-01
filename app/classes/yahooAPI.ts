@@ -53,8 +53,9 @@ class YahooAPI {
             const parser = new xml2js.Parser({ explicitArray: false, ignoreAttrs: true });
             const result = await parser.parseStringPromise(response.data);
             return result;
-        } catch (error) {
-            console.error('API request failed:', error.response?.data || error.message);
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: unknown }; message?: string };
+            console.error('API request failed:', err.response?.data || err.message);
             throw error;
         }
     }

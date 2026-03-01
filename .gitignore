@@ -54,7 +54,13 @@ typings/
 # TypeScript build output
 *.d.ts
 *.d.ts.map
+app/index.js
 app/db/db.js
+app/routes/*.js
+app/controllers/*.js
+app/classes/*.js
+app/utils/functions.js
+app/utils/constants.js
 
 # Optional npm cache directory
 .npm
