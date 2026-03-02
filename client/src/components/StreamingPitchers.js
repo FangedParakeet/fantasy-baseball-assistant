@@ -710,10 +710,10 @@ function StreamingPitchers() {
       ) : (
         <div className="player-tables-container">
           <div className="player-table-section">
-            {renderMyTeamTable()}
+            {renderAvailablePitchersTable()}
           </div>
           <div className="player-table-section">
-            {renderAvailablePitchersTable()}
+            {renderMyTeamTable()}
           </div>
         </div>
       )}
