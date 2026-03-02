@@ -195,6 +195,9 @@ function LeagueTeams() {
                 </th>
                 <th>Batters</th>
                 <th>H/AB</th>
+                <th onClick={() => handleSort('fantasy_score')} className="sortable-header">
+                  Fantasy Score {sortField === 'fantasy_score' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th onClick={() => handleSort('runs')} className="sortable-header">
                   R {sortField === 'runs' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
@@ -209,9 +212,6 @@ function LeagueTeams() {
                 </th>
                 <th onClick={() => handleSort('avg')} className="sortable-header">
                   AVG {sortField === 'avg' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </th>
-                <th onClick={() => handleSort('fantasy_score')} className="sortable-header">
-                  Fantasy Score {sortField === 'fantasy_score' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
               </tr>
             </thead>
@@ -233,6 +233,12 @@ function LeagueTeams() {
                     </div>
                   </td>
                   <td>{player.hits}/{player.abs}</td>
+                  <td
+                    className="stat-cell"
+                    style={{ backgroundColor: getPercentileColor(player.fantasy_score, player.reliability_score) }}
+                  >
+                    {player.fantasy_score ? Number.parseFloat(player.fantasy_score).toFixed(2) : 'N/A'}
+                  </td>
                   <td 
                     className="stat-cell"
                     style={{ backgroundColor: getPercentileColor(player.runs_pct, player.reliability_score) }}
@@ -267,12 +273,6 @@ function LeagueTeams() {
                     title={player.avg_pct ? `${player.avg_pct}th %-ile` : 'No data'}
                   >
                     {player.hits && player.abs ? Number.parseFloat((player.hits / player.abs).toFixed(3)) : 'N/A'}
-                  </td>
-                  <td
-                    className="stat-cell"
-                    style={{ backgroundColor: getPercentileColor(player.fantasy_score, player.reliability_score) }}
-                  >
-                    {player.fantasy_score ? Number.parseFloat(player.fantasy_score).toFixed(2) : 'N/A'}
                   </td>
                 </tr>
               ))}
@@ -309,6 +309,9 @@ function LeagueTeams() {
                 </th>
                 <th>Pitchers</th>
                 <th>IP</th>
+                <th onClick={() => handleSort('fantasy_score')} className="sortable-header">
+                  Fantasy Score {sortField === 'fantasy_score' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th onClick={() => handleSort('strikeouts')} className="sortable-header">
                   K {sortField === 'strikeouts' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
@@ -326,9 +329,6 @@ function LeagueTeams() {
                 </th>
                 <th onClick={() => handleSort('hld')} className="sortable-header">
                   HLD {sortField === 'hld' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </th>
-                <th onClick={() => handleSort('fantasy_score')} className="sortable-header">
-                  Fantasy Score {sortField === 'fantasy_score' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
               </tr>
             </thead>
@@ -350,6 +350,12 @@ function LeagueTeams() {
                     </div>
                   </td>
                   <td>{formatIP(player.ip) || 0}</td>
+                  <td
+                    className="stat-cell"
+                    style={{ backgroundColor: getPercentileColor(player.fantasy_score, player.reliability_score) }}
+                  >
+                    {player.fantasy_score ? Number.parseFloat(player.fantasy_score).toFixed(2) : 'N/A'}
+                  </td>
                   <td 
                     className="stat-cell"
                     style={{ backgroundColor: getPercentileColor(player.strikeouts_pct, player.reliability_score) }}
@@ -392,12 +398,6 @@ function LeagueTeams() {
                   >
                     {player.hld || 0}
                   </td>
-                  <td
-                    className="stat-cell"
-                    style={{ backgroundColor: getPercentileColor(player.fantasy_score, player.reliability_score) }}
-                  >
-                    {player.fantasy_score ? Number.parseFloat(player.fantasy_score).toFixed(2) : 'N/A'}
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -433,6 +433,9 @@ function LeagueTeams() {
                 </th>
                 <th>Pitchers</th>
                 <th>Starts</th>
+                <th onClick={() => handleSort('pitcher_week_score')} className="sortable-header">
+                  Week Score {sortField === 'pitcher_week_score' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th onClick={() => handleSort('fip_pct')} className="sortable-header">
                   FIP %{sortField === 'fip_pct' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
@@ -444,9 +447,6 @@ function LeagueTeams() {
                 </th>
                 <th onClick={() => handleSort('qs_pct')} className="sortable-header">
                   QS %{sortField === 'qs_pct' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </th>
-                <th onClick={() => handleSort('pitcher_week_score')} className="sortable-header">
-                  Week Schedule Score {sortField === 'pitcher_week_score' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
               </tr>
             </thead>
@@ -468,6 +468,12 @@ function LeagueTeams() {
                     </div>
                   </td>
                   <td>{player.starts || 0}</td>
+                  <td
+                    className="stat-cell"
+                    style={{ backgroundColor: getPercentileColor(player.pitcher_week_score, player.reliability_score) }}
+                  >
+                    {player.pitcher_week_score ? Number.parseFloat(player.pitcher_week_score).toFixed(2) : 'N/A'}
+                  </td>
                   <td 
                     className="stat-cell"
                     style={{ backgroundColor: getPercentileColor(100 - player.fip_pct, player.reliability_score) }}
@@ -495,12 +501,6 @@ function LeagueTeams() {
                     title={player.qs_pct ? `${player.qs_pct}th %-ile` : 'No data'}
                   >
                     {player.qs_pct ? Number.parseFloat(player.qs_pct).toFixed(2) : 'N/A'}
-                  </td>
-                  <td
-                    className="stat-cell"
-                    style={{ backgroundColor: getPercentileColor(player.pitcher_week_score, player.reliability_score) }}
-                  >
-                    {player.pitcher_week_score ? Number.parseFloat(player.pitcher_week_score).toFixed(2) : 'N/A'}
                   </td>
                 </tr>
               ))}
@@ -537,6 +537,9 @@ function LeagueTeams() {
                 </th>
                 <th>Batters</th>
                 <th>Games</th>
+                <th onClick={() => handleSort('hitter_week_score')} className="sortable-header">
+                  Week Score {sortField === 'hitter_week_score' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th onClick={() => handleSort('obp_pct')} className="sortable-header">
                   OBP %{sortField === 'obp_pct' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
@@ -558,9 +561,6 @@ function LeagueTeams() {
                 <th onClick={() => handleSort('wraa_pct')} className="sortable-header">
                   WRAA %{sortField === 'wraa_pct' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
-                <th onClick={() => handleSort('hitter_week_score')} className="sortable-header">
-                  Week Schedule Score {sortField === 'hitter_week_score' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -581,6 +581,12 @@ function LeagueTeams() {
                     </div>
                   </td>
                   <td>{player.games || 0}</td>
+                  <td
+                    className="stat-cell"
+                    style={{ backgroundColor: getPercentileColor(player.hitter_week_score, player.reliability_score) }}
+                  >
+                    {player.hitter_week_score ? Number.parseFloat(player.hitter_week_score).toFixed(2) : 'N/A'}
+                  </td>
                   <td 
                     className="stat-cell"
                     style={{ backgroundColor: getPercentileColor(player.obp_pct, player.reliability_score) }}
@@ -629,12 +635,6 @@ function LeagueTeams() {
                     title={player.wraa_pct ? `${player.wraa_pct}th %-ile` : 'No data'}
                   >
                     {player.wraa_pct ? Number.parseFloat(player.wraa_pct).toFixed(2) : 'N/A'}
-                  </td>
-                  <td
-                    className="stat-cell"
-                    style={{ backgroundColor: getPercentileColor(player.hitter_week_score, player.reliability_score) }}
-                  >
-                    {player.hitter_week_score ? Number.parseFloat(player.hitter_week_score).toFixed(2) : 'N/A'}
                   </td>
                 </tr>
               ))}

@@ -655,11 +655,11 @@ function PlayerScouting() {
       ) : (
         <div className="player-tables-container">
           <div className="player-table-section">
-            {renderPlayerTable(myTeamPlayers, 'My Team', true)}
-          </div>
-          <div className="player-table-section">
             {renderPlayerTable(availablePlayers, 'Available Players', false)}
             {renderPagination()}
+          </div>
+          <div className="player-table-section">
+            {renderPlayerTable(myTeamPlayers, 'My Team', true)}
           </div>
         </div>
       )}

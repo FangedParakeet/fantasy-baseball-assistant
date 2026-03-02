@@ -10,7 +10,6 @@ import { sendSuccess, sendError } from '../utils/functions';
 const player = new Player(db);
 const playerStatsController = new PlayerStatsController(player);
 
-
 // Search players
 router.get('/search/players', async (req: Request, res: Response) => {
     try {
