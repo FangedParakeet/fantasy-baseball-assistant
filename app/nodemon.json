@@ -1,8 +1,0 @@
-{
-  "watch": ["."],
-  "ext": "ts",
-  "ignore": ["node_modules"],
-  "legacyWatch": true,
-  "exec": "npm run build && node index.js",
-  "delay": "1"
-}
