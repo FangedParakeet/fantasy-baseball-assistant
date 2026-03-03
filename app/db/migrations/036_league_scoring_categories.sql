@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS league_categories (
+CREATE TABLE IF NOT EXISTS league_scoring_categories (
   id INT AUTO_INCREMENT PRIMARY KEY,
   league_id INT NOT NULL,
 

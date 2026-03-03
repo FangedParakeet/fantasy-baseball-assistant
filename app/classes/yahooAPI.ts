@@ -91,6 +91,16 @@ class YahooAPI {
         return leagueList[0].league_key as string;
     }
 
+    async getLeagueName(): Promise<string> {
+        const leagues = await this.getUserLeagues();
+        const raw = leagues?.fantasy_content?.user?.leagues?.league;
+        if (!raw) {
+            throw new Error('No leagues found');
+        }
+        const leagueList = Array.isArray(raw) ? raw : [raw];
+        return leagueList[0].name as string;
+    }
+
     async getUserLeagues(): Promise<any> {
         return this.apiRequest('/users;use_login=1/games;game_codes=mlb/leagues');
     }

@@ -14,40 +14,40 @@ const playerStatsController = new PlayerStatsController(player);
 router.get('/search/players', async (req: Request, res: Response) => {
     try {
         const rankings: SearchPlayersResult[] = await playerStatsController.searchPlayers(req.query as unknown as SearchPlayersQuery);
-        sendSuccess(res, rankings, 'Players retrieved successfully');
+        return sendSuccess(res, rankings, 'Players retrieved successfully');
     } catch (error) {
         console.error('Error searching players:', error);
-        sendError(res, 500, 'Failed to search players');
+        return sendError(res, 500, 'Failed to search players');
     }
 });
 
 router.get('/search/pitchers/two-start', async (req: Request, res: Response) => {
     try {
         const pitchers: AvailablePitchersResult[] = await playerStatsController.getAvailablePitchers(req.query as unknown as DateQuery, 'two-start');
-        sendSuccess(res, pitchers, 'Two-start pitchers retrieved successfully');
+        return sendSuccess(res, pitchers, 'Two-start pitchers retrieved successfully');
     } catch (error) {
         console.error('Error getting two-start pitchers:', error);
-        sendError(res, 500, 'Failed to get two-start pitchers');
+        return sendError(res, 500, 'Failed to get two-start pitchers');
     }
 });
 
 router.get('/search/pitchers/daily-streamer', async (req: Request, res: Response) => {
     try {
         const pitchers: AvailablePitchersResult[] = await playerStatsController.getAvailablePitchers(req.query as unknown as DateQuery, 'daily-streamer');
-        sendSuccess(res, pitchers, 'Daily streamer pitchers retrieved successfully');
+        return sendSuccess(res, pitchers, 'Daily streamer pitchers retrieved successfully');
     } catch (error) {
         console.error('Error getting daily streamer pitchers:', error);
-        sendError(res, 500, 'Failed to get daily streamer pitchers');
+        return sendError(res, 500, 'Failed to get daily streamer pitchers');
     }
 });
 
 router.get('/search/pitchers/nrfi', async (req: Request, res: Response) => {
     try {
         const pitchers: AvailablePitchersResult[] = await playerStatsController.getAvailablePitchers(req.query as unknown as DateQuery, 'nrfi');
-        sendSuccess(res, pitchers, 'NRFI rankings retrieved successfully');
+        return sendSuccess(res, pitchers, 'NRFI rankings retrieved successfully');
     } catch (error) {
         console.error('Error getting NRFI rankings:', error);
-        sendError(res, 500, 'Failed to get NRFI rankings');
+        return sendError(res, 500, 'Failed to get NRFI rankings');
     }
 });
 
@@ -61,10 +61,10 @@ router.get('/preview/team/:teamId/probable-pitchers', async (req: Request, res: 
         }
 
         const pitchers: { twoStartPitchers: TwoStartPitcher[], probablePitchers: ProbablePitcher[] } = await playerStatsController.getProbablesStatsForTeam(id, req.query as unknown as DateQuery);
-        sendSuccess(res, pitchers, 'Probable pitchers retrieved successfully');
+        return sendSuccess(res, pitchers, 'Probable pitchers retrieved successfully');
     } catch (error) {
         console.error('Error getting probable pitchers:', error);
-        sendError(res, 500, 'Failed to get probable pitchers');
+        return sendError(res, 500, 'Failed to get probable pitchers');
     }
 });
 
@@ -77,10 +77,10 @@ router.get('/preview/team/:teamId/stats/batting', async (req: Request, res: Resp
         }
 
         const stats: TeamStatsResult[] = await playerStatsController.getStatsForTeam(id, req.query as unknown as TeamStatsQuery, 'batting');
-        sendSuccess(res, stats, 'Team batting stats retrieved successfully');
+        return sendSuccess(res, stats, 'Team batting stats retrieved successfully');
     } catch (error) {
         console.error('Error getting team batting stats:', error);
-        sendError(res, 500, 'Failed to get team batting stats');
+        return sendError(res, 500, 'Failed to get team batting stats');
     }
 });
 
@@ -93,10 +93,10 @@ router.get('/preview/team/:teamId/stats/pitching', async (req: Request, res: Res
         }
 
         const stats: TeamStatsResult[] = await playerStatsController.getStatsForTeam(id, req.query as unknown as TeamStatsQuery, 'pitching');
-        sendSuccess(res, stats, 'Team pitching stats retrieved successfully');
+        return sendSuccess(res, stats, 'Team pitching stats retrieved successfully');
     } catch (error) {
         console.error('Error getting team pitching stats:', error);
-        sendError(res, 500, 'Failed to get team pitching stats');
+        return sendError(res, 500, 'Failed to get team pitching stats');
     }
 });
 
@@ -109,10 +109,10 @@ router.get('/preview/team/:teamId/schedule-strength/batting', async (req: Reques
         }
 
         const scheduleStrength: ScheduleStrengthResult[] = await playerStatsController.getScheduleStrengthForTeam(id, req.query as unknown as DateQuery, 'batting');
-        sendSuccess(res, scheduleStrength, 'Team batting schedule strength retrieved successfully');
+        return sendSuccess(res, scheduleStrength, 'Team batting schedule strength retrieved successfully');
     } catch (error) {
         console.error('Error getting team batting schedule strength:', error);
-        sendError(res, 500, 'Failed to get team batting schedule strength');
+        return sendError(res, 500, 'Failed to get team batting schedule strength');
     }
 });
 
@@ -125,10 +125,10 @@ router.get('/preview/team/:teamId/schedule-strength/pitching', async (req: Reque
         }
 
         const scheduleStrength: ScheduleStrengthResult[] = await playerStatsController.getScheduleStrengthForTeam(id, req.query as unknown as DateQuery, 'pitching');
-        sendSuccess(res, scheduleStrength, 'Team pitching schedule strength retrieved successfully');
+        return sendSuccess(res, scheduleStrength, 'Team pitching schedule strength retrieved successfully');
     } catch (error) {
         console.error('Error getting team pitching schedule strength:', error);
-        sendError(res, 500, 'Failed to get team pitching schedule strength');
+        return sendError(res, 500, 'Failed to get team pitching schedule strength');
     }
 });
 

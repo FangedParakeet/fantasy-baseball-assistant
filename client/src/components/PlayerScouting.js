@@ -490,10 +490,10 @@ function PlayerScouting() {
                     OF
                   </button>
                   <button
-                    className={`filter-btn ${position === 'Util' ? 'active' : ''}`}
-                    onClick={() => handlePositionChange('Util')}
+                    className={`filter-btn ${position.toUpperCase() === 'UTIL' ? 'active' : ''}`}
+                    onClick={() => handlePositionChange('UTIL')}
                   >
-                    Util
+                    UTIL
                   </button>
                 </>
               ) : (
