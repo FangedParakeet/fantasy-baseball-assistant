@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api, { handleApiResponse, handleApiError } from '../utils/api';
+import { sortPlayers } from '../utils/functions';
 
 function MyTeam() {
   const [players, setPlayers] = useState([]);
@@ -17,7 +18,7 @@ function MyTeam() {
       const response = await api.get('/my-roster');
       const data = handleApiResponse(response);
       console.log(data);
-      setPlayers(data || []);
+      setPlayers(sortPlayers(data || [], 'position', 'asc') || []);
     } catch (err) {
       setError(handleApiError(err));
     } finally {
