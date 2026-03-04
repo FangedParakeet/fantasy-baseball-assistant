@@ -6,6 +6,7 @@ import authRoutes from './routes/auth';
 import rosterRoutes from './routes/roster';
 import playerRoutes from './routes/player';
 import leagueRoutes from './routes/league';
+import draftSettingsRoutes from './routes/draftSettings';
 // import aiRoutes from './routes/ai';
 
 const app = express();
@@ -26,6 +27,7 @@ app.use('/api', rosterRoutes);
 // app.use('/api', aiRoutes);
 app.use('/api', playerRoutes);
 app.use('/api/league', leagueRoutes);
+app.use('/api/draft/settings', draftSettingsRoutes);
 
 const PORT = Number(process.env.APP_PORT) || 3001;
 app.listen(PORT, async () => {

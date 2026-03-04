@@ -1,5 +1,5 @@
 import League, { LeagueSettingsResponse, LeagueRequest, RosterSlot, ScoringCategory } from "../classes/league";
-import { parseNumber, parseOptionalYear, parseBoolean, parseJsonArray } from "../utils/functions";
+import { parseNumber, parseNumberRequired, parseOptionalYear, parseBoolean, parseJsonArray } from "../utils/functions";
 
 export type LeagueFormRequest = {
     id: number | null;
@@ -26,14 +26,14 @@ class LeagueController {
         const rawRosterSlots = parseJsonArray(leagueRequest.rosterSlots, 'rosterSlots');
         const rosterSlots: RosterSlot[] = rawRosterSlots.map((slot: any): RosterSlot => ({
             position: slot.position,
-            count: parseNumber(slot.count, 'rosterSlots.count'),
+            count: parseNumberRequired(slot.count, 'rosterSlots.count'),
             countsTowardsRemainingRoster: parseBoolean(slot.countsTowardsRemainingRoster, true),
         }));
 
         const rawScoringCategories = parseJsonArray(leagueRequest.scoringCategories, 'scoringCategories');
         const scoringCategories: ScoringCategory[] = rawScoringCategories.map((category: any): ScoringCategory => ({
             code: category.code,
-            weight: parseNumber(category.weight, 'scoringCategories.weight'),
+            weight: parseNumberRequired(category.weight, 'scoringCategories.weight'),
             isEnabled: category.isEnabled !== undefined
                 ? parseBoolean(category.isEnabled, true)
                 : undefined,
@@ -43,10 +43,10 @@ class LeagueController {
             id: parseNumber(leagueRequest.id, 'id') ?? null,
             name: typeof leagueRequest.name === 'string' ? leagueRequest.name.trim() : '',
             seasonYear: parseOptionalYear(leagueRequest.seasonYear, 'seasonYear'),
-            budgetTotal: parseNumber(leagueRequest.budgetTotal, 'budgetTotal'),
-            teamCount: parseNumber(leagueRequest.teamCount, 'teamCount'),
-            hitterBudgetPct: parseNumber(leagueRequest.hitterBudgetPct, 'hitterBudgetPct'),
-            pitcherBudgetPct: parseNumber(leagueRequest.pitcherBudgetPct, 'pitcherBudgetPct'),
+            budgetTotal: parseNumberRequired(leagueRequest.budgetTotal, 'budgetTotal'),
+            teamCount: parseNumberRequired(leagueRequest.teamCount, 'teamCount'),
+            hitterBudgetPct: parseNumberRequired(leagueRequest.hitterBudgetPct, 'hitterBudgetPct'),
+            pitcherBudgetPct: parseNumberRequired(leagueRequest.pitcherBudgetPct, 'pitcherBudgetPct'),
             rosterSlots,
             scoringCategories,
         };
