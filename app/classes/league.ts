@@ -183,6 +183,14 @@ class League {
         this.leagueScoringCategoriesSelectColumns = ['category_code', 'weight', 'is_enabled', 'sort_order'];
     }
 
+    async getLeague(): Promise<LeagueDB> {
+        const [leagues] = await this.db.query<LeagueDB[]>(`SELECT ${this.leagueSelectColumns.join(', ')} FROM ${this.leaguesTable}`);
+        if (!leagues || leagues.length === 0) {
+            throw new Error('No league found');
+        }
+        return leagues[0];
+    }
+
     async getLeagueSettings(): Promise<LeagueSettingsResponse> {
         const leagueSelectColumns = this.leagueSelectColumns.map((column) => `${this.leaguesTableAlias}.${column} as ${column}`).join(', ');
         const leagueSettingsSelectColumns = this.leagueSettingsSelectColumns.map((column) => `${this.leagueSettingsTableAlias}.${column} as ${column}`).join(', ');

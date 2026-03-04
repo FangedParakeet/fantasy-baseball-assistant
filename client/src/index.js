@@ -13,6 +13,8 @@ import TwoStartPitchers from './components/TwoStartPitchers';
 import PlayerScouting from './components/PlayerScouting';
 import StreamingPitchers from './components/StreamingPitchers';
 import NRFIAnalysis from './components/NRFIAnalysis';
+import Drafts from './components/Drafts';
+import DraftForm from './components/DraftForm';
 
 // Main App Component
 function App() {
@@ -31,6 +33,9 @@ function App() {
         <Route path="/player-scouting" element={<PlayerScouting />} />
         <Route path="/streaming-pitchers" element={<StreamingPitchers />} />
         <Route path="/nrfi-analysis" element={<NRFIAnalysis />} />
+        <Route path="/drafts" element={<Drafts />} />
+        <Route path="/drafts/new" element={<DraftForm />} />
+        <Route path="/drafts/:draftId/edit" element={<DraftForm />} />
         <Route path="*" element={<div>404 - Page not found</div>} />
       </Routes>
     </Router>

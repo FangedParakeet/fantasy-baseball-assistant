@@ -11,36 +11,36 @@ export type DraftRequest = {
 
 export type DraftResponse = {
     id: number;
-    leagueId: number;
+    league_id: number;
     name: string;
-    isActive: boolean;
-    budgetTotal: number;
-    teamCount: number;
-    createdAt: Date;
+    is_active: boolean;
+    budget_total: number;
+    team_count: number;
+    created_at: Date;
 }
 
 type DraftDB = {
     id: number;
-    leagueId: number;
+    league_id: number;
     name: string;
-    isActive: boolean;
-    createdAt: Date;
+    is_active: boolean;
+    created_at: Date;
 }
 
 /** Runtime type for each DraftDB key, used to validate and sanitise condition values. */
 const DRAFT_DB_KEY_TYPE: { [K in keyof DraftDB]: 'number' | 'string' | 'boolean' | 'date' } = {
     id: 'number',
-    leagueId: 'number',
+    league_id: 'number',
     name: 'string',
-    isActive: 'boolean',
-    createdAt: 'date',
+    is_active: 'boolean',
+    created_at: 'date',
 };
 
 class Draft {
     private db: QueryableDB;
     private draftsTable: string = 'drafts';
     private draftsTableAlias: string = 'd';
-    private draftsSelectColumns: string[] = ['id', 'leagueId', 'name', 'isActive', 'createdAt'];
+    private draftsSelectColumns: string[] = ['id', 'league_id', 'name', 'is_active', 'created_at'];
     private draftTeamsTable: string = 'draft_teams';
     private draftTeamsTableAlias: string = 'dt';
     private leagueSettingsTable: string = 'league_settings';
@@ -53,30 +53,42 @@ class Draft {
         this.db = db;
     }
 
+    async getDraftsByLeagueId(leagueId: number): Promise<DraftResponse[]> {
+        return this.getDraftsByCondition({ key: 'league_id', value: leagueId });
+    }
+
     async getActiveDraft(): Promise<DraftResponse> {
-        const draft = await this.getDraftByCondition({ key: 'isActive', value: true });
-        if (!draft) {
+        const drafts = await this.getDraftsByCondition({ key: 'is_active', value: true });
+        if (drafts.length === 0) {
             throw new Error('No active draft found');
         }
-        return draft;
+        return drafts[0];
     }
 
     async getDraftById(draftId: number): Promise<DraftResponse> {
-        const draft = await this.getDraftByCondition({ key: 'id', value: draftId });
-        if (!draft) {
+        const drafts = await this.getDraftsByCondition({ key: 'id', value: draftId });
+        if (drafts.length === 0) {
             throw new Error('Draft not found');
         }
-        return draft;
+        return drafts[0];
     }
 
     async setActiveDraft(draftId: number): Promise<void> {
-        const activeDraft = await this.getActiveDraft();
-        if (activeDraft) {
-            throw new Error('Active draft already exists');
+        const drafts = await this.getDraftsByCondition({ key: 'id', value: draftId });
+        if (drafts.length === 0) {
+            throw new Error('Draft not found');
         }
+        const leagueId = drafts[0].league_id;
+        await this.deactivateActiveDrafts(leagueId);
         await this.db.query<ResultSetHeader>(`
             UPDATE ${this.draftsTable} SET is_active = ? WHERE id = ?
-        `, [false, draftId]);
+        `, [true, draftId]);
+    }
+
+    async deactivateActiveDrafts(leagueId: number): Promise<void> {
+        await this.db.query<ResultSetHeader>(`
+            UPDATE ${this.draftsTable} SET is_active = ? WHERE is_active = ? AND league_id = ?
+        `, [false, true, leagueId]);
         return;
     }
 
@@ -157,13 +169,13 @@ class Draft {
         }
     }
 
-    private async getDraftByCondition<K extends keyof DraftDB>(condition: { key: K; value: DraftDB[K] }): Promise<DraftResponse | null> {
+    private async getDraftsByCondition<K extends keyof DraftDB>(condition: { key: K; value: DraftDB[K] }): Promise<DraftResponse[] | []> {
         if (!this.draftsSelectColumns.includes(condition.key)) {
             throw new Error(`Invalid condition: ${condition.key}`);
         }
         const sanitised = this.sanitiseConditionValue(condition.key, condition.value);
         const draftSelectColumns = this.draftsSelectColumns.map((column) => `${this.draftsTableAlias}.${column} as ${column}`).join(', ');
-        const [draft] = await this.db.query<DraftResponse[]>(`
+        const [drafts] = await this.db.query<DraftResponse[]>(`
             SELECT 
                 ${draftSelectColumns}, 
                 ${this.leagueSettingsTableAlias}.budget_total as budget_total, 
@@ -173,7 +185,7 @@ class Draft {
                 ON ${this.draftsTableAlias}.league_id = ${this.leagueSettingsTableAlias}.league_id
             WHERE ${this.draftsTableAlias}.${condition.key} = ?
         `, [sanitised]);
-        return draft[0] ?? null;
+        return drafts ?? [];
     }
 }
 

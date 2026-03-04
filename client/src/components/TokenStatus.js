@@ -138,18 +138,26 @@ function TokenStatus() {
           </li>
           <li>
             <button 
-              onClick={() => window.location.href = '/league-settings'}
+              onClick={() => window.location.href = '/drafts'}
               className="btn btn-primary btn-full"
             >
-              League Settings
+              Drafts
             </button>
           </li>
           <li className="quick-actions-separator">
             <button 
+              onClick={() => window.location.href = '/league-settings'}
+              className="btn btn-secondary btn-full"
+            >
+              League Settings
+            </button>
+          </li>
+          <li>
+            <button 
               onClick={() => window.location.href = '/settings'}
               className="btn btn-secondary btn-full"
             >
-              Settings
+              AI Settings
             </button>
           </li>
         </ul>

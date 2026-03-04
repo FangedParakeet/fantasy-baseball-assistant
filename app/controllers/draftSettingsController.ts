@@ -9,6 +9,10 @@ class DraftSettingsController {
         this.draft = draft;
     }
 
+    async getAllByLeagueId(leagueId: number): Promise<DraftResponse[]> {
+        return this.draft.getDraftsByLeagueId(parseNumberRequired(leagueId, 'leagueId'));
+    }
+
     async getById(draftId: number): Promise<DraftResponse> {
         return this.draft.getDraftById(parseNumberRequired(draftId, 'draftId'));
     }
@@ -19,6 +23,10 @@ class DraftSettingsController {
 
     async setActive(draftId: number): Promise<void> {
         return this.draft.setActiveDraft(parseNumberRequired(draftId, 'draftId'));
+    }
+
+    async deactivateActiveDrafts(leagueId: number): Promise<void> {
+        return this.draft.deactivateActiveDrafts(parseNumberRequired(leagueId, 'leagueId'));
     }
 
     async upsert(draftRequest: DraftRequest): Promise<void> {
