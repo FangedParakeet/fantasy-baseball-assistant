@@ -32,41 +32,28 @@ router.get('/settings', async (req: Request, res: Response) => {
 router.post('/upsert', async (req: Request, res: Response) => {
     try {
         const leagueForm: LeagueFormRequest = req.body;
-        if (leagueForm.useExistingLeague) {
-            const accessToken = await tokenController.getOrRefreshToken();
-            if (!accessToken.access_token) {
-                return sendError(res, 401, 'No access token available');
-            }
-            const yahoo = new YahooAPI(accessToken.access_token);
-            const leagueName = await yahoo.getLeagueName();
-            const teams = await team.getAllLeagueTeams();
-            if (teams.length === 0) {
-                return sendError(res, 400, 'No teams found');
-            }
-            const leagueRequest: LeagueRequest = {
-                name: leagueName ?? '',
-                seasonYear: leagueForm.seasonYear,
-                budgetTotal: leagueForm.budgetTotal,
-                teamCount: teams.length,
-                hitterBudgetPct: leagueForm.hitterBudgetPct,
-                pitcherBudgetPct: leagueForm.pitcherBudgetPct,
-                rosterSlots: leagueForm.rosterSlots,
-                scoringCategories: leagueForm.scoringCategories,
-            };
-            await leagueController.upsertLeague(leagueRequest);
-        } else {
-            const leagueRequest: LeagueRequest = {
-                name: leagueForm.name ?? '',
-                seasonYear: leagueForm.seasonYear,
-                budgetTotal: leagueForm.budgetTotal,
-                teamCount: leagueForm.teamCount ?? 0,
-                hitterBudgetPct: leagueForm.hitterBudgetPct,
-                pitcherBudgetPct: leagueForm.pitcherBudgetPct,
-                rosterSlots: leagueForm.rosterSlots,
-                scoringCategories: leagueForm.scoringCategories,
-            };
-            await leagueController.upsertLeague(leagueRequest);
+        const accessToken = await tokenController.getOrRefreshToken();
+        if (!accessToken.access_token) {
+            return sendError(res, 401, 'No access token available');
         }
+        const yahoo = new YahooAPI(accessToken.access_token);
+        const leagueName = await yahoo.getLeagueName();
+        const teams = await team.getAllLeagueTeams();
+        if (teams.length === 0) {
+            return sendError(res, 400, 'No teams found');
+        }
+        const leagueRequest: LeagueRequest = {
+            id: leagueForm.id,
+            name: leagueName ?? '',
+            seasonYear: leagueForm.seasonYear,
+            budgetTotal: leagueForm.budgetTotal,
+            teamCount: teams.length,
+            hitterBudgetPct: leagueForm.hitterBudgetPct,
+            pitcherBudgetPct: leagueForm.pitcherBudgetPct,
+            rosterSlots: leagueForm.rosterSlots,
+            scoringCategories: leagueForm.scoringCategories,
+        };
+        await leagueController.upsertLeague(leagueRequest);
         return sendSuccess(res, null, 'League upserted successfully');
     } catch (error) {
         console.error('Error in /league/upsert:', error);

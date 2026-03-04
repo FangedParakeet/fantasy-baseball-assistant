@@ -88,6 +88,7 @@ export type ScoringCategory = {
 }
 
 export type LeagueRequest = {
+    id: number | null;
     name: string;
     seasonYear?: number | null;
     budgetTotal: number;
@@ -226,13 +227,18 @@ class League {
     }
 
     async upsertLeague(leagueRequest: LeagueRequest): Promise<void> {
-        const [leagues] = await this.db.query<LeagueDB[]>(
-            `SELECT id FROM ${this.leaguesTable}`,
-        );
-        if (leagues && leagues.length > 0) {
-            await this.updateLeague(leagues[0].id, leagueRequest);
+        if (leagueRequest.id) {
+            await this.updateLeague(leagueRequest.id, leagueRequest);
         } else {
-            await this.createLeague(leagueRequest);
+            const [leagues] = await this.db.query<LeagueDB[]>(
+                `SELECT id FROM ${this.leaguesTable}`,
+            );
+            if (leagues && leagues.length > 0) {
+                await this.updateLeague(leagues[0].id, leagueRequest);
+            } else {
+                await this.createLeague(leagueRequest);
+            }
+            return;
         }
         return;
     }

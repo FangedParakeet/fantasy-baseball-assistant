@@ -33,7 +33,10 @@ export function sendError(res: Response, statusCode: number, message: string): v
 };
 
 // Parsing / validation helpers
-export function parseNumber(value: unknown, field: string): number {
+export function parseNumber(value: unknown, field: string): number | null | undefined {
+    if (value === undefined || value === null || value === '') {
+        return null;
+    }
     const num = typeof value === 'string' ? Number(value) : Number(value);
     if (Number.isNaN(num)) {
         throw new Error(`${field} must be a valid number`);
