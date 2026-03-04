@@ -37,15 +37,15 @@ router.post('/upsert', async (req: Request, res: Response) => {
             return sendError(res, 401, 'No access token available');
         }
         const yahoo = new YahooAPI(accessToken.access_token);
-        const leagueName = await yahoo.getLeagueName();
+        const { name, seasonYear } = await yahoo.getLeagueNameAndSeason();
         const teams = await team.getAllLeagueTeams();
         if (teams.length === 0) {
             return sendError(res, 400, 'No teams found');
         }
         const leagueRequest: LeagueRequest = {
             id: leagueForm.id,
-            name: leagueName ?? '',
-            seasonYear: leagueForm.seasonYear,
+            name,
+            seasonYear,
             budgetTotal: leagueForm.budgetTotal,
             teamCount: teams.length,
             hitterBudgetPct: leagueForm.hitterBudgetPct,

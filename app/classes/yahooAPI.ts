@@ -81,24 +81,38 @@ class YahooAPI {
         return playerList as YahooRosterPlayer[];
     }
 
-    async getLeagueKey(): Promise<string> {
-        const leagues = await this.getUserLeagues();
-        const raw = leagues?.fantasy_content?.user?.leagues?.league;
-        if (!raw) {
-            throw new Error('No leagues found');
-        }
-        const leagueList = Array.isArray(raw) ? raw : [raw];
-        return leagueList[0].league_key as string;
+    /**
+     * Gets the league from the most recent MLB game in the getUserLeagues() response.
+     * API structure: fantasy_content.users.user.games.game[] (each game has .leagues.league).
+     */
+    private getCurrentLeagueFromResponse(leaguesResponse: any): { league_key: string; name: string; season: string } | null {
+        const user = leaguesResponse?.fantasy_content?.users?.user;
+        if (!user) return null;
+        const gamesRaw = user.games?.game;
+        if (!gamesRaw) return null;
+        const games = Array.isArray(gamesRaw) ? gamesRaw : [gamesRaw];
+        if (games.length === 0) return null;
+        // Most recent game: sort by season descending and take first
+        const sorted = [...games].sort((a, b) => Number(b.season) - Number(a.season));
+        const latestGame = sorted[0];
+        const leagueRaw = latestGame?.leagues?.league;
+        if (!leagueRaw) return null;
+        const league = Array.isArray(leagueRaw) ? leagueRaw[0] : leagueRaw;
+        return league;
     }
 
-    async getLeagueName(): Promise<string> {
+    async getLeagueKey(): Promise<string> {
         const leagues = await this.getUserLeagues();
-        const raw = leagues?.fantasy_content?.user?.leagues?.league;
-        if (!raw) {
-            throw new Error('No leagues found');
-        }
-        const leagueList = Array.isArray(raw) ? raw : [raw];
-        return leagueList[0].name as string;
+        const league = this.getCurrentLeagueFromResponse(leagues);
+        if (!league) throw new Error('No leagues found');
+        return league.league_key;
+    }
+
+    async getLeagueNameAndSeason(): Promise<{ name: string; seasonYear: number }> {
+        const leagues = await this.getUserLeagues();
+        const league = this.getCurrentLeagueFromResponse(leagues);
+        if (!league) throw new Error('No leagues found');
+        return { name: league.name, seasonYear: Number(league.season) };
     }
 
     async getUserLeagues(): Promise<any> {

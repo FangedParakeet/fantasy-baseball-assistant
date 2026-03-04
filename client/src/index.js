@@ -8,6 +8,7 @@ import AuthRedirect from './components/AuthRedirect';
 import MyTeam from './components/MyTeam';
 import LeagueTeams from './components/LeagueTeams';
 import Settings from './components/Settings';
+import LeagueSettings from './components/LeagueSettings';
 import TwoStartPitchers from './components/TwoStartPitchers';
 import PlayerScouting from './components/PlayerScouting';
 import StreamingPitchers from './components/StreamingPitchers';
@@ -25,6 +26,7 @@ function App() {
         <Route path="/my-team" element={<MyTeam />} />
         <Route path="/league-teams" element={<LeagueTeams />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/league-settings" element={<LeagueSettings />} />
         <Route path="/two-start-pitchers" element={<TwoStartPitchers />} />
         <Route path="/player-scouting" element={<PlayerScouting />} />
         <Route path="/streaming-pitchers" element={<StreamingPitchers />} />

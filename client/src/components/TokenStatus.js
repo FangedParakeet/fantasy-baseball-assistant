@@ -136,6 +136,14 @@ function TokenStatus() {
               NRFI Analysis
             </button>
           </li>
+          <li>
+            <button 
+              onClick={() => window.location.href = '/league-settings'}
+              className="btn btn-primary btn-full"
+            >
+              League Settings
+            </button>
+          </li>
           <li className="quick-actions-separator">
             <button 
               onClick={() => window.location.href = '/settings'}

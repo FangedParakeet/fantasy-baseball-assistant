@@ -23,14 +23,18 @@ class LeagueController {
     }
 
     async upsertLeague(leagueRequest: LeagueRequest): Promise<void> {
-        const rawRosterSlots = parseJsonArray(leagueRequest.rosterSlots, 'rosterSlots');
+        const rawRosterSlots = Array.isArray(leagueRequest.rosterSlots)
+            ? leagueRequest.rosterSlots
+            : parseJsonArray(leagueRequest.rosterSlots as string, 'rosterSlots');
         const rosterSlots: RosterSlot[] = rawRosterSlots.map((slot: any): RosterSlot => ({
             position: slot.position,
             count: parseNumberRequired(slot.count, 'rosterSlots.count'),
             countsTowardsRemainingRoster: parseBoolean(slot.countsTowardsRemainingRoster, true),
         }));
 
-        const rawScoringCategories = parseJsonArray(leagueRequest.scoringCategories, 'scoringCategories');
+        const rawScoringCategories = Array.isArray(leagueRequest.scoringCategories)
+            ? leagueRequest.scoringCategories
+            : parseJsonArray(leagueRequest.scoringCategories as string, 'scoringCategories');
         const scoringCategories: ScoringCategory[] = rawScoringCategories.map((category: any): ScoringCategory => ({
             code: category.code,
             weight: parseNumberRequired(category.weight, 'scoringCategories.weight'),
