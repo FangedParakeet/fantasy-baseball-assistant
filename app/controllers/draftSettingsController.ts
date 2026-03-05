@@ -1,6 +1,6 @@
 import Draft from "../classes/draft";
-import { DraftRequest, DraftResponse } from "../classes/draft";
-import { parseBooleanStrict, parseNumber, parseNumberRequired, parseString } from "../utils/functions";
+import { DraftRequest, DraftResponse, type Keeper } from "../classes/draft";
+import { parseBooleanStrict, parseJsonArray, parseNumber, parseNumberRequired, parseString, parseStringOptional } from "../utils/functions";
 
 class DraftSettingsController {
     private draft: Draft;
@@ -27,6 +27,23 @@ class DraftSettingsController {
 
     async deactivateActiveDrafts(leagueId: number): Promise<void> {
         return this.draft.deactivateActiveDrafts(parseNumberRequired(leagueId, 'leagueId'));
+    }
+
+    async getKeepersForTeam(draftId: number, leagueTeamId: number): Promise<Keeper[]> {
+        const draftTeamId = await this.draft.getDraftTeamIdByLeagueTeamId(parseNumberRequired(draftId, 'draftId'), parseNumberRequired(leagueTeamId, 'leagueTeamId'));
+        return this.draft.getKeepersForTeam(draftId, draftTeamId);
+    }
+
+    async setKeepersForTeam(draftId: number, leagueTeamId: number, rawKeepers: Keeper[] | string): Promise<void> {
+        const draftTeamId = await this.draft.getDraftTeamIdByLeagueTeamId(parseNumberRequired(draftId, 'draftId'), parseNumberRequired(leagueTeamId, 'leagueTeamId'));
+        const keepers = Array.isArray(rawKeepers) ? rawKeepers : parseJsonArray(rawKeepers as string, 'keepers');
+        const validatedKeepers: Keeper[] = keepers.map((keeper) => ({
+            player_id: parseNumberRequired(keeper.player_id, 'playerId'),
+            cost: parseNumberRequired(keeper.cost, 'cost'),
+            locked_slot_code: parseStringOptional(keeper.locked_slot_code, 'lockedSlotCode') ?? null,
+            note: parseStringOptional(keeper.note, 'note') ?? null,
+        }));
+        return this.draft.setKeepersForTeam(draftId, draftTeamId, validatedKeepers);
     }
 
     async upsert(draftRequest: DraftRequest): Promise<void> {

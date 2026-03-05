@@ -6,6 +6,12 @@ export const POSITIONS = [
   'BN', 'IL', 'NA',
 ];
 
+/** Sort order for roster display (position or selected_position). */
+export const POSITION_SORT_ORDER = {
+  'C': 1, '1B': 2, '2B': 3, '3B': 4, 'SS': 5, 'OF': 6, 'UTIL': 7,
+  'SP': 8, 'RP': 9, 'P': 10, 'BN': 11, 'IL': 12, 'NA': 13,
+};
+
 const HITTER_POSITIONS = ['C', '1B', '2B', '3B', 'SS', 'OF', 'UTIL'];
 const PITCHER_POSITIONS = ['SP', 'RP', 'P'];
 const BENCH_POSITIONS = ['BN'];

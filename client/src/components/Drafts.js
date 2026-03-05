@@ -149,6 +149,13 @@ function Drafts() {
                     <td>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <Link
+                          to={`/drafts/${draft.id}/keepers`}
+                          className="btn btn-primary"
+                          style={{ textDecoration: 'none' }}
+                        >
+                          Set Keepers
+                        </Link>
+                        <Link
                           to={`/drafts/${draft.id}/edit`}
                           className="btn btn-secondary"
                           style={{ textDecoration: 'none' }}

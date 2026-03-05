@@ -27,6 +27,13 @@ type DraftDB = {
     created_at: Date;
 }
 
+export type Keeper = {
+    player_id: number;
+    cost: number;
+    locked_slot_code: string | null;
+    note: string | null;
+}
+
 /** Runtime type for each DraftDB key, used to validate and sanitise condition values. */
 const DRAFT_DB_KEY_TYPE: { [K in keyof DraftDB]: 'number' | 'string' | 'boolean' | 'date' } = {
     id: 'number',
@@ -47,6 +54,8 @@ class Draft {
     private leagueSettingsTableAlias: string = 'ls';
     private teamsTable: string = 'teams';
     private teamsTableAlias: string = 't';
+    private draftKeepersTable: string = 'draft_keepers';
+    private draftKeepersTableAlias: string = 'dk';
 
 
     constructor(db: QueryableDB) {
@@ -90,6 +99,39 @@ class Draft {
             UPDATE ${this.draftsTable} SET is_active = ? WHERE is_active = ? AND league_id = ?
         `, [false, true, leagueId]);
         return;
+    }
+
+    /** Resolves league team id to draft_teams.id for use in keepers. */
+    async getDraftTeamIdByLeagueTeamId(draftId: number, leagueTeamId: number): Promise<number> {
+        const [rows] = await this.db.query<{ id: number }[]>(
+            `SELECT id FROM ${this.draftTeamsTable} WHERE draft_id = ? AND team_id = ?`,
+            [draftId, leagueTeamId]
+        );
+        if (!rows?.length) {
+            throw new Error('Draft team not found for this league team');
+        }
+        return rows[0].id;
+    }
+
+    async getKeepersForTeam(draftId: number, draftTeamId: number): Promise<Keeper[]> {
+        const [keepers] = await this.db.query<Keeper[]>(`
+            SELECT player_pk AS player_id, cost, locked_slot_code, note FROM ${this.draftKeepersTable} WHERE draft_id = ? AND draft_team_id = ?
+        `, [draftId, draftTeamId]);
+        return keepers ?? [];
+    }
+
+    async setKeepersForTeam(draftId: number, draftTeamId: number, keepers: Keeper[]): Promise<void> {
+        await this.db.query<ResultSetHeader>(`
+            DELETE FROM ${this.draftKeepersTable} WHERE draft_id = ? AND draft_team_id = ?
+        `, [draftId, draftTeamId]);
+
+        if (keepers.length > 0) {
+            const values = keepers.map((keeper) => [draftId, draftTeamId, keeper.player_id, keeper.cost, keeper.locked_slot_code ?? null, keeper.note ?? null]);
+            await this.db.query<ResultSetHeader>(`
+                INSERT INTO ${this.draftKeepersTable} (draft_id, draft_team_id, player_pk, cost, locked_slot_code, note)
+                VALUES ${values.map(() => '(?, ?, ?, ?, ?, ?)').join(',')}
+            `, values.flat());
+        }
     }
 
     async upsertDraft(draftRequest: DraftRequest): Promise<void> {

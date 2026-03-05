@@ -1,6 +1,6 @@
 import express from 'express';
 import DraftSettingsController from '../controllers/draftSettingsController';
-import Draft, { DraftRequest, DraftResponse } from '../classes/draft';
+import Draft, { DraftRequest, DraftResponse, Keeper } from '../classes/draft';
 import League from '../classes/league';
 import { db } from '../db/db';
 import { sendError, sendSuccess } from '../utils/functions';
@@ -29,6 +29,31 @@ router.get('/draft/:draftId', async (req, res) => {
     } catch (error) {
         console.error('Error in /draft/settings/draft/:draftId:', error);
         return sendError(res, 500, 'Failed to get draft settings');
+    }
+});
+
+router.get('/draft/:draftId/team/:teamId/keepers', async (req, res) => {
+    try {
+        const draftId = parseInt(req.params.draftId);
+        const teamId = parseInt(req.params.teamId);
+        const keepers: Keeper[] = await draftSettingsController.getKeepersForTeam(draftId, teamId);
+        return sendSuccess(res, keepers, 'Keepers retrieved successfully');
+    } catch (error) {
+        console.error('Error in /draft/settings/draft/:draftId/team/:teamId/keepers:', error);
+        return sendError(res, 500, 'Failed to get keepers');
+    }
+});
+
+router.post('/draft/:draftId/team/:teamId/keepers', async (req, res) => {
+
+    try {
+        const draftId = parseInt(req.params.draftId);
+        const teamId = parseInt(req.params.teamId);
+        await draftSettingsController.setKeepersForTeam(draftId, teamId, req.body.keepers);
+        return sendSuccess(res, null, 'Keepers set successfully');
+    } catch (error) {
+        console.error('Error in /draft/settings/draft/:draftId/team/:teamId/keepers:', error);
+        return sendError(res, 500, 'Failed to set keepers for team');
     }
 });
 

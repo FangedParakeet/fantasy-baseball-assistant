@@ -85,6 +85,13 @@ export function parseBooleanStrict(value: unknown, field: string): boolean {
     throw new Error(`${field} must be true or false`);
 }
 
+export function parseStringOptional(value: unknown, field: string): string | null | undefined {
+    if (value === undefined || value === null || value === '') {
+        return null;
+    }
+    return parseString(value, field);
+}
+
 export function parseString(value: unknown, field: string): string {
     if (value === undefined || value === null) {
         throw new Error(`${field} is required`);
