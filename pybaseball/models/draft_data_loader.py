@@ -51,6 +51,13 @@ class DraftDataLoader(DB_Recorder):
         "is_sp", 
         "is_rp"
     ]
+    KEEPERS_TABLE = "draft_keepers"
+    KEEPERS_COLUMNS = [
+        'draft_team_id',
+        'player_pk',
+        'cost',
+        'locked_slot_code'
+    ]
     PLAYER_SEASON_STATS_TABLE = "player_season_stats"
     PLAYER_SEASON_STATS_COLUMNS = [
         "player_id AS mlb_player_id",
@@ -77,7 +84,6 @@ class DraftDataLoader(DB_Recorder):
         "hld",
         "bb_per_9",
         "hr_per_9",
-        "k_bb_ratio",
         "swinging_strike_pct"
     ]
     PLAYER_ROLLING_STATS_TABLE = "player_rolling_stats"
@@ -145,6 +151,14 @@ class DraftDataLoader(DB_Recorder):
         "slot_count",
         "sort_order",
         "counts_toward_remaining_roster",
+    ]
+    DRAFTS_TABLE = "drafts"
+    DRAFTS_COLUMNS = [
+        "id",
+        "league_id",
+        "name",
+        "is_active",
+        "archived_at",
     ]
 
     def __init__(self, conn, *, dry_run: bool = False):
@@ -273,6 +287,16 @@ class DraftDataLoader(DB_Recorder):
         if not roster_slots:
             raise ValueError("No roster slots found")
         return pd.DataFrame(roster_slots)
+
+    def load_drafts_for_league(self, league_id: int) -> List[int]:
+        drafts = self.get_records_with_conditions(
+            self.DRAFTS_TABLE,
+            fields=self.DRAFTS_COLUMNS,
+            conditions=[f"league_id = {league_id}", "archived_at IS NULL"]
+        )
+        if not drafts:
+            raise ValueError("No drafts found")
+        return [int(draft["id"]) for draft in drafts]
 
     def load_players(self) -> pd.DataFrame:
         players = self.get_records_with_conditions(

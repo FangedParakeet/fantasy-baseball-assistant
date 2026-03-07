@@ -13,8 +13,8 @@ class PlayerBasicRollingStats(PlayerRollingStats):
         self.rolling_stats_table = PlayerGameLogs.BASIC_ROLLING_STATS_TABLE
         self.game_logs_table = PlayerGameLogs.GAME_LOGS_TABLE
 
-    def get_formulas(self):
-        return super().get_formulas() | {
+    def get_formulas(self, game_logs_table=None):
+        return super().get_formulas(game_logs_table) | {
             'rbi': 'SUM(COALESCE(gl.rbi, 0)) AS rbi',
             'runs': 'SUM(COALESCE(gl.r, 0)) AS runs',
             'hr': 'SUM(COALESCE(gl.hr, 0)) AS hr',
@@ -44,7 +44,7 @@ class PlayerBasicRollingStats(PlayerRollingStats):
             # Include all keys that have formulas, including those with %s placeholders
             for key, stats_list in self.STATS_KEYS.items():
                 insert_keys = self.SPLIT_WINDOW_KEYS + self.ID_KEYS + self.EXTRA_KEYS + self.DATE_KEYS + stats_list
-                all_formulas = self.get_formulas()
+                all_formulas = self.get_formulas(self.game_logs_table)
                 select_formulas = [all_formulas[key] for key in insert_keys]
                 join_conditions = super().get_join_conditions()
 

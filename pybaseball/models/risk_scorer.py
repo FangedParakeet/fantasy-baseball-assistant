@@ -34,7 +34,7 @@ class RiskScorer:
 
     Expected columns in pitchers_df (from Projections.get_pitcher_projections()):
       - position = 'P'
-      - ip, era, whip, k_per_9, bb_per_9, hr_per_9, k_bb_ratio, swinging_strike_pct (season)
+      - ip, era, whip, k_per_9, bb_per_9, hr_per_9, swinging_strike_pct (season); K/BB is derived from k_per_9 and bb_per_9
       - ip_roll (rolling basic) OR ip_roll from advanced rolling (either is fine if merged)
       - era_roll, whip_roll (rolling basic)
       - k_per_9_roll, bb_per_9_roll, hr_per_9_roll, k_bb_ratio_roll (advanced rolling)
@@ -69,6 +69,15 @@ class RiskScorer:
     @staticmethod
     def _clamp(x: float, lo: float, hi: float) -> float:
         return max(lo, min(hi, x))
+
+    @staticmethod
+    def _k_bb_ratio_from_per9(k_per_9: Any, bb_per_9: Any) -> Optional[float]:
+        """Compute K/BB ratio from K/9 and BB/9 (avoids needing k_bb_ratio in player_season_stats)."""
+        k9 = RiskScorer._safe_float(k_per_9)
+        bb9 = RiskScorer._safe_float(bb_per_9)
+        if k9 is None or bb9 is None or bb9 <= 0:
+            return None
+        return k9 / bb9
 
     @staticmethod
     def _weighted_mean(values: Dict[str, Tuple[Optional[float], float]]) -> Optional[float]:
@@ -118,7 +127,7 @@ class RiskScorer:
         pa = self._safe_float(row.get("pa"))
         season_reliability = 0.0 if pa is None else self._clamp(pa / float(self.thresholds.season_pa_hitter), 0.0, 1.0)
 
-        ab_roll = self._safe_float(row.get(f"abs{self.ROLL}"))
+        ab_roll = self._safe_float(row.get("abs"))
         rolling_reliability = 0.0 if ab_roll is None else self._clamp(ab_roll / self._rolling_ab_threshold(span_days), 0.0, 1.0)
 
         reliability = max(season_reliability, rolling_reliability)
@@ -154,7 +163,7 @@ class RiskScorer:
         sample_risk = 100.0 - reliability
 
         # 2) divergence
-        roll_ab = self._safe_float(row.get(f"abs{self.ROLL}")) or 0.0
+        roll_ab = self._safe_float(row.get("abs")) or 0.0
         confidence = self._clamp(roll_ab / self._rolling_ab_threshold(span_days), 0.0, 1.0)
 
         # season metrics
@@ -218,13 +227,13 @@ class RiskScorer:
         roll_ip = self._safe_float(row.get(f"ip{self.ROLL}")) or 0.0
         confidence = self._clamp(roll_ip / self._rolling_ip_threshold(span_days), 0.0, 1.0)
 
-        # season metrics
+        # season metrics (K/BB derived from K/9 and BB/9; not stored in player_season_stats)
         season_era = row.get("era")
         season_whip = row.get("whip")
         season_k9 = row.get("k_per_9")
         season_bb9 = row.get("bb_per_9")
         season_hr9 = row.get("hr_per_9")
-        season_kbb = row.get("k_bb_ratio")
+        season_kbb = self._k_bb_ratio_from_per9(season_k9, season_bb9)
         season_sw = row.get("swinging_strike_pct")
 
         # rolling metrics:
@@ -236,6 +245,8 @@ class RiskScorer:
         roll_bb9 = row.get(f"bb_per_9{self.ADVANCED_ROLL}")
         roll_hr9 = row.get(f"hr_per_9{self.ADVANCED_ROLL}")
         roll_kbb = row.get(f"k_bb_ratio{self.ADVANCED_ROLL}")
+        if roll_kbb is None and (roll_k9 is not None or roll_bb9 is not None):
+            roll_kbb = self._k_bb_ratio_from_per9(roll_k9, roll_bb9)
 
         era_bad = self._bad_delta(roll_era, season_era, 1.25)
         whip_bad = self._bad_delta(roll_whip, season_whip, 0.20)

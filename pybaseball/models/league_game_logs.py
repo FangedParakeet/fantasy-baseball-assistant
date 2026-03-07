@@ -22,6 +22,11 @@ class LeagueGameLogs():
         self.team_game_logs.purge_old_game_logs()
         self.game_pitchers.purge_old_game_logs()
 
+    def purge_all_game_logs(self):
+        self.player_game_logs.purge_all_game_logs()
+        self.team_game_logs.purge_all_game_logs()
+        self.game_pitchers.purge_all_game_logs()
+
     def get_latest_game_log_date(self):
         latest_player_date = self.player_game_logs.get_latest_game_log_date()
         latest_team_date = self.team_game_logs.get_latest_game_log_date()
@@ -45,14 +50,21 @@ class LeagueGameLogs():
         self.team_game_logs.compute_rolling_stats()
         self.league_statistics.compute_league_averages()
 
-    def fetch_game_logs(self):
-        start_date, end_date = self.get_window_dates()
-        """Get game logs from MLB Stats API"""
+    def fetch_game_logs(self, start_date=None, end_date=None):
+        """Get game logs from MLB Stats API.
+
+        If start_date and end_date are provided (YYYY-MM-DD strings), use that window.
+        Otherwise compute the window from latest DB state and MAX_AGE_DAYS.
+        """
+        if start_date is not None and end_date is not None:
+            start_date_str, end_date_str = start_date, end_date
+        else:
+            start_date_str, end_date_str = self.get_window_dates()
         try:
-            logger.info(f"Fetching MLB Stats API game logs from {start_date} to {end_date}")
-            
+            logger.info(f"Fetching MLB Stats API game logs from {start_date_str} to {end_date_str}")
+
             # Get games for the date range
-            games_data = self.mlb_api.get_schedule(start_date, end_date)
+            games_data = self.mlb_api.get_schedule(start_date_str, end_date_str)
             
             # Check if API call failed
             if games_data is None:

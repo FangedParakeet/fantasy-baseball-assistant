@@ -24,8 +24,8 @@ class PlayerAdvancedRollingStats(PlayerRollingStats):
         self.basic_rolling_stats_table = PlayerGameLogs.BASIC_ROLLING_STATS_TABLE
         self.game_logs_table = PlayerGameLogs.GAME_LOGS_TABLE
 
-    def get_formulas(self):
-        return super().get_formulas() | {
+    def get_formulas(self, game_logs_table=None):
+        return super().get_formulas(game_logs_table) | {
             'obp': """-- OBP = (H + BB + HBP) / (AB + BB + HBP + SF)
                         ROUND(
                             (SUM(COALESCE(gl.h, 0)) + SUM(COALESCE(gl.bb, 0)) + SUM(COALESCE(gl.hit_by_pitch, 0))) /
@@ -197,7 +197,7 @@ class PlayerAdvancedRollingStats(PlayerRollingStats):
             
             for key, stats_list in self.STATS_KEYS.items():
                 insert_keys = self.SPLIT_WINDOW_KEYS + self.ID_KEYS + self.EXTRA_KEYS + self.DATE_KEYS + stats_list
-                all_formulas = self.get_formulas()
+                all_formulas = self.get_formulas(self.game_logs_table)
                 select_formulas = [all_formulas[key] for key in insert_keys]
                 join_conditions = super().get_join_conditions()
 
@@ -252,7 +252,7 @@ class PlayerAdvancedRollingStats(PlayerRollingStats):
             position = 'B' if key == 'batting' else 'P'
             
             insert_keys = self.SPLIT_WINDOW_KEYS + self.DATE_KEYS + stats_list
-            all_formulas = self.get_formulas()
+            all_formulas = self.get_formulas(self.game_logs_table)
             select_formulas = [all_formulas[key] for key in insert_keys]
             logger.info(f"Computing league averages for {key} stats: {stats_list}")
             join_conditions = super().get_join_conditions()

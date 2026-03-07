@@ -46,17 +46,13 @@ class PlayerValueCalculator:
         player_value_components_df = calculated_values["player_value_components_df"]
         player_total_values_df = player_total_values_df.copy()
 
-        replacement_by_position = self.calculate_replacement_values_for_positions(player_total_values_df)
+        replacement_values = self.calculate_replacement_values_for_players(player_total_values_df)
+        hitter_replacement_value = replacement_values["hitter_replacement_value"]
+        pitcher_replacement_value = replacement_values["pitcher_replacement_value"]
         
         # Choose a single baseline per group for dollar allocation.
         # MVP: hitters baseline = min replacement among core hitter slots (excluding UTIL),
         # pitchers baseline = min replacement among SP/RP/P.
-        hitter_slots = [s for s in replacement_by_position.keys() if s in self.HITTER_SLOTS]
-        pitcher_slots = [s for s in replacement_by_position.keys() if s in self.PITCHER_SLOTS]
-
-        hitter_replacement_value = min([replacement_by_position[s] for s in hitter_slots if s in replacement_by_position], default=0.0)
-        pitcher_replacement_value = min([replacement_by_position[s] for s in pitcher_slots if s in replacement_by_position], default=0.0)
-
         player_total_values_df["is_pitcher"] = player_total_values_df["position"] == "P"
 
         # Value above replacement
@@ -94,9 +90,6 @@ class PlayerValueCalculator:
         mult = 1.35 - (0.25 * pct)
         player_total_values_df["est_max_auction_value"] = (player_total_values_df["est_auction_value"] * mult).round(2)
 
-        # Keep repl_by_slot around for later (optional return)
-        player_total_values_df.attrs["replacement_by_slot"] = replacement_by_position
-
         output_values_df = player_total_values_df[self.OUTPUT_COLUMNS].copy()
         return {
             "player_values_df": output_values_df,
@@ -125,7 +118,16 @@ class PlayerValueCalculator:
         player_values_df = player_values_df.merge(player_total_values_df, on="player_pk", how="inner")
         player_values_df = player_values_df.sort_values("total_value", ascending=False).reset_index(drop=True)
 
-        player_values_df["tier"] = self.calculate_tiers(player_values_df["total_value"])
+        # Tiers are computed separately for hitters and pitchers (each group gets 1, 2, 3, ...)
+        player_values_df["tier"] = 0
+        hitters = player_values_df[player_values_df["position"] == "B"]
+        pitchers = player_values_df[player_values_df["position"] == "P"]
+        if not hitters.empty:
+            hitters_sorted = hitters.sort_values("total_value", ascending=False)
+            player_values_df.loc[hitters_sorted.index, "tier"] = self.calculate_tiers(hitters_sorted["total_value"])
+        if not pitchers.empty:
+            pitchers_sorted = pitchers.sort_values("total_value", ascending=False)
+            player_values_df.loc[pitchers_sorted.index, "tier"] = self.calculate_tiers(pitchers_sorted["total_value"])
 
         return {
             "player_values_df": player_values_df,
@@ -156,13 +158,63 @@ class PlayerValueCalculator:
             tiers.append(tier)
         return pd.Series(tiers, index=values.index)
 
-    def calculate_replacement_values_for_positions(self, all_players_df: pd.DataFrame) -> Dict[str, float]:
+    def calculate_replacement_values_for_players(self, all_players_df: pd.DataFrame) -> Dict[str, float]:
+        """
+        Compute replacement total_value for each slot_code based on league-wide demand.
+        Approach (MVP):
+        - For each slot_code, take eligible players sorted by total_value desc,
+            replacement_value = value at index demand[slot]-1 (1-indexed).
+        """
+
         replacement_values: Dict[str, float] = {}
+
+        # Compute combined pitcher demand for dollar baseline
         position_demand = self.calculate_position_demand()
-        for slot_code, demand_count in position_demand.items():
-            eligible_players = all_players_df[self.eligible_for_slot(all_players_df, slot_code)]
-            replacement_values[slot_code] = self.calculate_replacement_value_for_position(eligible_players, demand_count)
-        return replacement_values
+
+        pitcher_demand_total = (
+            position_demand.get("SP", 0) +
+            position_demand.get("RP", 0) +
+            position_demand.get("P", 0)
+        )
+
+        hitter_demand_total = (
+            position_demand.get("C", 0) +
+            position_demand.get("1B", 0) +
+            position_demand.get("2B", 0) +
+            position_demand.get("3B", 0) +
+            position_demand.get("SS", 0) +
+            position_demand.get("OF", 0) +
+            position_demand.get("UTIL", 0)
+        )
+
+        bench_total = position_demand.get("BN", 0)
+
+        bench_hitter = int(round(bench_total * 0.60))
+        bench_pitcher = bench_total - bench_hitter
+
+        hitter_rank = hitter_demand_total + bench_hitter
+        pitcher_rank = pitcher_demand_total + bench_pitcher
+        
+        all_hitters = all_players_df[all_players_df["position"] == "B"]
+        all_pitchers = all_players_df[all_players_df["position"] == "P"]
+
+        hitter_replacement_value = self.replacement_at_rank(all_hitters, hitter_rank)
+        pitcher_replacement_value = self.replacement_at_rank(all_pitchers, pitcher_rank)
+        return {
+            "hitter_replacement_value": hitter_replacement_value,
+            "pitcher_replacement_value": pitcher_replacement_value
+        }
+
+    # Replacement baseline for dollars: use rank = demand_total
+    def replacement_at_rank(self, df: pd.DataFrame, rank: int) -> float:
+        if rank <= 0:
+            return 0.0
+        if df.empty:
+            return 0.0
+        sorted_df = df.sort_values("total_value", ascending=False).reset_index(drop=True)
+        idx = min(rank - 1, len(sorted_df) - 1)
+        return float(sorted_df.loc[idx, "total_value"])
+
 
     def calculate_position_demand(self) -> Dict[str, float]:
         """

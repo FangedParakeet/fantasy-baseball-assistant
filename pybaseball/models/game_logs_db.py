@@ -23,3 +23,6 @@ class GameLogsDB(DB_Recorder):
 
     def purge_old_game_logs(self):
         return super().purge_old_records(self.game_logs_table)
+
+    def purge_all_game_logs(self):
+        return super().purge_all_records(self.game_logs_table)

@@ -1,8 +1,10 @@
 import pandas as pd
-from typing import List, Tuple
+from typing import List, Dict
 from models.draft_data_loader import CategoryConfig
 from models.value_calculator import ValueCalculator
 import numpy as np
+from utils.logger import logger
+
 
 class ZScoreCalculator(ValueCalculator):
     DEFAULT_LEAGUE_AVG = 0.250;
@@ -31,10 +33,11 @@ class ZScoreCalculator(ValueCalculator):
 
     def calculate_player_values(self) -> Dict[str, pd.DataFrame]:
         # Baselines for impact metrics
-        league_avg_avg = float(np.nanmean(self.hitters_stats_df["proj_AVG"].astype(float))) if not self.hitters_stats_df.empty else self.DEFAULT_LEAGUE_AVG
-        league_avg_era = float(np.nanmean(self.pitchers_stats_df["proj_ERA"].astype(float))) if not self.pitchers_stats_df.empty else self.DEFAULT_LEAGUE_ERA
-        league_avg_whip = float(np.nanmean(self.pitchers_stats_df["proj_WHIP"].astype(float))) if not self.pitchers_stats_df.empty else self.DEFAULT_LEAGUE_WHIP
-
+        league_avg_avg = self.weighted_mean(self.hitters_stats_df["proj_AVG"], self.hitters_stats_df["proj_AB"], self.DEFAULT_LEAGUE_AVG)
+        league_avg_era = self.weighted_mean(self.pitchers_stats_df["proj_ERA"], self.pitchers_stats_df["proj_IP"], self.DEFAULT_LEAGUE_ERA)
+        league_avg_whip = self.weighted_mean(self.pitchers_stats_df["proj_WHIP"], self.pitchers_stats_df["proj_IP"], self.DEFAULT_LEAGUE_WHIP)
+        # logger.info(f"League average AVG: {league_avg_avg}, ERA: {league_avg_era}, WHIP: {league_avg_whip}")
+        
         weighted_values_per_stat = []
 
         # Precompute impact series
@@ -141,3 +144,10 @@ class ZScoreCalculator(ValueCalculator):
         sd = self.safe_std(series)
         return (series - mu) / sd
 
+    def weighted_mean(self, value: pd.Series, weight: pd.Series, default: float) -> float:
+        v = pd.to_numeric(value, errors="coerce")
+        w = pd.to_numeric(weight, errors="coerce").fillna(0.0)
+        mask = v.notna() & (w > 0)
+        if mask.sum() == 0:
+            return default
+        return float((v[mask] * w[mask]).sum() / w[mask].sum())

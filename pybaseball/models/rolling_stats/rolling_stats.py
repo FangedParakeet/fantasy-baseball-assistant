@@ -42,7 +42,7 @@ class RollingStats(DB_Recorder):
                     LEFT JOIN {self.player_lookups_table} opp_pl ON (
                         {join_conditions}
                     )
-                    WHERE gl.game_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
+                    WHERE gl.game_date >= DATE_SUB((SELECT MAX(game_date) FROM {game_logs_table}), INTERVAL %s DAY)
                     {where_clause}
                     {group_by}
                     ON DUPLICATE KEY UPDATE {duplicate_values}

@@ -1,5 +1,6 @@
 import pandas as pd
-from risk_scorer import RiskScorer
+from models.risk_scorer import RiskScorer
+import numpy as np
 
 class Projections:
     HITTER_FORM_WEIGHT = 0.30
@@ -8,6 +9,9 @@ class Projections:
     ADVANCED_ROLLING_STATS_SUFFIX = "_adv_roll"
     HITTER_SEASON_COUNTING_COLUMNS = ["runs", "rbi", "hr", "sb", "ab"]
     HITTER_ROLLING_COLUMNS = ["runs", "rbi", "hr", "sb", "abs"]
+    # Rolling stats use "abs"; merge only suffixes duplicate names, so post-merge column stays "abs" (season has "ab")
+    HITTER_ROLLING_COL_AFTER_MERGE = ["runs_roll", "rbi_roll", "hr_roll", "sb_roll", "abs"]
+
     PITCHER_SEASON_COUNTING_COLUMNS = ["ip", "qs", "sv", "hld"]
     PITCHER_ROLLING_COUNTING_COLUMNS = ["ip", "qs", "sv", "hld"]
 
@@ -53,15 +57,15 @@ class Projections:
         hitters_df["proj_HR"] = self.blend_counting_stats(hitters_df["hr"], hitters_df["hr" + self.ROLLING_STATS_SUFFIX], season_weight, form_weight)
         hitters_df["proj_SB"] = self.blend_counting_stats(hitters_df["sb"], hitters_df["sb" + self.ROLLING_STATS_SUFFIX], season_weight, form_weight)
 
-        # Volume for AVG impact (AB)
-        hitters_df["proj_AB"] = self.blend_counting_stats(hitters_df["ab"], hitters_df["abs" + self.ROLLING_STATS_SUFFIX], season_weight, form_weight).clip(lower=0)
+        # Volume for AVG impact (AB); rolling column is "abs" (no suffix, since season has "ab")
+        hitters_df["proj_AB"] = self.blend_counting_stats(hitters_df["ab"], hitters_df["abs"], season_weight, form_weight).clip(lower=0)
 
         # AVG rate blend
         hitters_df["proj_AVG"] = self.blend_rate_stats(hitters_df["avg"], hitters_df["avg" + self.ROLLING_STATS_SUFFIX], season_weight, form_weight)
 
         hitters_df["has_stats"] = (
-            hitters_df[self.HITTER_SEASON_COUNTING_COLUMNS + [col + self.ROLLING_STATS_SUFFIX for col in self.HITTER_ROLLING_COLUMNS]]
-            .fillna(0).sum(axis=1) > 0
+            hitters_df[self.HITTER_SEASON_COUNTING_COLUMNS + self.HITTER_ROLLING_COL_AFTER_MERGE]
+            .astype(float).fillna(0).sum(axis=1) > 0
         )
 
         hitters_df = hitters_df[hitters_df["has_stats"]]
@@ -93,7 +97,7 @@ class Projections:
 
         # Season K derived from k_per_9 * IP / 9; rolling uses strikeouts (counting)
         season_strikeouts = (pitchers_df["k_per_9"].astype(float).fillna(0.0) * pitchers_df["ip"].astype(float).fillna(0.0)) / 9.0
-        pitchers_df["proj_K"] = self.blend_counting_stats(season_strikeouts, pitchers_df["strikeouts" + self.ROLLING_STATS_SUFFIX], season_weight, form_weight)
+        pitchers_df["proj_K"] = self.blend_counting_stats(season_strikeouts, pitchers_df["strikeouts"], season_weight, form_weight)
 
         # QS is counting in both
         pitchers_df["proj_QS"] = self.blend_counting_stats(pitchers_df["qs"], pitchers_df["qs" + self.ROLLING_STATS_SUFFIX], season_weight, form_weight)
@@ -109,9 +113,9 @@ class Projections:
 
         pitchers_df["has_stats"] = (
             pitchers_df[self.PITCHER_SEASON_COUNTING_COLUMNS + [col + self.ROLLING_STATS_SUFFIX for col in self.PITCHER_ROLLING_COUNTING_COLUMNS]]
-            .fillna(0).sum(axis=1) > 0
-            | (pitchers_df["k_per_9"].fillna(0.0) > 0)
-            | (pitchers_df["strikeouts" + self.ROLLING_STATS_SUFFIX].fillna(0.0) > 0)
+            .astype(float).fillna(0).sum(axis=1) > 0
+            | (pitchers_df["k_per_9"].astype(float).fillna(0.0) > 0)
+            | (pitchers_df["strikeouts"].astype(float).fillna(0.0) > 0)
         )
 
         pitchers_df = pitchers_df[pitchers_df["has_stats"]]
@@ -122,27 +126,37 @@ class Projections:
 
 
     def blend_counting_stats(self, season: pd.Series, rolling: pd.Series, season_weight: float, form_weight: float) -> pd.Series:
-        # Missing handled as 0
-        s = season.fillna(0.0)
-        r = rolling.fillna(0.0)
+        # Coerce to float (DB may return Decimal); missing handled as 0
+        s = season.astype(float).fillna(0.0)
+        r = rolling.astype(float).fillna(0.0)
         return season_weight * s + form_weight * r
 
     def blend_rate_stats(self, season_rate: pd.Series, rolling_rate: pd.Series, season_weight: float, form_weight: float) -> pd.Series:
-        # Missing handled as season preference; if both missing -> 0
-        s = season_rate.astype(float)
-        r = rolling_rate.astype(float)
-        # If season missing but rolling present, the below still works; but if season missing, season_weight term becomes 0
-        return season_weight * s.fillna(0.0) + form_weight * r.fillna(0.0)
+        season = pd.to_numeric(season_rate, errors="coerce")
+        rolling = pd.to_numeric(rolling_rate, errors="coerce")
+
+        output = pd.Series(np.nan, index=season.index, dtype="float64")
+
+        season_ok = season.notna()
+        rolling_ok = rolling.notna()
+
+        # both present -> blend
+        output.loc[season_ok & rolling_ok] = season_weight * season.loc[season_ok & rolling_ok] + form_weight * rolling.loc[season_ok & rolling_ok]
+
+        # only season present
+        output.loc[season_ok & ~rolling_ok] = season.loc[season_ok & ~rolling_ok]
+
+        # only rolling present
+        output.loc[~season_ok & rolling_ok] = rolling.loc[~season_ok & rolling_ok]
+
+        return output
 
     def get_weights(self, is_hitter: bool) -> tuple[float, float]:
-        player_form_weight = self.HITTER_FORM_WEIGHT if is_hitter else self.PITCHER_FORM_WEIGHT
-        form_weight = 0.0
-        season_weight = 0.0
-        if self.use_season_stats:
-            form_weight = player_form_weight if self.use_rolling_stats else 0.0
-            season_weight = 1.0 - form_weight
-        else:
-            form_weight = 1.0
-            season_weight = 0.0
-
-        return form_weight, season_weight
+        form_weight = self.HITTER_FORM_WEIGHT if is_hitter else self.PITCHER_FORM_WEIGHT
+        if self.use_season_stats and self.use_rolling_stats:
+            return (1.0 - form_weight, form_weight)  # (season_weight, form_weight)
+        if self.use_season_stats and not self.use_rolling_stats:
+            return (1.0, 0.0)
+        if not self.use_season_stats and self.use_rolling_stats:
+            return (0.0, 1.0)
+        return (0.0, 0.0)
