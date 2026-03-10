@@ -55,6 +55,10 @@ class DraftSettingsController {
         };
         return this.draft.upsertDraft(validatedDraftRequest);
     }
+
+    async deleteDraft(draftId: number): Promise<void> {
+        return this.draft.deleteDraft(parseNumberRequired(draftId, 'draftId'));
+    }
 }
 
 export default DraftSettingsController;

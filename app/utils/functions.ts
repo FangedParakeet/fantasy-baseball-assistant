@@ -1,6 +1,28 @@
 import type { Response } from 'express';
 import { YAHOO_TO_BACKEND_TEAM_MAP } from './constants';
 
+// slotFilter.ts
+export function slotWhereClause(pos?: string): { clause: string; params: any[] } {
+    if (!pos) return { clause: "", params: [] };
+    const p = pos.toUpperCase();
+  
+    switch (p) {
+      case "C": return { clause: " AND pl.is_c = 1", params: [] };
+      case "1B": return { clause: " AND pl.is_1b = 1", params: [] };
+      case "2B": return { clause: " AND pl.is_2b = 1", params: [] };
+      case "3B": return { clause: " AND pl.is_3b = 1", params: [] };
+      case "SS": return { clause: " AND pl.is_ss = 1", params: [] };
+      case "OF": return { clause: " AND pl.is_of = 1", params: [] };
+      case "UTIL": return { clause: " AND pl.position = 'B'", params: [] };
+      case "SP": return { clause: " AND pl.is_sp = 1", params: [] };
+      case "RP": return { clause: " AND pl.is_rp = 1", params: [] };
+      case "P": return { clause: " AND pl.position = 'P'", params: [] };
+      default:
+        // unknown slot code -> ignore
+        return { clause: "", params: [] };
+    }
+}
+
 export function normalisedName(name: string): string {
     return name
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")  // Remove accents

@@ -108,4 +108,21 @@ router.post('/draft', async (req, res) => {
     }
 });
 
+router.delete('/draft/:draftId', async (req, res) => {
+    try {
+        const draftId = parseInt(req.params.draftId, 10);
+        if (!Number.isInteger(draftId) || draftId < 1) {
+            return sendError(res, 400, 'Invalid draft ID');
+        }
+        await draftSettingsController.deleteDraft(draftId);
+        return sendSuccess(res, null, 'Draft deleted successfully');
+    } catch (error) {
+        console.error('Error in DELETE /draft/settings/draft/:draftId:', error);
+        if (error instanceof Error && error.message === 'Draft not found') {
+            return sendError(res, 404, error.message);
+        }
+        return sendError(res, 500, 'Failed to delete draft');
+    }
+});
+
 export default router;

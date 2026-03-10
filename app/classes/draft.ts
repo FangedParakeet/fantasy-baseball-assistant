@@ -101,6 +101,14 @@ class Draft {
         return;
     }
 
+    async deleteDraft(draftId: number): Promise<void> {
+        const drafts = await this.getDraftsByCondition({ key: 'id', value: draftId });
+        if (drafts.length === 0) {
+            throw new Error('Draft not found');
+        }
+        await this.db.query<ResultSetHeader>(`DELETE FROM ${this.draftsTable} WHERE id = ?`, [draftId]);
+    }
+
     /** Resolves league team id to draft_teams.id for use in keepers. */
     async getDraftTeamIdByLeagueTeamId(draftId: number, leagueTeamId: number): Promise<number> {
         const [rows] = await this.db.query<{ id: number }[]>(

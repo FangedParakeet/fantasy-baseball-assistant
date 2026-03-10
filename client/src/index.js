@@ -16,6 +16,7 @@ import NRFIAnalysis from './components/NRFIAnalysis';
 import Drafts from './components/Drafts';
 import DraftForm from './components/DraftForm';
 import DraftKeepers from './components/DraftKeepers';
+import LiveDraft from './components/LiveDraft';
 
 // Main App Component
 function App() {
@@ -38,6 +39,7 @@ function App() {
         <Route path="/drafts/new" element={<DraftForm />} />
         <Route path="/drafts/:draftId/edit" element={<DraftForm />} />
         <Route path="/drafts/:draftId/keepers" element={<DraftKeepers />} />
+        <Route path="/drafts/:draftId/live" element={<LiveDraft />} />
         <Route path="*" element={<div>404 - Page not found</div>} />
       </Routes>
     </Router>

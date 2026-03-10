@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api, { handleApiResponse, handleApiError } from '../utils/api';
 
 function Drafts() {
+  const navigate = useNavigate();
   const [drafts, setDrafts] = useState([]);
   const [activeDraftId, setActiveDraftId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [startingId, setStartingId] = useState(null);
   const [confirmStart, setConfirmStart] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     fetchDrafts();
@@ -60,6 +62,7 @@ function Drafts() {
       setConfirmStart(null);
       await api.post(`/draft/settings/active/${draftId}`);
       refresh();
+      navigate(`/drafts/${draftId}/live`);
     } catch (err) {
       setError(handleApiError(err));
     } finally {
@@ -73,6 +76,24 @@ function Drafts() {
 
   const handleCancelConfirm = () => {
     setConfirmStart(null);
+  };
+
+  const handleDeleteDraft = (draft) => {
+    if (!window.confirm(`Delete draft "${draft.name}"? This cannot be undone.`)) return;
+    doDeleteDraft(draft.id);
+  };
+
+  const doDeleteDraft = async (draftId) => {
+    try {
+      setDeletingId(draftId);
+      setError('');
+      await api.delete(`/draft/settings/draft/${draftId}`);
+      refresh();
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (loading) {
@@ -148,6 +169,23 @@ function Drafts() {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {isActive ? (
+                          <Link
+                            to={`/drafts/${draft.id}/live`}
+                            className="btn btn-success"
+                            style={{ textDecoration: 'none' }}
+                          >
+                            Live Draft
+                          </Link>
+                        ) : (
+                          <button
+                            onClick={() => handleStartDraft(draft)}
+                            className="btn btn-success"
+                            disabled={startingId != null}
+                          >
+                            {startingId === draft.id ? 'Starting…' : 'Start Draft'}
+                          </button>
+                        )}
                         <Link
                           to={`/drafts/${draft.id}/keepers`}
                           className="btn btn-primary"
@@ -162,15 +200,15 @@ function Drafts() {
                         >
                           Edit
                         </Link>
-                        {!isActive && (
-                          <button
-                            onClick={() => handleStartDraft(draft)}
-                            className="btn btn-success"
-                            disabled={startingId != null}
-                          >
-                            {startingId === draft.id ? 'Starting…' : 'Start Draft'}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ color: '#c00', borderColor: '#c00' }}
+                          onClick={() => handleDeleteDraft(draft)}
+                          disabled={deletingId != null}
+                        >
+                          {deletingId === draft.id ? 'Deleting…' : 'Delete'}
+                        </button>
                       </div>
                     </td>
                   </tr>

@@ -6,7 +6,7 @@ type PitcherPosition = 'SP' | 'RP' | 'P';
 type BenchPosition = 'BN';
 type ILPosition = 'IL';
 type NAPosition = 'NA';
-type Position = HitterPosition | PitcherPosition | BenchPosition | ILPosition | NAPosition;
+export type Position = HitterPosition | PitcherPosition | BenchPosition | ILPosition | NAPosition;
 
 function toGroupMap<K extends string, G extends string>(keys: readonly K[], group: G): Record<K, G> {
     return Object.fromEntries(keys.map((k) => [k, group])) as Record<K, G>;
