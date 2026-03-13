@@ -1,8 +1,8 @@
-import Team from "../classes/team";
-import YahooAPI from "../classes/yahooAPI";
-import type { YahooLeagueTeam, YahooRosterPlayer } from "../classes/yahooAPI";
+import type Hydrator from "../classes/hydrator";
+import type Team from "../classes/team";
 import type { LeagueTeam, RosterPlayer } from "../classes/team";
-import Hydrator from "../classes/hydrator";
+import type YahooAPI from "../classes/yahooAPI";
+import type { YahooLeagueTeam, YahooRosterPlayer } from "../classes/yahooAPI";
 import { convertYahooTeamAbbr, normalisedName } from "../utils/functions";
 
 class RosterController {
@@ -40,10 +40,11 @@ class RosterController {
 
     async syncAllLeagueTeams(): Promise<void> {
 		await this.upsertAllLeagueTeams();
-		let teams = await this.team.getAllLeagueTeams();
+		const teams = await this.team.getAllLeagueTeams();
 		if (teams.length === 0) {
             throw new Error('No league teams found');
 		}
+		// biome-ignore lint/correctness/noConstantCondition: always sync for testing
 		if (true || await this.team.isSyncStale()) {
             for (const team of teams) {
                 await this.syncRosterForTeam(team.id);
@@ -63,7 +64,7 @@ class RosterController {
 	}
 
 	async upsertAllLeagueTeams(): Promise<void> {
-		let teams: LeagueTeam[] = await this.team.getAllLeagueTeams();
+		const teams: LeagueTeam[] = await this.team.getAllLeagueTeams();
 		if (teams.length < 10) {
             const leagueTeams: YahooLeagueTeam[] = await this.yahoo.getLeagueTeams();
             const myTeamKey: string | null = await this.team.getTeamKeyForUser();

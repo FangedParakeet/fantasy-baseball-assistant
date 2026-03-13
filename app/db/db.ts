@@ -1,6 +1,7 @@
-import mysql from 'mysql2/promise';
-import fs from 'fs';
-import path from 'path';
+// biome-ignore assist/source/organizeImports: bitchass biome
+import fs from "node:fs";
+import mysql from "mysql2/promise";
+import path from "node:path";
 import type { RowDataPacket } from 'mysql2/promise';
 
 /** Minimal type for a DB that supports the promise-based query we use (avoids Pool typing issues). */

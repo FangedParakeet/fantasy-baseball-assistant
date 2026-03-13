@@ -1,5 +1,4 @@
 import axios from 'axios';
-import xml2js from 'xml2js';
 
 interface TokenRequestBody {
     grant_type: 'authorization_code' | 'refresh_token';

@@ -1,6 +1,6 @@
-import { QueryableDB } from "../db/db";
-import { slotWhereClause } from "../utils/functions";
 import type { Position } from "../classes/league";
+import type { QueryableDB } from "../db/db";
+import { slotWhereClause } from "../utils/functions";
 
 export type BoardQuery = {
 	modelId?: string;
@@ -17,8 +17,31 @@ export type BoardQuery = {
 	offset?: string;
 };
 
+export type BoardRow = {
+	player_pk: number;
+	name: string;
+	mlb_team: string | null;
+	position: string;
+	eligible_positions: string | null;
+	headshot_url: string | null;
+	is_c: number;
+	is_1b: number;
+	is_2b: number;
+	is_3b: number;
+	is_ss: number;
+	is_of: number;
+	is_util: number;
+	is_sp: number;
+	is_rp: number;
+	total_value: number;
+	est_auction_value: number;
+	est_max_auction_value: number;
+	tier: number | null;
+	reliability_score: number | null;
+	risk_score: number | null;
+};
 
-export async function getBoard(conn: QueryableDB, draftId: number, query: BoardQuery): Promise<{ total: number; rows: any[] }> {
+export async function getBoard(conn: QueryableDB, draftId: number, query: BoardQuery): Promise<{ total: number; rows: BoardRow[] }> {
 	const {
 		modelId = "1",
 		pos,
@@ -53,7 +76,7 @@ export async function getBoard(conn: QueryableDB, draftId: number, query: BoardQ
 		WHERE v.model_id = ?
 		AND taken.player_pk IS NULL
 	`;
-	const params: any[] = [mId];
+	const params: (string | number)[] = [mId];
 
 	// Group filter
 	const g = String(group).toLowerCase();
@@ -76,7 +99,7 @@ export async function getBoard(conn: QueryableDB, draftId: number, query: BoardQ
 	}
 
 	where += posClause;
-	params.push(...posParams);
+	params.push(...(posParams as (string | number)[]));
 
 	// We use a derived "taken" set: keepers + purchases
 	// Using UNION ALL + DISTINCT is fast enough at this scale.
@@ -133,8 +156,8 @@ export async function getBoard(conn: QueryableDB, draftId: number, query: BoardQ
 	`;
 	const countParams = [draftId, draftId, ...params];
 
-	const [[countRow]] = await conn.query<any[]>(countSql, countParams);
-	const [rows] = await conn.query<any[]>(baseSql, finalParams);
+	const [[countRow]] = await conn.query<{ total: number }[]>(countSql, countParams);
+	const [rows] = await conn.query<BoardRow[]>(baseSql, finalParams);
 
 	return {
 		total: Number(countRow.total ?? 0),

@@ -1,5 +1,6 @@
-import League, { LeagueSettingsResponse, LeagueRequest, RosterSlot, ScoringCategory } from "../classes/league";
-import { parseNumber, parseNumberRequired, parseOptionalYear, parseBoolean, parseJsonArray } from "../utils/functions";
+import type League from "../classes/league";
+import type { LeagueRequest, LeagueSettingsResponse, RosterSlot, ScoringCategory } from "../classes/league";
+import { parseBoolean, parseJsonArray, parseNumber, parseNumberRequired, parseOptionalYear } from "../utils/functions";
 
 export type LeagueFormRequest = {
     id: number | null;
@@ -26,22 +27,28 @@ class LeagueController {
         const rawRosterSlots = Array.isArray(leagueRequest.rosterSlots)
             ? leagueRequest.rosterSlots
             : parseJsonArray(leagueRequest.rosterSlots as string, 'rosterSlots');
-        const rosterSlots: RosterSlot[] = rawRosterSlots.map((slot: any): RosterSlot => ({
-            position: slot.position,
-            count: parseNumberRequired(slot.count, 'rosterSlots.count'),
-            countsTowardsRemainingRoster: parseBoolean(slot.countsTowardsRemainingRoster, true),
-        }));
+        const rosterSlots: RosterSlot[] = rawRosterSlots.map((slot: unknown): RosterSlot => {
+            const s = slot as RosterSlot;
+            return {
+                position: s.position,
+                count: parseNumberRequired(s.count, 'rosterSlots.count'),
+                countsTowardsRemainingRoster: parseBoolean(s.countsTowardsRemainingRoster, true),
+            };
+        });
 
         const rawScoringCategories = Array.isArray(leagueRequest.scoringCategories)
             ? leagueRequest.scoringCategories
             : parseJsonArray(leagueRequest.scoringCategories as string, 'scoringCategories');
-        const scoringCategories: ScoringCategory[] = rawScoringCategories.map((category: any): ScoringCategory => ({
-            code: category.code,
-            weight: parseNumberRequired(category.weight, 'scoringCategories.weight'),
-            isEnabled: category.isEnabled !== undefined
-                ? parseBoolean(category.isEnabled, true)
-                : undefined,
-        }));
+        const scoringCategories: ScoringCategory[] = rawScoringCategories.map((category: unknown): ScoringCategory => {
+            const c = category as ScoringCategory;
+            return {
+                code: c.code,
+                weight: parseNumberRequired(c.weight, 'scoringCategories.weight'),
+                isEnabled: c.isEnabled !== undefined
+                    ? parseBoolean(c.isEnabled, true)
+                    : undefined,
+            };
+        });
 
         const validatedLeagueRequest: LeagueRequest = {
             id: parseNumber(leagueRequest.id, 'id') ?? null,

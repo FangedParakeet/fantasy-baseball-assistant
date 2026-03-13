@@ -1,12 +1,21 @@
-import express, { Request, Response } from 'express';
-const router = express.Router();
-import db from '../db/db'; 
-import Player from '../classes/player';
-import { TwoStartPitcher, ProbablePitcher } from '../classes/player';
-import PlayerStatsController from '../controllers/playerStatsController';
-import { AvailablePitchersResult, DateQuery, SearchPlayersQuery, SearchPlayersResult, TeamStatsQuery, TeamStatsResult, ScheduleStrengthResult } from '../controllers/playerStatsController';
-import { sendSuccess, sendError } from '../utils/functions';
+// biome-ignore assist/source/organizeImports: biome is busted
+import express, { type Request, type Response } from "express";
+import Player from "../classes/player";
+import type { ProbablePitcher, TwoStartPitcher } from "../classes/player";
+import PlayerStatsController from "../controllers/playerStatsController";
+import type {
+	AvailablePitchersResult,
+	DateQuery,
+	ScheduleStrengthResult,
+	SearchPlayersQuery,
+	SearchPlayersResult,
+	TeamStatsQuery,
+	TeamStatsResult,
+} from "../controllers/playerStatsController";
+import db from "../db/db";
+import { sendError, sendSuccess } from "../utils/functions";
 
+const router = express.Router();
 const player = new Player(db);
 const playerStatsController = new PlayerStatsController(player);
 

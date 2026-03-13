@@ -29,6 +29,48 @@ export type YahooRosterPlayer = {
     };
 }
 
+/** Shape of the getUserLeagues() response (fantasy_content.users.user.games.game[].leagues.league). */
+interface YahooLeaguesResponse {
+	fantasy_content?: {
+		users?: {
+			user?: {
+				games?: {
+					game?: YahooGame | YahooGame[];
+				};
+			};
+		};
+	};
+}
+
+interface YahooGame {
+	season?: string | number;
+	leagues?: {
+		league?: { league_key: string; name: string; season: string } | Array<{ league_key: string; name: string; season: string }>;
+	};
+}
+
+/** Yahoo API response for league standings (getLeague). */
+interface YahooLeagueResponse {
+	fantasy_content?: {
+		league?: {
+			standings?: { teams?: { team?: unknown } };
+		};
+	};
+}
+
+/** Yahoo API response for team roster (getTeamRoster). */
+interface YahooRosterResponse {
+	fantasy_content?: {
+		team?: {
+			roster?: { players?: { player?: unknown } };
+		};
+	};
+}
+
+/** Generic Yahoo API response for other endpoints. */
+interface YahooApiResponse {
+	fantasy_content?: Record<string, unknown>;
+}
 
 class YahooAPI {
     private baseApiUrl: string;
@@ -39,7 +81,7 @@ class YahooAPI {
         this.authToken = authToken;
     }
 
-    async apiRequest(endpoint: string, params: Record<string, string> = {}): Promise<any> {
+    async apiRequest(endpoint: string, params: Record<string, string> = {}): Promise<unknown> {
         try {
             const response = await axios.get(`${this.baseApiUrl}/${endpoint}`, {
                 headers: {
@@ -85,7 +127,7 @@ class YahooAPI {
      * Gets the league from the most recent MLB game in the getUserLeagues() response.
      * API structure: fantasy_content.users.user.games.game[] (each game has .leagues.league).
      */
-    private getCurrentLeagueFromResponse(leaguesResponse: any): { league_key: string; name: string; season: string } | null {
+    private getCurrentLeagueFromResponse(leaguesResponse: YahooLeaguesResponse): { league_key: string; name: string; season: string } | null {
         const user = leaguesResponse?.fantasy_content?.users?.user;
         if (!user) return null;
         const gamesRaw = user.games?.game;
@@ -115,22 +157,22 @@ class YahooAPI {
         return { name: league.name, seasonYear: Number(league.season) };
     }
 
-    async getUserLeagues(): Promise<any> {
-        return this.apiRequest('/users;use_login=1/games;game_codes=mlb/leagues');
+    async getUserLeagues(): Promise<YahooLeaguesResponse> {
+        return this.apiRequest('/users;use_login=1/games;game_codes=mlb/leagues') as Promise<YahooLeaguesResponse>;
     }
 
-    async getLeague(leagueKey: string): Promise<any> {
-        return this.apiRequest(`/league/${leagueKey}/standings`);
+    async getLeague(leagueKey: string): Promise<YahooLeagueResponse> {
+        return this.apiRequest(`/league/${leagueKey}/standings`) as Promise<YahooLeagueResponse>;
     }
 
-    async getTeamRoster(teamKey: string, date: string | null = null): Promise<any> {
+    async getTeamRoster(teamKey: string, date: string | null = null): Promise<YahooRosterResponse> {
         let endpoint = `/team/${teamKey}/roster`;
         if (date) endpoint += `;date=${date}`;
-        return this.apiRequest(endpoint);
-     }
+        return this.apiRequest(endpoint) as Promise<YahooRosterResponse>;
+    }
 
-    async getAvailablePlayersForPosition(leagueKey: string, position: string): Promise<any> {
-        return this.apiRequest(`/league/${leagueKey}/players;status=FA;position=${position}`);
+    async getAvailablePlayersForPosition(leagueKey: string, position: string): Promise<YahooApiResponse> {
+        return this.apiRequest(`/league/${leagueKey}/players;status=FA;position=${position}`) as Promise<YahooApiResponse>;
     }
 
 }

@@ -1,16 +1,16 @@
-import express from 'express';
-import DraftSettingsController from '../controllers/draftSettingsController';
-import Draft, { DraftRequest, DraftResponse, Keeper } from '../classes/draft';
-import League from '../classes/league';
-import { db } from '../db/db';
-import { sendError, sendSuccess } from '../utils/functions';
+import express from "express";
+import Draft, { type DraftRequest, type DraftResponse, type Keeper } from "../classes/draft";
+import League from "../classes/league";
+import DraftSettingsController from "../controllers/draftSettingsController";
+import { db } from "../db/db";
+import { sendError, sendSuccess } from "../utils/functions";
 
 const draft = new Draft(db);
 const draftSettingsController = new DraftSettingsController(draft);
 const league = new League(db);
 const router = express.Router();
 
-router.get('/drafts', async (req, res) => {
+router.get('/drafts', async (_req, res) => {
     try {
         const currentLeague = await league.getLeague();
         const draftSettings: DraftResponse[] = await draftSettingsController.getAllByLeagueId(currentLeague.id);
@@ -23,7 +23,7 @@ router.get('/drafts', async (req, res) => {
 
 router.get('/draft/:draftId', async (req, res) => {
     try {
-        const draftId = parseInt(req.params.draftId);
+        const draftId = parseInt(req.params.draftId, 10);
         const draftSettings: DraftResponse = await draftSettingsController.getById(draftId);
         return sendSuccess(res, draftSettings, 'Draft settings retrieved successfully');
     } catch (error) {
@@ -34,8 +34,8 @@ router.get('/draft/:draftId', async (req, res) => {
 
 router.get('/draft/:draftId/team/:teamId/keepers', async (req, res) => {
     try {
-        const draftId = parseInt(req.params.draftId);
-        const teamId = parseInt(req.params.teamId);
+        const draftId = parseInt(req.params.draftId, 10);
+        const teamId = parseInt(req.params.teamId, 10);
         const keepers: Keeper[] = await draftSettingsController.getKeepersForTeam(draftId, teamId);
         return sendSuccess(res, keepers, 'Keepers retrieved successfully');
     } catch (error) {
@@ -47,8 +47,8 @@ router.get('/draft/:draftId/team/:teamId/keepers', async (req, res) => {
 router.post('/draft/:draftId/team/:teamId/keepers', async (req, res) => {
 
     try {
-        const draftId = parseInt(req.params.draftId);
-        const teamId = parseInt(req.params.teamId);
+        const draftId = parseInt(req.params.draftId, 10);
+        const teamId = parseInt(req.params.teamId, 10);
         await draftSettingsController.setKeepersForTeam(draftId, teamId, req.body.keepers);
         return sendSuccess(res, null, 'Keepers set successfully');
     } catch (error) {
@@ -57,7 +57,7 @@ router.post('/draft/:draftId/team/:teamId/keepers', async (req, res) => {
     }
 });
 
-router.get('/active', async (req, res) => {
+router.get('/active', async (_req, res) => {
 
     try {
         const draftSettings: DraftResponse = await draftSettingsController.getActive();
@@ -70,7 +70,7 @@ router.get('/active', async (req, res) => {
 
 router.post('/active/:draftId', async (req, res) => {
     try {
-        const draftId = parseInt(req.params.draftId);
+        const draftId = parseInt(req.params.draftId, 10);
         await draftSettingsController.setActive(draftId);
         return sendSuccess(res, null, 'Active draft settings updated successfully');
     } catch (error) {
@@ -79,7 +79,7 @@ router.post('/active/:draftId', async (req, res) => {
     }
 });
 
-router.post('/active/deactivate', async (req, res) => {
+router.post('/active/deactivate', async (_req, res) => {
 
     try {
         const currentLeague = await league.getLeague();
@@ -95,7 +95,7 @@ router.post('/draft', async (req, res) => {
     try {
         const currentLeague = await league.getLeague();
         const draftRequest: DraftRequest = {
-             id: req.body.id ? parseInt(req.body.id) : null,
+             id: req.body.id ? parseInt(req.body.id, 10) : null,
              name: req.body.name,
              leagueId: currentLeague.id,
              isActive: false,

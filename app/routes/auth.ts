@@ -1,11 +1,9 @@
-import express, { Request, Response } from 'express';
-import Token from '../classes/token';
-import YahooOAuth from '../classes/yahooOAuth';
-import { db } from '../db/db';
-import { sendSuccess, sendError } from '../utils/functions';
-import TokenController from '../controllers/tokenController';
-import type { TokenResponse } from '../controllers/tokenController';
-import type { AccessToken } from '../classes/token';
+import express, { type Request, type Response } from "express";
+import Token, { type AccessToken } from "../classes/token";
+import YahooOAuth from "../classes/yahooOAuth";
+import TokenController, { type TokenResponse } from "../controllers/tokenController";
+import { db } from "../db/db";
+import { sendError, sendSuccess } from "../utils/functions";
 
 const router = express.Router();
 const token = new Token(db);
@@ -13,7 +11,7 @@ const yahooOAuth = new YahooOAuth();
 const tokenController = new TokenController(token, yahooOAuth);
 
 // Get current token status
-router.get('/token-status', async (req: Request, res: Response) => {
+router.get('/token-status', async (_req: Request, res: Response) => {
   try {
     const status: TokenResponse = await tokenController.getStatus();
     return sendSuccess(res, status, 'Token status retrieved successfully');
@@ -24,7 +22,7 @@ router.get('/token-status', async (req: Request, res: Response) => {
 });
 
 // OAuth login redirect
-router.get('/login', async (req: Request, res: Response) => {
+router.get('/login', async (_req: Request, res: Response) => {
   try {
     const authUrl: string = tokenController.getAuthUrl();
     res.redirect(authUrl);
@@ -58,7 +56,7 @@ router.get('/redirect', async (req: Request, res: Response) => {
 });
 
 // Refresh Yahoo token
-router.post('/refresh-token', async (req: Request, res: Response) => {
+router.post('/refresh-token', async (_req: Request, res: Response) => {
   try {
     await tokenController.refreshToken();
     return sendSuccess(res, { message: 'Token refreshed successfully' }, 'Token refreshed successfully');
@@ -69,7 +67,7 @@ router.post('/refresh-token', async (req: Request, res: Response) => {
 });
 
 // Get access token (for API calls)
-router.get('/access-token', async (req: Request, res: Response) => {
+router.get('/access-token', async (_req: Request, res: Response) => {
   try {
     const token: AccessToken = await tokenController.getToken();
     return sendSuccess(res, { access_token: token.access_token }, 'Access token retrieved successfully');

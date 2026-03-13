@@ -1,6 +1,6 @@
-import { QueryableDB } from "../db/db";
-import { ResultSetHeader } from "mysql2";
-import { parseNumber, parseBooleanStrict, parseString, parseDate } from "../utils/functions";
+import type { ResultSetHeader } from "mysql2";
+import type { QueryableDB } from "../db/db";
+import { parseBooleanStrict, parseDate, parseNumber, parseString } from "../utils/functions";
 
 export type DraftRequest = {
     id: number | null;
@@ -55,8 +55,6 @@ class Draft {
     private teamsTable: string = 'teams';
     private teamsTableAlias: string = 't';
     private draftKeepersTable: string = 'draft_keepers';
-    private draftKeepersTableAlias: string = 'dk';
-
 
     constructor(db: QueryableDB) {
         this.db = db;

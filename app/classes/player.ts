@@ -1,4 +1,5 @@
-import { executeInTransaction, QueryableDB } from '../db/db';
+import type { QueryableDB } from '../db/db';
+import { executeInTransaction } from '../db/db';
 import type { LeagueTeam } from './team';
 
 type DefaultPlayerFields = 'id' | 'name' | 'mlb_team' | 'eligible_positions' | 'selected_position' | 'headshot_url';
@@ -39,7 +40,6 @@ const BASIC_ROLLING_STATS_TABLE_ALIAS = 'prs_raw' as const;
 const BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS = 'prs_pct' as const;
 const ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS = 'pars_pct' as const;
 const PROBABLE_PITCHERS_TABLE_ALIAS = 'pp' as const;
-const TEAMS_TABLE_ALIAS = 't' as const;
 const PLAYER_LOOKUPS_TABLE_ALIAS = 'pl' as const;
 const TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS = 'trs_pct' as const;
 const TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE_ALIAS = 'tvp_pct' as const;
@@ -862,7 +862,7 @@ class Player {
         position: Position | false = false, 
         teamId: number | false = false
     ): Promise<HitterSpeedWatchlist[]> {
-        let positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
+        const positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
         const offset = (page - 1) * this.pageSize;
         const minAbs = 15;
         const playerFilter = teamId ? `AND p.team_id = ?` : `AND p.status = ?`;
@@ -926,7 +926,7 @@ class Player {
         position: Position | false = false, 
         teamId: number | false = false
     ): Promise<HitterContactOnBaseWatchlist[]> {
-        let positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
+        const positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
         const offset = (page - 1) * this.pageSize;
         const minAbs = 15;
         const playerFilter = teamId ? `AND p.team_id = ?` : `AND p.status = ?`;
@@ -988,7 +988,7 @@ class Player {
         position: Position | false = false, 
         teamId: number | false = false
     ): Promise<HitterPowerWatchlist[]> {
-        let positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
+        const positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
         const offset = (page - 1) * this.pageSize;
         const minAbs = 15;
         const playerFilter = teamId ? `AND p.team_id = ?` : `AND p.status = ?`;

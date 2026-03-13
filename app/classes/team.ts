@@ -1,6 +1,7 @@
-import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
-import type { QueryableDB } from '../db/db';
-import { POSITION_MAP } from '../utils/constants';
+// biome-ignore assist/source/organizeImports: bitchass biome
+import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
+import type { QueryableDB } from "../db/db";
+import { POSITION_MAP } from "../utils/constants";
 
 /** Row shape for SELECTs from the teams table. Extends RowDataPacket so query<T>() accepts it. */
 export interface LeagueTeam extends RowDataPacket {
@@ -216,7 +217,7 @@ class Team {
             is_sp: 0,
             is_rp: 0
 		};
-		let rawPositions;
+		let rawPositions: string[] | object;
 		try {
             rawPositions = JSON.parse(eligiblePositions);
 		} catch (error) {
@@ -263,7 +264,7 @@ class Team {
             ['league_rosters']
 		);
 		
-		return !rows[0] || new Date().getTime() - new Date(rows[0].last_synced).getTime() > (1000 * 60 * 60);
+		return !rows[0] || Date.now()- new Date(rows[0].last_synced).getTime() > (1000 * 60 * 60);
 	}
 }
 

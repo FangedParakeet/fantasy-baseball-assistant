@@ -1,5 +1,5 @@
-import { QueryableDB } from "../db/db";
-import { ResultSetHeader } from "mysql2";
+import type { ResultSetHeader } from "mysql2";
+import type { QueryableDB } from "../db/db";
 
 type HitterPosition = 'C' | '1B' | '2B' | '3B' | 'SS' | 'OF' | 'UTIL';
 type PitcherPosition = 'SP' | 'RP' | 'P';

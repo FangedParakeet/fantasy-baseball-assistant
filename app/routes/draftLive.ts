@@ -1,19 +1,32 @@
-import express, { Request, Response } from "express";
-import { executeInTransaction, db } from "../db/db";
-import { 
-    recomputeDraftTeamState, 
-    recomputeDraftSupply, 
-    makePurchase, 
-    undoPurchase, 
-    movePurchase, 
-    getState,
-    simulatePurchase,
-    getTeamNeeds
+import express, { type Request, type Response } from "express";
+import { type BoardQuery, getBoard } from "../controllers/boardController";
+import {
+	getState,
+	getTeamNeeds,
+	makePurchase,
+	movePurchase,
+	recomputeDraftSupply,
+	recomputeDraftTeamState,
+	simulatePurchase,
+	undoPurchase,
 } from "../controllers/draftLiveController";
-import { sendSuccess, sendError } from "../utils/functions";
-import { BoardQuery, getBoard } from "../controllers/boardController";
+import { db, executeInTransaction } from "../db/db";
+import { sendError, sendSuccess } from "../utils/functions";
+import { Logger } from "../utils/logger";
 
 export const draftLiveRoutes = express.Router();
+
+interface DraftLeagueRow {
+	league_id: number;
+}
+
+interface DraftValueModelRow {
+	id: number;
+	name: string;
+	method: string;
+	split_type: string | null;
+	created_at: string;
+}
 
 function parseDraftId(param: string | string[] | undefined): number | null {
 	const s = Array.isArray(param) ? param[0] : param;
@@ -33,14 +46,14 @@ draftLiveRoutes.get("/:draftId/models", async (req: Request, res: Response) => {
 	const draftId = parseDraftId(req.params.draftId);
 	if (draftId === null) return sendError(res, 400, "Invalid draft ID");
 	try {
-		const [draftRows] = await db.query<any[]>(
+		const [draftRows] = await db.query<DraftLeagueRow[]>(
 			`SELECT league_id FROM drafts WHERE id = ? LIMIT 1`,
 			[draftId]
 		);
 		const draftRow = Array.isArray(draftRows) ? draftRows[0] : null;
 		if (!draftRow) return sendError(res, 404, "Draft not found");
 		const leagueId = Number(draftRow.league_id);
-		const [modelRows] = await db.query<any[]>(
+		const [modelRows] = await db.query<DraftValueModelRow[]>(
 			`SELECT id, name, method, split_type, created_at
 			 FROM draft_value_models
 			 WHERE league_id = ?
@@ -51,7 +64,7 @@ draftLiveRoutes.get("/:draftId/models", async (req: Request, res: Response) => {
 		return sendSuccess(res, {
 			draftId,
 			leagueId,
-			models: models.map((m: any) => ({
+			models: models.map((m: DraftValueModelRow) => ({
 				id: Number(m.id),
 				name: m.name,
 				method: m.method,
@@ -59,7 +72,8 @@ draftLiveRoutes.get("/:draftId/models", async (req: Request, res: Response) => {
 				createdAt: m.created_at,
 			})),
 		}, "Models fetched successfully");
-	} catch (e) {
+	} catch (err) {
+		Logger.error(err, "GET /:draftId/models");
 		return sendError(res, 500, "Failed to get models");
 	}
 });
@@ -70,7 +84,8 @@ draftLiveRoutes.post("/:draftId/recompute", async (req: Request, res: Response) 
 	try {
 		await executeInTransaction((conn) => recomputeDraftTeamState(conn, draftId));
 		return sendSuccess(res, { ok: true }, "Draft team state recomputed successfully");
-	} catch (e) {
+	} catch (err) {
+		Logger.error(err, "POST /:draftId/recompute");
 		return sendError(res, 500, "Failed to recompute draft team state");
 	}
 });
@@ -90,7 +105,8 @@ draftLiveRoutes.get("/:draftId/board", async (req: Request, res: Response) => {
 			offset: query.offset,
 			players: result.rows,
 		}, "Board fetched successfully");
-	} catch (e) {
+	} catch (err) {
+		Logger.error(err, "GET /:draftId/board");
 		return sendError(res, 500, "Failed to get board");
 	}
 });
@@ -139,6 +155,7 @@ draftLiveRoutes.get("/:draftId/state", async (req: Request, res: Response) => {
 			},
 		}, "Draft state fetched successfully");
 	} catch (e) {
+		Logger.error(e, "GET /:draftId/state");
 		const message = e instanceof Error ? e.message : "Failed to get draft state";
 		const status = message === "Invalid payload" ? 400 : 500;
 		return sendError(res, status, message);
@@ -166,6 +183,7 @@ draftLiveRoutes.post("/:draftId/purchases", async (req: Request, res: Response) 
 			last10: purchase.last10,
 		}, "Purchase made successfully");
 	} catch (e) {
+		Logger.error(e, "POST /:draftId/purchases");
 		const message = e instanceof Error ? e.message : "Failed to make purchase";
 		const status = message === "Invalid payload" ? 400 : 500;
 		return sendError(res, status, message);
@@ -197,6 +215,7 @@ draftLiveRoutes.post("/:draftId/purchases/:purchaseId/undo", async (req: Request
 			last10: result.last10,
 		}, "Purchase undone successfully");
 	} catch (e) {
+		Logger.error(e, "POST /:draftId/purchases/:purchaseId/undo");
 		const message = e instanceof Error ? e.message : "Failed to undo purchase";
 		const status = message === "Invalid payload" ? 400 : 500;
 		return sendError(res, status, message);
@@ -225,6 +244,7 @@ draftLiveRoutes.post("/:draftId/purchases/:purchaseId/move", async (req: Request
 			last10: result.last10,
 		}, "Purchase moved successfully");
 	} catch (e) {
+		Logger.error(e, "POST /:draftId/purchases/:purchaseId/move");
 		const message = e instanceof Error ? e.message : "Failed to move purchase";
 		const status = message === "Invalid payload" ? 400 : 500;
 		return sendError(res, status, message);
@@ -263,6 +283,7 @@ draftLiveRoutes.post("/:draftId/simulate", async (req: Request, res: Response) =
 			recommendedMaxBid: result.recommendedMaxBid,
 		}, "Purchase simulated successfully");
 	} catch (e) {
+		Logger.error(e, "POST /:draftId/simulate");
 		const message = e instanceof Error ? e.message : "Failed to simulate purchase";
 		const status = message === "Invalid payload" ? 400
 			: message === "Player valuation not found for model" || message === "draft_team_state missing; call /state?recompute=true first" || message === "Draft not found" ? 404
@@ -293,6 +314,7 @@ draftLiveRoutes.get("/:draftId/teams/:draftTeamId/needs", async (req: Request, r
 			roster: needs.roster ?? null,
 		}, "Team needs fetched successfully");
 	} catch (e) {
+		Logger.error(e, "GET /:draftId/teams/:draftTeamId/needs");
 		const message = e instanceof Error ? e.message : "Failed to get team needs";
 		const status = message === "Invalid params" ? 400 : /not found/i.test(message) ? 404 : 500;
 		return sendError(res, status, message);

@@ -1,15 +1,13 @@
-import express, { Request, Response } from 'express';
-import Team from '../classes/team';
-import YahooAPI from '../classes/yahooAPI';
-import YahooOAuth from '../classes/yahooOAuth';
-import Token from '../classes/token';
-import { db } from '../db/db';
-import { sendSuccess, sendError } from '../utils/functions';
-import TokenController from '../controllers/tokenController';
-import LeagueController from '../controllers/leagueController';
-import League from '../classes/league';
-import { LeagueFormRequest } from '../controllers/leagueController';
-import { LeagueRequest } from '../classes/league';
+import express, { type Request, type Response } from "express";
+import League, { type LeagueRequest } from "../classes/league";
+import Team from "../classes/team";
+import Token from "../classes/token";
+import YahooAPI from "../classes/yahooAPI";
+import YahooOAuth from "../classes/yahooOAuth";
+import LeagueController, { type LeagueFormRequest } from "../controllers/leagueController";
+import TokenController from "../controllers/tokenController";
+import { db } from "../db/db";
+import { sendError, sendSuccess } from "../utils/functions";
 
 const router = express.Router();
 const token = new Token(db);
@@ -19,7 +17,7 @@ const team = new Team(db);
 const league = new League(db);
 const leagueController = new LeagueController(league);
 
-router.get('/settings', async (req: Request, res: Response) => {
+router.get('/settings', async (_req: Request, res: Response) => {
     try {
         const settings = await leagueController.getLeagueSettings();
         return sendSuccess(res, settings, 'League settings retrieved successfully');

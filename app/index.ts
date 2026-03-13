@@ -1,13 +1,14 @@
-import express from 'express';
-import cors from 'cors';
-import 'dotenv/config';
-import { runMigrations } from './db/db';
-import authRoutes from './routes/auth';
-import rosterRoutes from './routes/roster';
-import playerRoutes from './routes/player';
-import leagueRoutes from './routes/league';
-import draftSettingsRoutes from './routes/draftSettings';
-import { draftLiveRoutes } from './routes/draftLive';
+// biome-ignore assist/source/organizeImports: biome is busted
+import cors from "cors";
+import "dotenv/config";
+import express from "express";
+import { runMigrations } from "./db/db";
+import authRoutes from "./routes/auth";
+import { draftLiveRoutes } from "./routes/draftLive";
+import draftSettingsRoutes from "./routes/draftSettings";
+import leagueRoutes from "./routes/league";
+import playerRoutes from "./routes/player";
+import rosterRoutes from "./routes/roster";
 // import aiRoutes from './routes/ai';
 
 const app = express();
@@ -18,7 +19,7 @@ app.use(cors({
 app.use(express.json());
 
 // Simple request logging middleware
-app.use((req, res, next) => {
+app.use((req, _, next) => {
 	console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
 	next();
 });

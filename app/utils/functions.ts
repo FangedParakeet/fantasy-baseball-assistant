@@ -2,7 +2,7 @@ import type { Response } from 'express';
 import { YAHOO_TO_BACKEND_TEAM_MAP } from './constants';
 
 // slotFilter.ts
-export function slotWhereClause(pos?: string): { clause: string; params: any[] } {
+export function slotWhereClause(pos?: string): { clause: string; params: unknown[] } {
     if (!pos) return { clause: "", params: [] };
     const p = pos.toUpperCase();
   
@@ -39,7 +39,7 @@ export function convertYahooTeamAbbr(yahooAbbr: string): string | null {
 
 
 // Helper functions for consistent responses
-export function sendSuccess(res: Response, data: any, message = 'Success'): void {
+export function sendSuccess(res: Response, data: unknown, message = 'Success'): void {
     res.json({
         success: true,
         message,
@@ -136,7 +136,7 @@ export function parseDate(value: unknown, field: string): Date {
     return d;
 }
 
-export function parseJsonArray(value: unknown, field: string): any[] {
+export function parseJsonArray(value: unknown, field: string): unknown[] {
     if (typeof value !== 'string') {
         throw new Error(`${field} must be a JSON string`);
     }

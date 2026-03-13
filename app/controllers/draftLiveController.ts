@@ -1,14 +1,5 @@
 import type { QueryableDB } from "../db/db";
 
-type TeamAgg = {
-	draft_team_id: number;
-	budget_total: number;
-	keeper_spent: number;
-	keeper_count: number;
-	purchase_spent: number;
-	purchase_count: number;
-};
-
 const CORE_SLOTS = ["C","1B","2B","3B","SS","OF","UTIL","SP","RP","P"] as const;
 const HITTER_SLOTS = ["C","1B","2B","3B","SS","OF","UTIL"] as const;
 const PITCHER_SLOTS = ["SP","RP","P"] as const;
@@ -46,10 +37,10 @@ function greedyRemainingNeeds(
 			remaining[slot] -= 1;
 			continue;
 		}
-		if (HITTER_SLOTS.includes(slot as typeof HITTER_SLOTS[number])) {
-			if ((remaining["UTIL"] ?? 0) > 0) remaining["UTIL"] -= 1;
+		if (HITTER_SLOTS.includes(slot as (typeof HITTER_SLOTS)[number])) {
+			if ((remaining.UTIL ?? 0) > 0) remaining.UTIL -= 1;
 		} else {
-			if ((remaining["P"] ?? 0) > 0) remaining["P"] -= 1;
+			if ((remaining.P ?? 0) > 0) remaining.P -= 1;
 		}
 	}
 	for (const k of Object.keys(remaining)) remaining[k] = Math.max(0, remaining[k]);
@@ -72,35 +63,6 @@ function slotPredicate(slot: string): string {
 	}
 }
 
-function greedyFill(
-	required: Record<string, number>,
-	playersPrimarySlots: string[]
-): { filled: Record<string, number>; remaining: Record<string, number> } {
-	const remaining: Record<string, number> = { ...required };
-	const filled: Record<string, number> = {};
-	for (const k of Object.keys(required)) filled[k] = 0;
-	for (const slot of playersPrimarySlots) {
-		if ((remaining[slot] ?? 0) > 0) {
-			remaining[slot] -= 1;
-			filled[slot] = (filled[slot] ?? 0) + 1;
-			continue;
-		}
-		if (HITTER_SLOTS.includes(slot as typeof HITTER_SLOTS[number])) {
-			if ((remaining["UTIL"] ?? 0) > 0) {
-				remaining["UTIL"] -= 1;
-				filled["UTIL"] = (filled["UTIL"] ?? 0) + 1;
-			}
-		} else {
-			if ((remaining["P"] ?? 0) > 0) {
-				remaining["P"] -= 1;
-				filled["P"] = (filled["P"] ?? 0) + 1;
-			}
-		}
-	}
-	for (const k of Object.keys(remaining)) remaining[k] = Math.max(0, remaining[k]);
-	return { filled, remaining };
-}
-
 type RosterPlayerInput = {
 	player_pk: number;
 	name: string;
@@ -121,6 +83,194 @@ type RosterPlayerOutput = {
 	tier: number | null;
 	eligiblePositions: string | null;
 };
+
+// Row types for DB queries
+interface DraftStateRow {
+	draft_id: number;
+	league_id: number;
+	is_active: number;
+	created_at: string;
+	budget_total: number;
+	team_count: number;
+	hitter_budget_pct: number;
+	pitcher_budget_pct: number;
+}
+interface DraftTeamRow {
+	draft_team_id: number;
+	team_id: number;
+	team_name: string;
+	yahoo_team_id: string | null;
+	is_user_team: number;
+	budget_total: number;
+}
+interface DraftTeamStateRow {
+	draft_id: number;
+	draft_team_id: number;
+	budget_spent: number;
+	budget_remaining: number;
+	roster_spots_total: number;
+	roster_spots_filled: number;
+	roster_spots_remaining: number;
+	hard_max_bid: number;
+	updated_at: string;
+}
+interface KeeperRow {
+	id: number;
+	draft_team_id: number;
+	player_pk: number;
+	player_name: string;
+	player_type: string;
+	cost: number;
+}
+interface PurchaseRow {
+	id: number;
+	sequence_no: number;
+	draft_team_id: number;
+	player_pk: number;
+	player_name: string;
+	player_type: string;
+	price: number;
+	purchased_at: string;
+}
+interface Last10Row extends PurchaseRow {
+	team_id: number;
+	team_name: string;
+}
+interface PositionSupplyRow {
+	slot_code: string;
+	remaining_above_replacement: number;
+	slots_remaining_league: number;
+	scarcity_index: number;
+	updated_at: string;
+}
+interface TierSupplyRow {
+	slot_code: string;
+	tier: number;
+	remaining_count: number;
+	updated_at: string;
+}
+interface PositionReplacementRow {
+	slot_code: string;
+	replacement_value: number;
+	replacement_price: number;
+	updated_at: string;
+}
+interface IdRow {
+	id: number;
+}
+interface TakenRow {
+	taken: number;
+}
+interface MaxSeqRow {
+	max_seq: number;
+}
+interface LastPurchaseRow {
+	id: number;
+	draft_team_id: number;
+	player_pk: number;
+	price: number;
+	sequence_no: number;
+}
+interface CurPurchaseRow {
+	id: number;
+	sequence_no: number;
+}
+interface TeamStateFieldsRow {
+	budget_remaining: number;
+	roster_spots_remaining: number;
+	hard_max_bid?: number;
+}
+interface LeagueIdRow {
+	league_id: number;
+}
+interface SlotRow {
+	slot_code: string;
+	slot_count: number;
+}
+interface PlayerValueRow {
+	position: string;
+	is_c: number;
+	is_1b: number;
+	is_2b: number;
+	is_3b: number;
+	is_ss: number;
+	is_of: number;
+	is_util: number;
+	is_sp: number;
+	is_rp: number;
+	total_value: number;
+	est_auction_value: number;
+	est_max_auction_value: number;
+	tier: number;
+	risk_score: number;
+	reliability_score: number;
+}
+interface ScarRow {
+	scarcity_index: number;
+}
+interface SpotsRow {
+	roster_spots_total: number;
+}
+interface DraftTeamBudgetRow {
+	draft_team_id: number;
+	budget_total: number;
+}
+interface KeeperAggRow {
+	draft_team_id: number;
+	keeper_spent: number;
+	keeper_count: number;
+}
+interface PurchaseAggRow {
+	draft_team_id: number;
+	purchase_spent: number;
+	purchase_count: number;
+}
+interface DraftLeagueTeamRow {
+	league_id: number;
+	team_count: number;
+}
+interface SupplyPricedRow {
+	priced_remaining: number;
+}
+interface TierRemainingRow {
+	tier: number;
+	remaining_count: number;
+}
+interface TierRow {
+	player_pk: number;
+	tier: number;
+}
+interface PriceRow {
+	player_pk: number;
+	price: number;
+}
+interface OwnedRosterRow {
+	player_pk: number;
+	name: string;
+	position: string;
+	eligible_positions: string | null;
+	is_c: number;
+	is_1b: number;
+	is_2b: number;
+	is_3b: number;
+	is_ss: number;
+	is_of: number;
+	is_util: number;
+	is_sp: number;
+	is_rp: number;
+}
+interface OwnedPositionRow {
+	position: string;
+	is_c: number;
+	is_1b: number;
+	is_2b: number;
+	is_3b: number;
+	is_ss: number;
+	is_of: number;
+	is_util: number;
+	is_sp: number;
+	is_rp: number;
+}
 
 /** Assign each player to a roster slot: primary first, then hitters→UTIL→BN, pitchers→P→BN. Returns filled/remaining and roster with assignedSlot. */
 function assignRosterToSlots(
@@ -179,12 +329,31 @@ function assignRosterToSlots(
 	return { filled, remaining, roster };
 }
 
-export async function getState(conn: QueryableDB, draftId: number, modelId: number): Promise<any> {
+export interface GetStateResult {
+	draftId: number;
+	leagueId: number;
+	isActive: number;
+	createdAt: string;
+	budgetTotal: number;
+	teamCount: number;
+	hitterBudgetPct: number;
+	pitcherBudgetPct: number;
+	draftTeams: DraftTeamRow[];
+	teamStates: DraftTeamStateRow[];
+	keepers: KeeperRow[];
+	purchases: PurchaseRow[];
+	last10: Last10Row[];
+	positionSupply: PositionSupplyRow[];
+	tierSupply: TierSupplyRow[];
+	positionReplacement: PositionReplacementRow[];
+}
+
+export async function getState(conn: QueryableDB, draftId: number, modelId: number): Promise<GetStateResult> {
 	if (!draftId) throw new Error("Invalid draftId");
 	if (!Number.isInteger(modelId) || modelId < 1) throw new Error("Invalid modelId");
 
 	// Draft + league settings
-	const [[draftRow]] = await conn.query<any[]>(
+	const [[draftRow]] = await conn.query<DraftStateRow[]>(
 		`
 		SELECT
 			d.id AS draft_id,
@@ -207,7 +376,7 @@ export async function getState(conn: QueryableDB, draftId: number, modelId: numb
 	const leagueId = Number(draftRow.league_id);
 
 	// Draft teams + linked Yahoo teams
-	const [draftTeams] = await conn.query<any[]>(
+	const [draftTeams] = await conn.query<DraftTeamRow[]>(
 		`
 		SELECT
 			dt.id AS draft_team_id,
@@ -225,7 +394,7 @@ export async function getState(conn: QueryableDB, draftId: number, modelId: numb
 	);
 
 	// Team state (cached)
-	const [teamStates] = await conn.query<any[]>(
+	const [teamStates] = await conn.query<DraftTeamStateRow[]>(
 		`
 		SELECT *
 		FROM draft_team_state
@@ -235,7 +404,7 @@ export async function getState(conn: QueryableDB, draftId: number, modelId: numb
 	);
 
 	// Keepers (with player names for display)
-	const [keepers] = await conn.query<any[]>(
+	const [keepers] = await conn.query<KeeperRow[]>(
 		`
 		SELECT
 			dk.id,
@@ -253,7 +422,7 @@ export async function getState(conn: QueryableDB, draftId: number, modelId: numb
 	);
 
 	// Purchases (ordered)
-	const [purchases] = await conn.query<any[]>(
+	const [purchases] = await conn.query<PurchaseRow[]>(
 		`
 		SELECT
 			dp.id,
@@ -273,7 +442,7 @@ export async function getState(conn: QueryableDB, draftId: number, modelId: numb
 	);
 
 	// Last 10 picks
-	const [last10] = await conn.query<any[]>(
+	const [last10] = await conn.query<Last10Row[]>(
 		`
 		SELECT
 			dp.id,
@@ -297,7 +466,7 @@ export async function getState(conn: QueryableDB, draftId: number, modelId: numb
 	);
 
 	// Supply (cached for this draft/model)
-	const [positionSupply] = await conn.query<any[]>(
+	const [positionSupply] = await conn.query<PositionSupplyRow[]>(
 		`
 		SELECT slot_code, remaining_above_replacement, slots_remaining_league, scarcity_index, updated_at
 		FROM draft_position_supply
@@ -307,7 +476,7 @@ export async function getState(conn: QueryableDB, draftId: number, modelId: numb
 		[draftId, modelId]
 	);
 
-	const [tierSupply] = await conn.query<any[]>(
+	const [tierSupply] = await conn.query<TierSupplyRow[]>(
 		`
 		SELECT slot_code, tier, remaining_count, updated_at
 		FROM draft_tier_supply
@@ -318,7 +487,7 @@ export async function getState(conn: QueryableDB, draftId: number, modelId: numb
 	);
 
 	// Replacement (optional UI panel)
-	const [positionReplacement] = await conn.query<any[]>(
+	const [positionReplacement] = await conn.query<PositionReplacementRow[]>(
 		`
 		SELECT slot_code, replacement_value, replacement_price, updated_at
 		FROM draft_position_replacement
@@ -355,7 +524,7 @@ export async function makePurchase(
 	modelId: number | string | undefined,
 	playerPk: number,
 	price: number
-): Promise<{ teamState: any; last10: any[]; nextSeq: number }> {
+): Promise<{ teamState: DraftTeamStateRow | undefined; last10: Last10Row[]; nextSeq: number }> {
 	const ppk = Number(playerPk);
 	const dtid = Number(draftTeamId);
 	const pr = Number(price);
@@ -366,7 +535,7 @@ export async function makePurchase(
 	}
 
 	// Ensure draft_team belongs to this draft
-	const [[teamRow]] = await conn.query<any[]>(
+	const [[teamRow]] = await conn.query<IdRow[]>(
 		`SELECT id FROM draft_teams WHERE id = ? AND draft_id = ? LIMIT 1`,
 		[dtid, draftId]
 	);
@@ -375,7 +544,7 @@ export async function makePurchase(
 	}
 
 	// Prevent buying a keeper or already purchased player
-	const [[takenRow]] = await conn.query<any[]>(
+	const [[takenRow]] = await conn.query<TakenRow[]>(
 		`
 		SELECT 1 AS taken
 		FROM (
@@ -393,7 +562,7 @@ export async function makePurchase(
 	}
 
 	// sequence_no = max+1
-	const [[seqRow]] = await conn.query<any[]>(
+	const [[seqRow]] = await conn.query<MaxSeqRow[]>(
 		`SELECT COALESCE(MAX(sequence_no), 0) AS max_seq FROM draft_purchases WHERE draft_id = ?`,
 		[draftId]
 	);
@@ -416,7 +585,7 @@ export async function makePurchase(
 	await recomputeDraftSupply(conn, draftId, mid);
 
 	// Last 10 picks
-	const [last10] = await conn.query<any[]>(
+	const [last10] = await conn.query<Last10Row[]>(
 		`
 		SELECT
 			dp.id,
@@ -440,7 +609,7 @@ export async function makePurchase(
 	);
 
 	// Return updated state for this team
-	const [[teamState]] = await conn.query<any[]>(
+	const [[teamState]] = await conn.query<DraftTeamStateRow[]>(
 		`SELECT * FROM draft_team_state WHERE draft_id = ? AND draft_team_id = ?`,
 		[draftId, dtid]
 	);
@@ -457,11 +626,11 @@ export async function undoPurchase(
     conn: QueryableDB,
     draftId: number,
     modelId: number
-): Promise<{ lastPurchase: any; teamState: any; last10: any[] }> {
+): Promise<{ lastPurchase: LastPurchaseRow; teamState: DraftTeamStateRow | undefined; last10: Last10Row[] }> {
     if (!draftId) throw new Error("Invalid draftId");
 
       // Find last purchase by sequence_no
-      const [[last]] = await conn.query<any[]>(
+      const [[last]] = await conn.query<LastPurchaseRow[]>(
         `
         SELECT id, draft_team_id, player_pk, price, sequence_no
         FROM draft_purchases
@@ -489,7 +658,7 @@ export async function undoPurchase(
       await recomputeDraftSupply(conn, draftId, modelId);
 
       // Fetch updated last 10
-      const [last10] = await conn.query<any[]>(
+      const [last10] = await conn.query<Last10Row[]>(
         `
         SELECT
           dp.id,
@@ -513,7 +682,7 @@ export async function undoPurchase(
       );
 
       // Return updated state for the team that was affected
-      const [[teamState]] = await conn.query<any[]>(
+      const [[teamState]] = await conn.query<DraftTeamStateRow[]>(
         `SELECT * FROM draft_team_state WHERE draft_id = ? AND draft_team_id = ?`,
         [draftId, Number(last.draft_team_id)]
       );
@@ -531,9 +700,9 @@ export async function movePurchase(
     draftId: number,
     purchaseId: number,
     direction: "up" | "down"
-): Promise<{ swappedPurchaseId: number; last10: any[] }> {
+): Promise<{ swappedPurchaseId: number; last10: Last10Row[] }> {
       // Load current purchase
-      const [[cur]] = await conn.query<any[]>(
+      const [[cur]] = await conn.query<CurPurchaseRow[]>(
         `
         SELECT id, sequence_no
         FROM draft_purchases
@@ -567,7 +736,7 @@ export async function movePurchase(
             LIMIT 1
           `;
 
-      const [[nbr]] = await conn.query<any[]>(neighbourSql, [draftId, curSeq]);
+      const [[nbr]] = await conn.query<CurPurchaseRow[]>(neighbourSql, [draftId, curSeq]);
 
       if (!nbr) {
         throw new Error("Already at boundary");
@@ -594,7 +763,7 @@ export async function movePurchase(
       );
 
       // Return updated last 10 (ordering changed)
-      const [last10] = await conn.query<any[]>(
+      const [last10] = await conn.query<Last10Row[]>(
         `
         SELECT
           dp.id,
@@ -635,7 +804,7 @@ export type SimulatePurchaseResult = {
 		reliabilityScore: number;
 		riskScore: number;
 	};
-	playerValue: any | null;
+	playerValue: PlayerValueRow | null;
 	need: {
 		required: Record<string, number>;
 		remainingNeeds: Record<string, number>;
@@ -661,7 +830,7 @@ export async function simulatePurchase(
 	}
 
 	// 1) Load current team state (cached)
-	const [[state]] = await conn.query<any[]>(
+	const [[state]] = await conn.query<TeamStateFieldsRow[]>(
 		`SELECT budget_remaining, roster_spots_remaining
 		 FROM draft_team_state
 		 WHERE draft_id = ? AND draft_team_id = ?
@@ -681,7 +850,7 @@ export async function simulatePurchase(
 	const newHardMaxBid = Math.max(0, newBudgetRemaining - Math.max(0, newRosterRemaining - 1));
 
 	// 2) Nominated player: position flags + valuation
-	const [[playerRow]] = await conn.query<any[]>(
+	const [[playerRow]] = await conn.query<PlayerValueRow[]>(
 		`
 		SELECT
 			pl.position,
@@ -701,13 +870,13 @@ export async function simulatePurchase(
 	const baseMax = Number(playerRow.est_max_auction_value ?? 0);
 
 	// 3) Required slots per team (core slots only)
-	const [[draftRow]] = await conn.query<any[]>(
+	const [[draftRow]] = await conn.query<LeagueIdRow[]>(
 		`SELECT league_id FROM drafts WHERE id = ? LIMIT 1`,
 		[draftId]
 	);
 	if (!draftRow) throw new Error("Draft not found");
 	const leagueId = Number(draftRow.league_id);
-	const [slotRows] = await conn.query<any[]>(
+	const [slotRows] = await conn.query<SlotRow[]>(
 		`SELECT slot_code, slot_count
 		 FROM league_roster_slots
 		 WHERE league_id = ? AND counts_toward_remaining_roster = TRUE`,
@@ -721,7 +890,7 @@ export async function simulatePurchase(
 	}
 
 	// 4) Current roster (keepers + purchases) for this team
-	const [owned] = await conn.query<any[]>(
+	const [owned] = await conn.query<OwnedPositionRow[]>(
 		`
 		SELECT
 			pl.position,
@@ -735,14 +904,14 @@ export async function simulatePurchase(
 		`,
 		[draftId, draftTeamId, draftId, draftTeamId]
 	);
-	const ownedPrimarySlots = (owned as any[]).map(primarySlotFromFlags);
+	const ownedPrimarySlots = owned.map(primarySlotFromFlags);
 	const remainingNeeds = greedyRemainingNeeds(required, ownedPrimarySlots);
 	const needForSlot = Number(remainingNeeds[primarySlot] ?? 0);
 	const totalForSlot = Number(required[primarySlot] ?? 0);
 	const needRatio = totalForSlot > 0 ? needForSlot / totalForSlot : 0;
 
 	// 5) Scarcity from draft_position_supply
-	const [[scarRow]] = await conn.query<any[]>(
+	const [[scarRow]] = await conn.query<ScarRow[]>(
 		`SELECT scarcity_index
 		 FROM draft_position_supply
 		 WHERE draft_id = ? AND model_id = ? AND slot_code = ?
@@ -799,7 +968,7 @@ export async function recomputeDraftTeamState(
 	draftId: number
 ): Promise<void> {
 	// 1) league_id
-	const [[draftRow]] = await conn.query<any[]>(
+	const [[draftRow]] = await conn.query<LeagueIdRow[]>(
 		`SELECT league_id FROM drafts WHERE id = ?`,
 		[draftId]
 	);
@@ -807,7 +976,7 @@ export async function recomputeDraftTeamState(
 	const leagueId = Number(draftRow.league_id);
 
 	// 2) roster spots total (per team)
-	const [[spotsRow]] = await conn.query<any[]>(
+	const [[spotsRow]] = await conn.query<SpotsRow[]>(
 		`SELECT COALESCE(SUM(slot_count),0) AS roster_spots_total
 		 FROM league_roster_slots
 		 WHERE league_id = ?
@@ -817,7 +986,7 @@ export async function recomputeDraftTeamState(
 	const rosterSpotsTotal = Number(spotsRow.roster_spots_total ?? 0);
 
 	// 3) draft teams
-	const [teams] = await conn.query<any[]>(
+	const [teams] = await conn.query<DraftTeamBudgetRow[]>(
 		`SELECT id AS draft_team_id, budget_total
 		 FROM draft_teams
 		 WHERE draft_id = ?`,
@@ -825,7 +994,7 @@ export async function recomputeDraftTeamState(
 	);
 
 	// 4) keeper agg
-	const [keeperAgg] = await conn.query<any[]>(
+	const [keeperAgg] = await conn.query<KeeperAggRow[]>(
 		`SELECT draft_team_id,
 		        COALESCE(SUM(cost),0) AS keeper_spent,
 		        COUNT(*) AS keeper_count
@@ -836,7 +1005,7 @@ export async function recomputeDraftTeamState(
 	);
 
 	// 5) purchase agg
-	const [purchaseAgg] = await conn.query<any[]>(
+	const [purchaseAgg] = await conn.query<PurchaseAggRow[]>(
 		`SELECT draft_team_id,
 		        COALESCE(SUM(price),0) AS purchase_spent,
 		        COUNT(*) AS purchase_count
@@ -914,7 +1083,7 @@ export async function recomputeDraftSupply(
 	modelId: number
 ): Promise<void> {
 	// Get league_id + team_count
-	const [[draftRow]] = await conn.query<any[]>(
+	const [[draftRow]] = await conn.query<DraftLeagueTeamRow[]>(
 		`SELECT d.league_id, ls.team_count
 		 FROM drafts d
 		 JOIN league_settings ls ON ls.league_id = d.league_id
@@ -926,7 +1095,7 @@ export async function recomputeDraftSupply(
 	const teamCount = Number(draftRow.team_count);
 
 	// Demand per slot_code (league-wide)
-	const [slotRows] = await conn.query<any[]>(
+	const [slotRows] = await conn.query<SlotRow[]>(
 		`SELECT slot_code, slot_count
 		 FROM league_roster_slots
 		 WHERE league_id = ?
@@ -968,7 +1137,7 @@ export async function recomputeDraftSupply(
 		if (slotsRemaining <= 0) continue;
 
 		// Supply = priced eligible and NOT taken (keepers+purchases)
-		const [[supplyRow]] = await conn.query<any[]>(
+		const [[supplyRow]] = await conn.query<SupplyPricedRow[]>(
 			`
 			SELECT
 				COUNT(*) AS priced_remaining
@@ -1001,7 +1170,7 @@ export async function recomputeDraftSupply(
 		]);
 
 		// Tier supply for this slot (counts remaining by tier)
-		const [tierRows] = await conn.query<any[]>(
+		const [tierRows] = await conn.query<TierRemainingRow[]>(
 			`
 			SELECT v.tier, COUNT(*) AS remaining_count
 			FROM draft_player_values v
@@ -1053,14 +1222,14 @@ export async function getTeamNeeds(
 		throw new Error("Invalid params");
 	}
 
-	const [[draftRow]] = await conn.query<any[]>(
+	const [[draftRow]] = await conn.query<LeagueIdRow[]>(
 		`SELECT league_id FROM drafts WHERE id = ? LIMIT 1`,
 		[draftId]
 	);
 	if (!draftRow) throw new Error(`Draft ${draftId} not found`);
 	const leagueId = Number(draftRow.league_id);
 
-	const [slotRows] = await conn.query<any[]>(
+	const [slotRows] = await conn.query<SlotRow[]>(
 		`SELECT slot_code, slot_count
 		 FROM league_roster_slots
 		 WHERE league_id = ?
@@ -1073,18 +1242,18 @@ export async function getTeamNeeds(
 		requiredAll[code] = Number(r.slot_count);
 	}
 
-	const [priceRows] = await conn.query<any[]>(
+	const [priceRows] = await conn.query<PriceRow[]>(
 		`SELECT player_pk, cost AS price FROM draft_keepers WHERE draft_id = ? AND draft_team_id = ?
 		 UNION ALL
 		 SELECT player_pk, price FROM draft_purchases WHERE draft_id = ? AND draft_team_id = ?`,
 		[draftId, draftTeamId, draftId, draftTeamId]
 	);
 	const priceByPlayer = new Map<number, number>();
-	for (const row of priceRows as any[]) {
+	for (const row of priceRows) {
 		priceByPlayer.set(Number(row.player_pk), Number(row.price));
 	}
 
-	const [owned] = await conn.query<any[]>(
+	const [owned] = await conn.query<OwnedRosterRow[]>(
 		`
 		SELECT
 			pl.id AS player_pk,
@@ -1103,22 +1272,22 @@ export async function getTeamNeeds(
 		[draftId, draftTeamId, draftId, draftTeamId]
 	);
 
-	let tierByPlayer = new Map<number, number>();
+	const tierByPlayer = new Map<number, number>();
 	if (modelId != null && Number.isInteger(modelId) && modelId >= 1) {
-		const playerPks = (owned as any[]).map((p: any) => Number(p.player_pk));
+		const playerPks = owned.map((p: OwnedRosterRow) => Number(p.player_pk));
 		if (playerPks.length > 0) {
 			const placeholders = playerPks.map(() => "?").join(",");
-			const [tierRows] = await conn.query<any[]>(
+			const [tierRows] = await conn.query<TierRow[]>(
 				`SELECT player_pk, tier FROM draft_player_values WHERE model_id = ? AND player_pk IN (${placeholders})`,
 				[modelId, ...playerPks]
 			);
-			for (const row of tierRows as any[]) {
+			for (const row of tierRows) {
 				tierByPlayer.set(Number(row.player_pk), Number(row.tier));
 			}
 		}
 	}
 
-	const playersWithSlot: RosterPlayerInput[] = (owned as any[]).map((p: any) => ({
+	const playersWithSlot: RosterPlayerInput[] = owned.map((p: OwnedRosterRow) => ({
 		player_pk: Number(p.player_pk),
 		name: p.name,
 		position: p.position,
@@ -1129,7 +1298,7 @@ export async function getTeamNeeds(
 	}));
 	const { filled, remaining, roster: assignedRoster } = assignRosterToSlots(requiredAll, playersWithSlot);
 
-	const [[teamState]] = await conn.query<any[]>(
+	const [[teamState]] = await conn.query<TeamStateFieldsRow[]>(
 		`SELECT budget_remaining, roster_spots_remaining, hard_max_bid
 		 FROM draft_team_state
 		 WHERE draft_id = ? AND draft_team_id = ?
