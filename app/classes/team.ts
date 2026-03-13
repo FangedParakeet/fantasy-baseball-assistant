@@ -205,6 +205,13 @@ class Team {
 		return;
 	}
 
+	async deleteAllLeagueTeams(): Promise<void> {
+		await this.db.query<ResultSetHeader>(
+			`DELETE FROM ${this.teamsTable}`
+		);
+		return;
+	}
+
 	parseEligiblePositions( eligiblePositions: string, name: string ): PositionFlag {
 		const positionFlags: PositionFlag = {
             is_c: 0,
@@ -244,7 +251,7 @@ class Team {
                 positionFlags[flagKey as keyof PositionFlag] = 1;
             } else {
                 // Log unknown positions for debugging
-                console.log(`Unknown position: "${pos}" (normalized: "${cleanPos}")`);
+                console.log(`Unknown position: "${pos}" (normalized: "${cleanPos}"), Name: "${name}"`);
             }
 		});
 

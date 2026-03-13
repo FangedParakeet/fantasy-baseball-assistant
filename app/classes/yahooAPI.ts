@@ -5,6 +5,7 @@ import xml2js from 'xml2js';
 export type YahooLeagueTeam = {
 	team_key: string;
 	name: string;
+    is_owned_by_current_login?: string
 	managers: {
 	manager: {
 		is_current_login: string;

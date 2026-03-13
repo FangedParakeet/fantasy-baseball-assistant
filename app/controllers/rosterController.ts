@@ -15,6 +15,12 @@ class RosterController {
         this.team = team;
         this.playerHydrator = playerHydrator;
     }
+
+	async hardRefreshAllLeagueTeams(): Promise<void> {
+		await this.team.deleteAllLeagueTeams();
+		await this.syncAllLeagueTeams();
+		return;
+	}
     
     async syncMyRoster(): Promise<void> {
 		let myTeamKey: string | null = await this.team.getTeamKeyForUser();
@@ -67,9 +73,13 @@ class RosterController {
 		const teams: LeagueTeam[] = await this.team.getAllLeagueTeams();
 		if (teams.length < 10) {
             const leagueTeams: YahooLeagueTeam[] = await this.yahoo.getLeagueTeams();
-            const myTeamKey: string | null = await this.team.getTeamKeyForUser();
+            let myTeamKey: string | null = await this.team.getTeamKeyForUser();
             if (!myTeamKey) {
-                throw new Error('Failed to get my team key');
+				const myTeam = leagueTeams.find(team => team.is_owned_by_current_login === '1');
+				if (!myTeam) {
+					throw new Error('No team found that is owned by the current login');
+				}
+				myTeamKey = myTeam.team_key;
             }
             for (const team of leagueTeams) {
                 await this.team.upsertTeam({ yahoo_team_id: team.team_key, team_name: team.name, is_user_team: team.team_key === myTeamKey });

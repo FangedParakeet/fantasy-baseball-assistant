@@ -22,6 +22,7 @@ function LeagueSettings() {
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -138,6 +139,25 @@ function LeagueSettings() {
       setError(handleApiError(err));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleHardReset = async () => {
+    const confirmed = window.confirm(
+      'Are you sure you want to hard reset all teams in this league? This will refresh roster data for every team and cannot be undone.'
+    );
+    if (!confirmed) return;
+    setError('');
+    setSuccess('');
+    try {
+      setResetting(true);
+      const response = await api.post('/league/reset');
+      const message = response?.data?.message || 'All teams have been reset successfully.';
+      setSuccess(message);
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -301,7 +321,7 @@ function LeagueSettings() {
           </div>
         </div>
 
-        <div className="form-actions">
+        <div className="form-actions" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <button
             type="submit"
             disabled={saving}
@@ -314,6 +334,26 @@ function LeagueSettings() {
               </span>
             ) : (
               'Save league settings'
+            )}
+          </button>
+          <button
+            type="button"
+            disabled={resetting}
+            className="btn btn-large"
+            style={{
+              backgroundColor: '#c53030',
+              color: 'white',
+              border: 'none',
+            }}
+            onClick={handleHardReset}
+          >
+            {resetting ? (
+              <span>
+                <span className="spinner spinner-small" style={{ marginRight: '8px' }}></span>
+                Resetting...
+              </span>
+            ) : (
+              'Hard reset all teams'
             )}
           </button>
         </div>

@@ -8,6 +8,8 @@ import LeagueController, { type LeagueFormRequest } from "../controllers/leagueC
 import TokenController from "../controllers/tokenController";
 import { db } from "../db/db";
 import { sendError, sendSuccess } from "../utils/functions";
+import Hydrator from "../classes/hydrator";
+import RosterController from "../controllers/rosterController";
 
 const router = express.Router();
 const token = new Token(db);
@@ -16,6 +18,7 @@ const tokenController = new TokenController(token, yahooOAuth);
 const team = new Team(db);
 const league = new League(db);
 const leagueController = new LeagueController(league);
+const hydrator = new Hydrator(db);
 
 router.get('/settings', async (_req: Request, res: Response) => {
     try {
@@ -56,6 +59,23 @@ router.post('/upsert', async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Error in /league/upsert:', error);
         return sendError(res, 500, 'Failed to upsert league');
+    }
+});
+
+router.post('/reset', async (_req: Request, res: Response) => {
+    try {
+        const accessToken = await tokenController.getOrRefreshToken();
+        if (!accessToken.access_token) {
+            return sendError(res, 401, 'No access token available');
+        }
+        const yahoo = new YahooAPI(accessToken.access_token);
+        const rosterController = new RosterController(yahoo, team, hydrator);
+        await rosterController.hardRefreshAllLeagueTeams();
+        return sendSuccess(res, null, 'League reset successfully');
+    }
+    catch (error) {
+        console.error('Error in /league/reset:', error);
+        return sendError(res, 500, 'Failed to reset league');
     }
 });
 
