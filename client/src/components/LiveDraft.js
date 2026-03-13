@@ -469,6 +469,7 @@ function LiveDraft() {
                   />
                 </label>
                 <button
+                  type="button"
                   className="btn btn-primary"
                   onClick={handleSimulate}
                   disabled={simulateLoading}
@@ -476,13 +477,14 @@ function LiveDraft() {
                   {simulateLoading ? 'Simulating…' : 'Simulate'}
                 </button>
                 <button
+                  type="button"
                   className="btn btn-success"
                   onClick={handleConfirmPurchase}
                   disabled={purchaseLoading}
                 >
                   {purchaseLoading ? 'Confirming…' : 'Confirm purchase'}
                 </button>
-                <button className="btn btn-secondary" onClick={() => { setSelectedPlayer(null); setSimulateResult(null); }}>Clear</button>
+                <button type="button" className="btn btn-secondary" onClick={() => { setSelectedPlayer(null); setSimulateResult(null); }}>Clear</button>
               </div>
               {simulateResult && (
                 <div className="analysis-section" style={{ marginTop: 12 }}>
@@ -618,6 +620,7 @@ function LiveDraft() {
                       </div>
                       <div style={{ display: 'flex', gap: 4 }}>
                         <button
+                          type="button"
                           className="btn btn-secondary"
                           style={{ padding: 4, fontSize: 12 }}
                           onClick={() => handleMove(pick.id, 'down')}
@@ -625,6 +628,7 @@ function LiveDraft() {
                           title="Move up in list (later in draft order)"
                         >↑</button>
                         <button
+                          type="button"
                           className="btn btn-secondary"
                           style={{ padding: 4, fontSize: 12 }}
                           onClick={() => handleMove(pick.id, 'up')}
@@ -632,6 +636,7 @@ function LiveDraft() {
                           title="Move down in list (earlier in draft order)"
                         >↓</button>
                         <button
+                          type="button"
                           className="btn btn-secondary"
                           style={{ padding: 4, fontSize: 12 }}
                           onClick={() => handleUndo(pick.id)}
@@ -662,7 +667,7 @@ function LiveDraft() {
                   ))}
                 </select>
               </label>
-              <button className="btn btn-primary" onClick={fetchTeamNeeds} disabled={needsLoading} style={{ marginLeft: 12 }}>
+              <button type="button" className="btn btn-primary" onClick={fetchTeamNeeds} disabled={needsLoading} style={{ marginLeft: 12 }}>
                 {needsLoading ? 'Loading…' : 'Get team needs'}
               </button>
             </div>
