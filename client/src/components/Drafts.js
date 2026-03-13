@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import api, { handleApiResponse, handleApiError } from '../utils/api';
+import api, { handleApiError, handleApiResponse } from '../utils/api';
 
 function Drafts() {
   const navigate = useNavigate();
@@ -12,12 +12,7 @@ function Drafts() {
   const [confirmStart, setConfirmStart] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
-  useEffect(() => {
-    fetchDrafts();
-    fetchActiveDraft();
-  }, []);
-
-  const fetchDrafts = async () => {
+  const fetchDrafts = useCallback(async () => {
     try {
       setError('');
       const response = await api.get('/draft/settings/drafts');
@@ -29,9 +24,9 @@ function Drafts() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchActiveDraft = async () => {
+  const fetchActiveDraft = useCallback(async () => {
     try {
       const response = await api.get('/draft/settings/active');
       const data = handleApiResponse(response);
@@ -39,7 +34,12 @@ function Drafts() {
     } catch {
       setActiveDraftId(null);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchDrafts();
+    fetchActiveDraft();
+  }, [fetchDrafts, fetchActiveDraft]);
 
   const refresh = () => {
     fetchDrafts();
@@ -125,10 +125,10 @@ function Drafts() {
         <div className="section" style={{ marginBottom: 20 }}>
           <p><strong>Another draft is already active.</strong> Starting this draft will deactivate it. Continue?</p>
           <div className="form-actions" style={{ marginTop: 12 }}>
-            <button onClick={handleConfirmStart} className="btn btn-primary">
+            <button type="button" onClick={handleConfirmStart} className="btn btn-primary">
               Yes, start this draft
             </button>
-            <button onClick={handleCancelConfirm} className="btn btn-secondary">
+            <button type="button" onClick={handleCancelConfirm} className="btn btn-secondary">
               Cancel
             </button>
           </div>
@@ -179,6 +179,7 @@ function Drafts() {
                           </Link>
                         ) : (
                           <button
+                            type="button"
                             onClick={() => handleStartDraft(draft)}
                             className="btn btn-success"
                             disabled={startingId != null}
