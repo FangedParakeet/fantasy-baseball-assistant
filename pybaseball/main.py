@@ -8,12 +8,13 @@ scripts = {
     "season_stats": "services/sync_season_stats.py",
     "yahoo_player_data": "services/sync_yahoo_player_data.py",
     "compute_auction_valuations": "services/compute_player_values_for_drafts.py",
+    "compute_player_value_snapshots": "services/compute_player_value_snapshots.py",
     "all": "sync_all.py"
 }
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python main.py [game_logs|probable_pitchers|compute_stats|season_stats|yahoo_player_data|compute_auction_valuations|all] [--force]")
+        print("Usage: python main.py [game_logs|probable_pitchers|compute_stats|season_stats|yahoo_player_data|compute_auction_valuations|compute_player_value_snapshots|all] [--force]")
         sys.exit(1)
 
     key = sys.argv[1]

@@ -1,7 +1,7 @@
 import pandas as pd
 from typing import Dict, Tuple, List
 from models.value_calculator import ValueCalculator
-from models.draft_data_loader import LeagueSettings
+from models.player_data_loader import LeagueSettings
 import numpy as np
 
 class PlayerValueCalculator:
@@ -34,7 +34,55 @@ class PlayerValueCalculator:
         self.hitters_stats_df = hitters_stats_df
         self.pitchers_stats_df = pitchers_stats_df
 
-    def get_player_dollar_values(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def get_player_value_snapshots(self) -> Dict[str, pd.DataFrame]:
+        """
+        Returns a dict with:
+            - "player_value_totals_df": player total value snapshots (with tier, reliability_score, risk_score).
+            - "player_value_components_df": per-stat weighted value components with per-category tier.
+        """
+        # Compute values
+        values = self.calculator.calculate_player_values()
+        player_value_components_df = values["weighted_values_per_stat_df"].copy()
+        player_value_totals_df = values["total_values_df"].copy()
+
+        # Join metadata for snapshots
+        meta = self.all_players_df[["player_pk", "mlb_player_id", "position"]].copy()
+        player_value_totals_df = player_value_totals_df.merge(meta, on="player_pk", how="left")
+
+        # Add reliability/risk (from projections)
+        extra = pd.concat([
+            self.hitters_stats_df[["player_pk", "reliability_score", "risk_score"]],
+            self.pitchers_stats_df[["player_pk", "reliability_score", "risk_score"]],
+        ], ignore_index=True).groupby("player_pk", as_index=False).max()
+        player_value_totals_df = player_value_totals_df.merge(extra, on="player_pk", how="left")
+
+        # Tier per slice, split hitters/pitchers
+        hitters_totals = player_value_totals_df[player_value_totals_df["position"] == "B"].copy().sort_values("total_value", ascending=False)
+        pitchers_totals = player_value_totals_df[player_value_totals_df["position"] == "P"].copy().sort_values("total_value", ascending=False)
+
+        hitters_totals["tier"] = self.calculate_tiers(hitters_totals["total_value"])
+        pitchers_totals["tier"] = self.calculate_tiers(pitchers_totals["total_value"])
+
+        player_value_totals_df = pd.concat([hitters_totals, pitchers_totals], ignore_index=True)
+
+        # Per-category tiers (also split B/P)
+        # Player value components df has player_pk, category_code, weighted_value
+        player_value_components_df = player_value_components_df.merge(meta, on="player_pk", how="left")
+        player_value_components_df["tier"] = None
+        for group_pos in ["B", "P"]:
+            group_components = player_value_components_df[player_value_components_df["position"] == group_pos].copy()
+            for cat in group_components["category_code"].unique():
+                idx = group_components["category_code"] == cat
+                sub = group_components[idx].sort_values("weighted_value", ascending=False)
+                group_components.loc[sub.index, "tier"] = self.calculate_tiers(sub["weighted_value"]).values
+            player_value_components_df.loc[group_components.index, "tier"] = group_components["tier"]
+
+        return {
+            "player_value_totals_df": player_value_totals_df,
+            "player_value_components_df": player_value_components_df
+        }
+
+    def get_player_dollar_values(self) -> Dict[str, pd.DataFrame]:
         """
             Convert total_value into estimated auction dollars (est_auction_value + max).
             Uses a replacement-level approach per broad group:
@@ -97,7 +145,13 @@ class PlayerValueCalculator:
         }
 
 
-    def setup_player_values(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def setup_player_values(self) -> Dict[str, pd.DataFrame]:
+        """
+            Setup player values by calculating the total value for each player.
+            Returns a dict with:
+            - "player_values_df": player values (with tier, reliability_score, risk_score).
+            - "player_value_components_df": per-stat weighted value components with per-category tier.
+        """
         hitter_extra_scores = self.hitters_stats_df[["player_pk", "reliability_score", "risk_score"]].copy()
         pitcher_extra_scores = self.pitchers_stats_df[["player_pk", "reliability_score", "risk_score"]].copy()
         all_extra_scores = pd.concat([hitter_extra_scores, pitcher_extra_scores], ignore_index=True)
@@ -165,9 +219,6 @@ class PlayerValueCalculator:
         - For each slot_code, take eligible players sorted by total_value desc,
             replacement_value = value at index demand[slot]-1 (1-indexed).
         """
-
-        replacement_values: Dict[str, float] = {}
-
         # Compute combined pitcher demand for dollar baseline
         position_demand = self.calculate_position_demand()
 

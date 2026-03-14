@@ -2,12 +2,12 @@ import sys
 from models.db import get_db_connection
 from models.db_recorder import DB_Recorder
 from utils.logger import logger
-from models.draft_data_loader import DraftDataLoader
+from models.player_data_loader import PlayerDataLoader
 from models.zscore_calculator import ZScoreCalculator
 from models.player_value_calculator import PlayerValueCalculator
 from models.projections import Projections
 from models.risk_scorer import RiskScorer
-from models.draft_data_loader import LeagueSettings, ModelConfig, CategoryConfig
+from models.player_data_loader import LeagueSettings, ModelConfig, CategoryConfig
 from models.supply_calculator import (
     load_player_values,
     compute_supply_for_model,
@@ -22,7 +22,7 @@ def main(dry_run: bool = False):
     try:
         conn = get_db_connection()
         db_recorder = DB_Recorder(conn)
-        draft_data_loader = DraftDataLoader(conn, dry_run=dry_run)
+        draft_data_loader = PlayerDataLoader(conn, logger, dry_run=dry_run)
 
         league: LeagueSettings = draft_data_loader.load_league_settings()
         roster_slots: pd.DataFrame = draft_data_loader.load_roster_slots_for_league(league.league_id)

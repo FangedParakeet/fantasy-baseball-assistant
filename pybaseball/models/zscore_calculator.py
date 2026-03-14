@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import List, Dict
-from models.draft_data_loader import CategoryConfig
+from models.player_data_loader import CategoryConfig
 from models.value_calculator import ValueCalculator
 import numpy as np
 from utils.logger import logger

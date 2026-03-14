@@ -3,6 +3,7 @@ import pandas as pd
 from dataclasses import dataclass
 from datetime import date
 from typing import List
+from logging import Logger
 
 @dataclass
 class LeagueSettings:
@@ -32,7 +33,7 @@ class CategoryConfig:
     weight: float
 
 
-class DraftDataLoader(DB_Recorder):
+class PlayerDataLoader(DB_Recorder):
     PLAYERS_TABLE = "players"
     PLAYERS_COLUMNS = [
         "id AS player_pk", 
@@ -161,9 +162,75 @@ class DraftDataLoader(DB_Recorder):
         "archived_at",
     ]
 
-    def __init__(self, conn, *, dry_run: bool = False):
+    def __init__(self, conn, logger: Logger, *, dry_run: bool = False):
         super().__init__(conn)
         self.dry_run = dry_run
+        self.logger = logger
+
+    def upsert_snapshot_totals(self, as_of: date, model_id: int, span_days: int, split_type: str, df: pd.DataFrame):
+        sql = """
+            INSERT INTO player_value_snapshots
+                (model_id, player_pk, mlb_player_id, position, span_days, split_type, as_of_date,
+                total_value, tier, reliability_score, risk_score)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON DUPLICATE KEY UPDATE
+                total_value=VALUES(total_value),
+                tier=VALUES(tier),
+                reliability_score=VALUES(reliability_score),
+                risk_score=VALUES(risk_score)
+        """
+        rows = []
+        for _, r in df.iterrows():
+            rows.append((
+                model_id,
+                int(r["player_pk"]),
+                int(r["mlb_player_id"]),
+                str(r["position"]),
+                int(span_days),
+                str(split_type),
+                as_of,
+                float(r["total_value"]),
+                int(r["tier"]) if not pd.isna(r["tier"]) else None,
+                int(r["reliability_score"]) if "reliability_score" in r and not pd.isna(r["reliability_score"]) else None,
+                int(r["risk_score"]) if "risk_score" in r and not pd.isna(r["risk_score"]) else None,
+            ))
+        if self.dry_run:
+            self.logger.info(f"[dry-run] Would upsert {len(rows)} totals rows for model={model_id} span={span_days} split={split_type}")
+            return
+        self.batch_upsert(sql, rows)
+
+
+    def upsert_snapshot_components(self, as_of: date, model_id: int, span_days: int, split_type: str, comp_df: pd.DataFrame):
+        sql = """
+            INSERT INTO player_value_snapshot_components
+                (model_id, player_pk, span_days, split_type, as_of_date,
+                category_code, projection_value, zscore, weighted_value, tier)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON DUPLICATE KEY UPDATE
+                projection_value=VALUES(projection_value),
+                zscore=VALUES(zscore),
+                weighted_value=VALUES(weighted_value),
+                tier=VALUES(tier)
+        """
+        rows = []
+        for _, r in comp_df.iterrows():
+            rows.append((
+                model_id,
+                int(r["player_pk"]),
+                int(span_days),
+                str(split_type),
+                as_of,
+                str(r["category_code"]),
+                float(r["projection_value"]) if not pd.isna(r.get("projection_value")) else None,
+                float(r["zscore"]) if not pd.isna(r.get("zscore")) else None,
+                float(r["weighted_value"]),
+                int(r["tier"]) if "tier" in r and not pd.isna(r["tier"]) else None,
+            ))
+        if self.dry_run:
+            self.logger.info(f"[dry-run] Would upsert {len(rows)} component rows for model={model_id} span={span_days} split={split_type}")
+            return
+        self.batch_upsert(sql, rows)
+
 
     def upsert_player_values(self, model_id: int, player_values_df: pd.DataFrame) -> None:
         """

@@ -29,12 +29,29 @@ class Projections:
         self.use_season_stats = use_season_stats
         self.use_rolling_stats = use_rolling_stats
 
+    def _ensure_rolling_columns(self, df: pd.DataFrame, *, is_hitter: bool, advanced: bool) -> pd.DataFrame:
+        """If df is empty, return an empty DataFrame with the columns needed for merge/blend so downstream code does not KeyError."""
+        if not df.empty:
+            return df
+        if is_hitter and not advanced:
+            cols = ["mlb_player_id", "position", "runs", "rbi", "hr", "sb", "abs", "avg"]
+        elif is_hitter and advanced:
+            cols = ["mlb_player_id", "position", "ops", "k_rate", "bb_rate", "iso"]
+        elif not is_hitter and not advanced:
+            cols = ["mlb_player_id", "position", "ip", "strikeouts", "qs", "sv", "hld", "era", "whip"]
+        else:
+            cols = ["mlb_player_id", "position", "bb_per_9", "hr_per_9", "k_bb_ratio"]
+        return pd.DataFrame(columns=cols)
+
     def get_hitter_projections(self, player_rolling_stats_df: pd.DataFrame, player_advanced_rolling_stats_df: pd.DataFrame, span_days: int = 7) -> pd.DataFrame:
         """
             Returns df with:
                 player_pk, mlb_player_id, ...,
                 proj_R, proj_RBI, proj_HR, proj_SB, proj_AB, proj_AVG
         """
+        # Ensure empty rolling dfs have expected columns (e.g. when span=0 / season-only)
+        player_rolling_stats_df = self._ensure_rolling_columns(player_rolling_stats_df, is_hitter=True, advanced=False)
+        player_advanced_rolling_stats_df = self._ensure_rolling_columns(player_advanced_rolling_stats_df, is_hitter=True, advanced=True)
         # Filter season/rolling to hitters
         season_stats_df = self.player_season_stats_df[self.player_season_stats_df["position"] == "B"].copy()
         rolling_stats_df = player_rolling_stats_df.copy()
@@ -80,6 +97,9 @@ class Projections:
                 player_pk, mlb_player_id, ...,
                 proj_K, proj_QS, proj_SVH, proj_IP, proj_ERA, proj_WHIP
         """
+        # Ensure empty rolling dfs have expected columns (e.g. when span=0 / season-only)
+        player_rolling_stats_df = self._ensure_rolling_columns(player_rolling_stats_df, is_hitter=False, advanced=False)
+        player_advanced_rolling_stats_df = self._ensure_rolling_columns(player_advanced_rolling_stats_df, is_hitter=False, advanced=True)
         season_stats_df = self.player_season_stats_df[self.player_season_stats_df["position"] == "P"].copy()
         rolling_stats_df = player_rolling_stats_df.copy()
         pitcher_rolling_stats_df = rolling_stats_df[rolling_stats_df["position"] == "P"].copy()
