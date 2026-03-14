@@ -32,6 +32,8 @@ def main(dry_run: bool = False):
 
         as_of = date.today()
         spans = ROLLING_WINDOWS + [0]
+        
+        roster_df = loader.load_roster_with_teams()
 
         for model in models:
             calculator = calculators.get(model.method, None)
@@ -72,7 +74,7 @@ def main(dry_run: bool = False):
                     
                     calculator.set_player_stats(hitter_projections, pitcher_projections)
                     player_value_calculator = PlayerValueCalculator(calculator, league, None, players, hitter_projections, pitcher_projections)
-                    calculated_values = player_value_calculator.get_player_value_snapshots()
+                    calculated_values = player_value_calculator.get_player_value_snapshots(roster_df)
                     player_value_totals_df = calculated_values["player_value_totals_df"]
                     player_value_components_df = calculated_values["player_value_components_df"]
 
@@ -80,7 +82,17 @@ def main(dry_run: bool = False):
                     loader.upsert_snapshot_totals(as_of, model.model_id, span, split, player_value_totals_df)
                     loader.upsert_snapshot_components(as_of, model.model_id, span, split, player_value_components_df)
 
-                    logger.info(f"Snapshots: model={model.name} span={span} split={split} totals={len(player_value_totals_df)} comps={len(player_value_components_df)}")
+                    # Pre-aggregate league team totals by category and position
+                    category_totals_df = calculated_values["category_totals_df"]
+                    position_totals_df = calculated_values["position_totals_df"]
+                    loader.upsert_team_value_snapshot_category_totals(league.league_id, model.model_id, span, split, as_of, category_totals_df)
+                    loader.upsert_team_value_snapshot_position_totals(league.league_id, model.model_id, span, split, as_of, position_totals_df)
+
+                    logger.info(
+                        f"Snapshots: model={model.name} span={span} split={split} "
+                        f"totals={len(player_value_totals_df)} comps={len(player_value_components_df)} "
+                        f"team_cat={len(category_totals_df)} team_pos={len(position_totals_df)}"
+                    )
 
     except Exception as e:
         logger.exception(f"Error computing player value snapshots: {e}")

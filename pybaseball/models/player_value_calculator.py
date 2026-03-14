@@ -34,7 +34,7 @@ class PlayerValueCalculator:
         self.hitters_stats_df = hitters_stats_df
         self.pitchers_stats_df = pitchers_stats_df
 
-    def get_player_value_snapshots(self) -> Dict[str, pd.DataFrame]:
+    def get_player_value_snapshots(self, roster_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
         """
         Returns a dict with:
             - "player_value_totals_df": player total value snapshots (with tier, reliability_score, risk_score).
@@ -77,10 +77,70 @@ class PlayerValueCalculator:
                 group_components.loc[sub.index, "tier"] = self.calculate_tiers(sub["weighted_value"]).values
             player_value_components_df.loc[group_components.index, "tier"] = group_components["tier"]
 
+        # Compute league aggregates
+        category_totals_df, position_totals_df = self.compute_league_aggregates(roster_df, player_value_totals_df, player_value_components_df)
+
         return {
             "player_value_totals_df": player_value_totals_df,
-            "player_value_components_df": player_value_components_df
+            "player_value_components_df": player_value_components_df,
+            "category_totals_df": category_totals_df,
+            "position_totals_df": position_totals_df
         }
+
+    def compute_league_aggregates(
+        self,
+        roster_df: pd.DataFrame,
+        totals_df: pd.DataFrame,
+        components_df: pd.DataFrame,
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """
+        Build team_value_snapshot_category_totals and team_value_snapshot_position_totals
+        from roster (player_pk, team_id, selected_position, position), snapshot totals,
+        and snapshot components. Returns (category_totals_df, position_totals_df).
+        """
+        if roster_df.empty:
+            return (
+                pd.DataFrame(columns=["team_id", "category_code", "total_value", "league_avg", "rank", "team_count"]),
+                pd.DataFrame(columns=["team_id", "slot_code", "total_value", "player_count", "league_avg", "rank", "team_count"]),
+            )
+
+        roster = roster_df.copy()
+        roster["slot_code"] = roster.apply(self.derive_slot_code, axis=1)
+
+        # --- By category: merge roster + components, sum weighted_value per (team_id, category_code), then league_avg + rank
+        roster_components = components_df[["player_pk", "category_code", "weighted_value"]].merge(
+            roster[["player_pk", "team_id"]], on="player_pk", how="inner"
+        )
+        if roster_components.empty:
+            category_totals = pd.DataFrame(columns=["team_id", "category_code", "total_value", "league_avg", "rank", "team_count"])
+        else:
+            team_category_totals = roster_components.groupby(["team_id", "category_code"], as_index=False).agg(total_value=("weighted_value", "sum"))
+            league_avg = team_category_totals.groupby("category_code", as_index=False)["total_value"].mean().rename(columns={"total_value": "league_avg"})
+            team_category_totals = team_category_totals.merge(league_avg, on="category_code", how="left")
+            team_category_totals["rank"] = team_category_totals.groupby("category_code")["total_value"].rank(method="min", ascending=False).astype(int)
+            team_category_totals["team_count"] = team_category_totals.groupby("category_code")["team_id"].transform("nunique")
+            category_totals = team_category_totals[["team_id", "category_code", "total_value", "league_avg", "rank", "team_count"]]
+
+        # --- By position: merge roster + totals, sum total_value and count per (team_id, slot_code), then league_avg + rank
+        roster_totals = totals_df[["player_pk", "total_value"]].merge(
+            roster[["player_pk", "team_id", "slot_code"]], on="player_pk", how="inner"
+        )
+        if roster_totals.empty:
+            position_totals = pd.DataFrame(columns=["team_id", "slot_code", "total_value", "player_count", "league_avg", "rank", "team_count"])
+        else:
+            team_position_totals = roster_totals.groupby(["team_id", "slot_code"], as_index=False).agg(
+                total_value=("total_value", "sum"),
+                player_count=("player_pk", "count"),
+            )
+            league_avg_position = team_position_totals.groupby("slot_code", as_index=False).agg(
+                league_avg=("total_value", "mean"),
+                team_count=("team_id", "nunique"),
+            )
+            team_position_totals = team_position_totals.merge(league_avg_position, on="slot_code", how="left")
+            team_position_totals["rank"] = team_position_totals.groupby("slot_code")["total_value"].rank(method="min", ascending=False).astype(int)
+            position_totals = team_position_totals[["team_id", "slot_code", "total_value", "player_count", "league_avg", "rank", "team_count"]]
+
+        return category_totals, position_totals
 
     def get_player_dollar_values(self) -> Dict[str, pd.DataFrame]:
         """
@@ -187,6 +247,14 @@ class PlayerValueCalculator:
             "player_values_df": player_values_df,
             "player_value_components_df": player_value_components_df
         }
+
+    def derive_slot_code(self, row: pd.Series) -> str:
+        """Map roster row to slot_code: use selected_position if set, else UTIL/P by position."""
+        sel = row.get("selected_position")
+        if pd.notna(sel) and str(sel).strip():
+            return str(sel).strip()
+        return "UTIL" if row.get("position") == "B" else "P"
+
 
     def calculate_tiers(self, values: pd.Series) -> pd.Series:
         """

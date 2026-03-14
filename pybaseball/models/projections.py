@@ -123,8 +123,8 @@ class Projections:
         pitchers_df["proj_QS"] = self.blend_counting_stats(pitchers_df["qs"], pitchers_df["qs" + self.ROLLING_STATS_SUFFIX], season_weight, form_weight)
 
         # SVH = SV + HLD
-        season_svh = pitchers_df["sv"].fillna(0.0) + pitchers_df["hld"].fillna(0.0)
-        roll_svh = pitchers_df["sv" + self.ROLLING_STATS_SUFFIX].fillna(0.0) + pitchers_df["hld" + self.ROLLING_STATS_SUFFIX].fillna(0.0)
+        season_svh = pitchers_df["sv"].astype(float).fillna(0.0) + pitchers_df["hld"].astype(float).fillna(0.0)
+        roll_svh = pitchers_df["sv" + self.ROLLING_STATS_SUFFIX].astype(float).fillna(0.0) + pitchers_df["hld" + self.ROLLING_STATS_SUFFIX].astype(float).fillna(0.0)
         pitchers_df["proj_SVH"] = self.blend_counting_stats(season_svh, roll_svh, season_weight, form_weight)
 
         # ERA/WHIP rates blend (we’ll convert to *impact* later using IP)

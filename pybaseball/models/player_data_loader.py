@@ -153,6 +153,7 @@ class PlayerDataLoader(DB_Recorder):
         "sort_order",
         "counts_toward_remaining_roster",
     ]
+    TEAMS_TABLE = "teams"
     DRAFTS_TABLE = "drafts"
     DRAFTS_COLUMNS = [
         "id",
@@ -231,6 +232,93 @@ class PlayerDataLoader(DB_Recorder):
             return
         self.batch_upsert(sql, rows)
 
+    def upsert_team_value_snapshot_category_totals(
+        self,
+        league_id: int,
+        model_id: int,
+        span_days: int,
+        split_type: str,
+        as_of_date: date,
+        df: pd.DataFrame,
+    ) -> None:
+        """Upsert team_value_snapshot_category_totals. df columns: team_id, category_code, total_value, league_avg, rank, team_count."""
+        if df.empty:
+            return
+        sql = """
+            INSERT INTO team_value_snapshot_category_totals
+                (league_id, model_id, team_id, span_days, split_type, as_of_date, category_code,
+                 total_value, league_avg, ranking, team_count)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                total_value = VALUES(total_value),
+                league_avg = VALUES(league_avg),
+                ranking = VALUES(ranking),
+                team_count = VALUES(team_count)
+        """
+        rows = []
+        for _, r in df.iterrows():
+            rows.append((
+                league_id,
+                model_id,
+                int(r["team_id"]),
+                int(span_days),
+                str(split_type),
+                as_of_date,
+                str(r["category_code"]),
+                float(r["total_value"]),
+                float(r["league_avg"]),
+                int(r["rank"]),
+                int(r["team_count"]),
+            ))
+        if self.dry_run:
+            self.logger.info(f"[dry-run] Would upsert {len(rows)} team category total rows")
+            return
+        self.batch_upsert(sql, rows)
+
+    def upsert_team_value_snapshot_position_totals(
+        self,
+        league_id: int,
+        model_id: int,
+        span_days: int,
+        split_type: str,
+        as_of_date: date,
+        df: pd.DataFrame,
+    ) -> None:
+        """Upsert team_value_snapshot_position_totals. df columns: team_id, slot_code, total_value, player_count, league_avg, rank, team_count."""
+        if df.empty:
+            return
+        sql = """
+            INSERT INTO team_value_snapshot_position_totals
+                (league_id, model_id, team_id, span_days, split_type, as_of_date, slot_code,
+                 total_value, player_count, league_avg, ranking, team_count)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                total_value = VALUES(total_value),
+                player_count = VALUES(player_count),
+                league_avg = VALUES(league_avg),
+                ranking = VALUES(ranking),
+                team_count = VALUES(team_count)
+        """
+        rows = []
+        for _, r in df.iterrows():
+            rows.append((
+                league_id,
+                model_id,
+                int(r["team_id"]),
+                int(span_days),
+                str(split_type),
+                as_of_date,
+                str(r["slot_code"]),
+                float(r["total_value"]),
+                int(r["player_count"]),
+                float(r["league_avg"]),
+                int(r["rank"]),
+                int(r["team_count"]),
+            ))
+        if self.dry_run:
+            self.logger.info(f"[dry-run] Would upsert {len(rows)} team position total rows")
+            return
+        self.batch_upsert(sql, rows)
 
     def upsert_player_values(self, model_id: int, player_values_df: pd.DataFrame) -> None:
         """
@@ -375,6 +463,17 @@ class PlayerDataLoader(DB_Recorder):
         if players_df.empty:
             raise ValueError("No players found")
         return players_df
+
+    def load_roster_with_teams(self) -> pd.DataFrame:
+        """Roster of all rostered players: player_pk, team_id, selected_position, position.
+        For multi-league, filter by league later via league_teams; for now returns all team_id IS NOT NULL.
+        """
+        roster = self.get_records_with_conditions(
+            self.PLAYERS_TABLE,
+            fields=["id AS player_pk", "team_id", "selected_position", "position"],
+            conditions=["team_id IS NOT NULL"],
+        )
+        return pd.DataFrame(roster) if roster else pd.DataFrame(columns=["player_pk", "team_id", "selected_position", "position"])
 
     def load_player_season_stats(self) -> pd.DataFrame:
         player_season_stats = self.get_records_with_conditions(
