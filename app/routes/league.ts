@@ -30,6 +30,25 @@ router.get('/settings', async (_req: Request, res: Response) => {
     }
 });
 
+type ValueModelRow = { id: number; name: string; method: string; split_type: string; created_at: string };
+router.get('/value-models', async (_req: Request, res: Response) => {
+    try {
+        const currentLeague = await league.getLeague();
+        const [rows] = await db.query<ValueModelRow[]>(
+            `SELECT id, name, method, split_type, created_at
+             FROM draft_value_models
+             WHERE league_id = ?
+             ORDER BY created_at DESC`,
+            [currentLeague.id]
+        );
+        const models = Array.isArray(rows) ? rows : [];
+        return sendSuccess(res, models.map((m) => ({ id: Number(m.id), name: m.name, method: m.method, splitType: m.split_type, createdAt: m.created_at })), 'Value models retrieved successfully');
+    } catch (error) {
+        console.error('Error in /league/value-models:', error);
+        return sendError(res, 500, 'Failed to get value models');
+    }
+});
+
 router.post('/upsert', async (req: Request, res: Response) => {
     try {
         const leagueForm: LeagueFormRequest = req.body;

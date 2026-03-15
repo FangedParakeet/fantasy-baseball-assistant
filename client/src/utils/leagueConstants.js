@@ -15,8 +15,6 @@ export const POSITION_SORT_ORDER = {
 const HITTER_POSITIONS = ['C', '1B', '2B', '3B', 'SS', 'OF', 'UTIL'];
 const PITCHER_POSITIONS = ['SP', 'RP', 'P'];
 const BENCH_POSITIONS = ['BN'];
-const IL_POSITIONS = ['IL'];
-const NA_POSITIONS = ['NA'];
 
 export function defaultCountsTowardsRemainingRoster(position) {
   const p = position?.toUpperCase?.() || position;
@@ -31,3 +29,9 @@ export const CATEGORY_CODES = [
   'AB', 'H', 'R', 'RBI', 'AVG', 'HR', 'SB',
   'IP', 'K', 'ERA', 'WHIP', 'QS', 'SV', 'HLD', 'SVH',
 ];
+
+/** Hitter category order for display (e.g. Scoring Value tab). */
+export const HITTER_CATEGORIES = ['AB', 'H', 'R', 'RBI', 'AVG', 'HR', 'SB'];
+
+/** Pitcher category order for display. */
+export const PITCHER_CATEGORIES = ['IP', 'K', 'ERA', 'WHIP', 'QS', 'SV', 'HLD', 'SVH'];

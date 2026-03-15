@@ -1,7 +1,15 @@
 // biome-ignore assist/source/organizeImports: biome is busted
 import express, { type Request, type Response } from "express";
 import Player from "../classes/player";
-import type { ProbablePitcher, TwoStartPitcher } from "../classes/player";
+import type { 
+    HitterScoringCategoryStats,
+    PitcherScoringCategoryStats,
+    ProbablePitcher,
+    SpanDays,
+    TwoStartPitcher,
+    TeamScoringCategoryStats,
+    TeamPositionValueStats,
+} from "../classes/player";
 import PlayerStatsController from "../controllers/playerStatsController";
 import type {
 	AvailablePitchersResult,
@@ -14,11 +22,12 @@ import type {
 } from "../controllers/playerStatsController";
 import db from "../db/db";
 import { sendError, sendSuccess } from "../utils/functions";
+import League from "../classes/league";
 
 const router = express.Router();
 const player = new Player(db);
 const playerStatsController = new PlayerStatsController(player);
-
+const league = new League(db);
 // Search players
 router.get('/search/players', async (req: Request, res: Response) => {
     try {
@@ -140,5 +149,100 @@ router.get('/preview/team/:teamId/schedule-strength/pitching', async (req: Reque
         return sendError(res, 500, 'Failed to get team pitching schedule strength');
     }
 });
+
+router.get('/preview/team/:teamId/value-stats/scoring', async (req: Request, res: Response) => {
+    try {
+        const { teamId } = req.params;
+        const id = teamId != null ? Number(teamId) : NaN;
+        if (!teamId || Number.isNaN(id)) {
+            return sendError(res, 400, 'Valid team ID is required');
+        }
+
+        const { modelId, spanDays } = req.query as unknown as {
+            modelId: number;
+            spanDays: number;
+        };
+        if (!modelId || !spanDays) {
+            return sendError(res, 400, 'Valid model ID and span days are required');
+        }
+
+        const currentLeague = await league.getLeague();
+        const teamScoringValueStats = await playerStatsController.getValueStatsForTeam(currentLeague.id, id, modelId, spanDays as SpanDays, 'scoring') as TeamScoringCategoryStats[];
+        return sendSuccess(res, teamScoringValueStats, 'Team scoring value stats retrieved successfully');
+    } catch (error) {
+        console.error('Error getting team scoring value stats:', error);
+        return sendError(res, 500, 'Failed to get team scoring value stats');
+    }
+});
+
+router.get('/preview/team/:teamId/value-stats/position', async (req: Request, res: Response) => {
+    try {
+        const { teamId } = req.params;
+        const id = teamId != null ? Number(teamId) : NaN;
+        if (!teamId || Number.isNaN(id)) {
+            return sendError(res, 400, 'Valid team ID is required');
+        }
+
+        const { modelId, spanDays } = req.query as unknown as {
+            modelId: number;
+            spanDays: number;
+        };
+        if (!modelId || !spanDays) {
+            return sendError(res, 400, 'Valid model ID and span days are required');
+        }
+
+        const currentLeague = await league.getLeague();
+        const teamPositionValueStats = await playerStatsController.getValueStatsForTeam(currentLeague.id, id, modelId, spanDays as SpanDays, 'position') as TeamPositionValueStats[];
+        return sendSuccess(res, teamPositionValueStats, 'Team position value stats retrieved successfully');
+    } catch (error) {
+        console.error('Error getting team position value stats:', error);
+        return sendError(res, 500, 'Failed to get team position value stats');
+    }
+});
+
+router.get('/preview/team/:teamId/value-stats/batting', async (req: Request, res: Response) => {
+    try {
+        const { teamId } = req.params;
+        const id = teamId != null ? Number(teamId) : NaN;
+        if (!teamId || Number.isNaN(id)) {
+            return sendError(res, 400, 'Valid team ID is required');
+        }
+
+        const modelId = Number(req.query.modelId);
+        const spanDays = Number(req.query.spanDays);
+        if (!Number.isInteger(modelId) || modelId < 1 || !Number.isInteger(spanDays) || spanDays < 1) {
+            return sendError(res, 400, 'Valid model ID and span days are required');
+        }
+
+        const teamBattingValueStats = await playerStatsController.getScoringCategoryStatsForTeam(id, modelId, spanDays as SpanDays, 'batting') as HitterScoringCategoryStats[];
+        return sendSuccess(res, teamBattingValueStats, 'Team batting value stats retrieved successfully');
+    } catch (error) {
+        console.error('Error getting team batting value stats:', error);
+        return sendError(res, 500, 'Failed to get team batting value stats');
+    }
+});
+
+router.get('/preview/team/:teamId/value-stats/pitching', async (req: Request, res: Response) => {
+    try {
+        const { teamId } = req.params;
+        const id = teamId != null ? Number(teamId) : NaN;
+        if (!teamId || Number.isNaN(id)) {
+            return sendError(res, 400, 'Valid team ID is required');
+        }
+
+        const modelId = Number(req.query.modelId);
+        const spanDays = Number(req.query.spanDays);
+        if (!Number.isInteger(modelId) || modelId < 1 || !Number.isInteger(spanDays) || spanDays < 1) {
+            return sendError(res, 400, 'Valid model ID and span days are required');
+        }
+
+        const teamPitchingValueStats = await playerStatsController.getScoringCategoryStatsForTeam(id, modelId, spanDays as SpanDays, 'pitching') as PitcherScoringCategoryStats[];
+        return sendSuccess(res, teamPitchingValueStats, 'Team pitching value stats retrieved successfully');
+    } catch (error) {
+        console.error('Error getting team pitching value stats:', error);
+        return sendError(res, 500, 'Failed to get team pitching value stats');
+    }
+});
+
 
 export default router;

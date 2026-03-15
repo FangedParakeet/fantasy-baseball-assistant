@@ -1,5 +1,6 @@
 import type { QueryableDB } from '../db/db';
 import { executeInTransaction } from '../db/db';
+import type { HitterCategory, PitcherCategory } from './league';
 import type { LeagueTeam } from './team';
 
 type DefaultPlayerFields = 'id' | 'name' | 'mlb_team' | 'eligible_positions' | 'selected_position' | 'headshot_url';
@@ -9,6 +10,7 @@ const PITCHER_BASIC_SCORING_FIELDS = ['strikeouts', 'era', 'whip', 'qs', 'sv', '
 const PITCHER_ADVANCED_SCORING_FIELDS = ['k_per_9', 'bb_per_9', 'fip'] as const;
 const HITTER_BASIC_SCORING_FIELDS = ['runs', 'hr', 'rbi', 'sb', 'avg', 'hits', 'abs'] as const;
 const HITTER_ADVANCED_SCORING_FIELDS = ['obp', 'slg', 'ops', 'k_rate', 'bb_rate', 'iso', 'wraa'] as const;
+
 
 export type PitcherBasicScoringFields = typeof PITCHER_BASIC_SCORING_FIELDS[number];
 export type PitcherAdvancedScoringFields = typeof PITCHER_ADVANCED_SCORING_FIELDS[number];
@@ -44,6 +46,8 @@ const PLAYER_LOOKUPS_TABLE_ALIAS = 'pl' as const;
 const TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS = 'trs_pct' as const;
 const TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE_ALIAS = 'tvp_pct' as const;
 const TEAM_VS_BATTER_SPLITS_PERCENTILES_TABLE_ALIAS = 'tvb_pct' as const;
+const PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS = 'pvs' as const;
+const PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS = 'pvc' as const;
 
 /** Table names (not specific to Player; shared where queries reference these tables). */
 const PROBABLE_PITCHERS_TABLE = 'probable_pitchers';
@@ -56,6 +60,10 @@ const ADVANCED_ROLLING_STATS_PERCENTILES_TABLE = 'player_advanced_rolling_stats_
 const TEAM_ROLLING_STATS_PERCENTILES_TABLE = 'team_rolling_stats_percentiles';
 const TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE = 'team_vs_pitcher_splits_percentiles';
 const TEAM_VS_BATTER_SPLITS_PERCENTILES_TABLE = 'team_vs_batter_splits_percentiles';
+const PLAYER_VALUE_SNAPSHOTS_TABLE = 'player_value_snapshots';
+const PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE = 'player_value_snapshot_components';
+const TEAM_VALUE_SNAPSHOT_CATEGORY_TOTALS_TABLE = 'team_value_snapshot_category_totals';
+const TEAM_VALUE_SNAPSHOT_POSITION_TOTALS_TABLE = 'team_value_snapshot_position_totals';
 
 /** Percentile and reliability fields from getFields(); scoring keys use table aliases. */
 type TwoStartPitcherBase = {
@@ -168,6 +176,60 @@ export type HitterScheduleStrength = ScheduleStrengthBase
     }
     & Record<`${typeof PLAYERS_TABLE_ALIAS}.${DefaultPlayerFields}`, string>
     & Record<`${typeof ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.${HitterAdvancedScoringFields}_pct`, number>;
+
+type ScoringCategoryValue = {
+    weighted_value: number;
+    category_tier: number | null;
+};
+type ScoringCategoryStatsBase = {
+    total_value: number;
+    total_tier: number;
+    reliability_score: number;
+    risk_score: number;
+};
+export type PitcherScoringCategoryStats = ScoringCategoryStatsBase
+    & Partial<Record<PitcherCategory, ScoringCategoryValue>>
+    & Record<`${typeof PLAYERS_TABLE_ALIAS}.${DefaultPlayerFields}`, string>;
+
+export type HitterScoringCategoryStats = ScoringCategoryStatsBase
+    & Partial<Record<HitterCategory, ScoringCategoryValue>>
+    & Record<`${typeof PLAYERS_TABLE_ALIAS}.${DefaultPlayerFields}`, string>;
+
+type ScoringCategoryValueBase = {
+    weighted_value: number;
+    category_tier: number | null;
+};
+type PitcherScoringCategoryValueBase = ScoringCategoryValueBase
+    & {
+        category_code: PitcherCategory;
+    };
+type PitcherScoringCategoryValue = PitcherScoringCategoryValueBase
+    & ScoringCategoryStatsBase
+    & Record<`${typeof PLAYERS_TABLE_ALIAS}.${DefaultPlayerFields}`, string>;
+
+type HitterScoringCategoryValueBase = ScoringCategoryValueBase
+    & {
+        category_code: HitterCategory;
+    };
+type HitterScoringCategoryValue = HitterScoringCategoryValueBase
+    & ScoringCategoryStatsBase
+    & Record<`${typeof PLAYERS_TABLE_ALIAS}.${DefaultPlayerFields}`, string>;
+
+export type TeamScoringCategoryStats = {
+    category_code: PitcherCategory | HitterCategory;
+    total_value: number;
+    league_avg: number;
+    team_count: number;
+    ranking: number;
+};
+export type TeamPositionValueStats = {
+    slot_code: string;
+    total_value: number;
+    player_count: number;
+    league_avg: number;
+    ranking: number;
+    team_count: number;
+};
 
 type NRFIRankingBase = {
     game_date: string;
@@ -855,6 +917,260 @@ class Player {
             return hitterScores as HitterScheduleStrength[];
         });
     }
+
+    async getScoringCategoryStatsForTeamPitchers(
+        teamId: number,
+        modelId: number,
+        spanDays: SpanDays = 14
+    ): Promise<PitcherScoringCategoryStats[]> {
+        if (!teamId) { 
+            throw new Error('Team ID is required');
+        }
+        if (!modelId) {
+            throw new Error('Model ID is required');
+        }
+
+        const defaultPlayerFields = this.getDefaultPlayerFields();
+
+        const [pitcherScoringCategoryValues] = await this.db.query<PitcherScoringCategoryValue[]>(`
+            SELECT
+                ${this.getFields(defaultPlayerFields).join(', ')},
+                ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.total_value,
+                ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.tier AS total_tier,
+                ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.reliability_score,
+                ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.risk_score,
+                ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.category_code,
+                ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.weighted_value,
+                ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.tier AS category_tier
+            FROM ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS}
+            JOIN ${PLAYER_VALUE_SNAPSHOTS_TABLE} ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}
+                ON ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.player_pk = ${PLAYERS_TABLE_ALIAS}.id
+                AND ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.model_id = ?
+                AND ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.span_days = ?
+                AND ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.split_type = 'overall'
+                AND ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.position = 'P'
+                AND ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.as_of_date = (
+                    SELECT MAX(as_of_date)
+                    FROM ${PLAYER_VALUE_SNAPSHOTS_TABLE}
+                    WHERE model_id = ?
+                    AND span_days = ?
+                    AND split_type = 'overall'
+                    AND position = 'P'
+                )
+            LEFT JOIN ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE} ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}
+                ON ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.player_pk = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.player_pk
+                AND ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.model_id = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.model_id
+                AND ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.span_days = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.span_days
+                AND ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.split_type = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.split_type
+                AND ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.as_of_date = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.as_of_date
+            WHERE ${PLAYERS_TABLE_ALIAS}.team_id = ?
+            ORDER BY ${PLAYERS_TABLE_ALIAS}.id, ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.category_code;
+            `, [modelId, spanDays, modelId, spanDays, teamId]);
+
+        // Group flat rows (one per player per category) into one row per player with categories as keys.
+        // mysql2 may return column names as "id"/"name" (unqualified) or "p.id"/"p.name" (qualified); support both.
+        const byPlayer = new Map<number, PitcherScoringCategoryStats>();
+
+        for (const row of pitcherScoringCategoryValues) {
+            const rowAny = row as Record<string, unknown>;
+            const id = Number(rowAny[`${PLAYERS_TABLE_ALIAS}.id`] ?? rowAny['id']);
+            if (Number.isNaN(id)) continue;
+
+            if (!byPlayer.has(id)) {
+                const base: Record<string, unknown> = {};
+                for (const f of this.defaultPlayerFields) {
+                    const prefixed = `${PLAYERS_TABLE_ALIAS}.${f}`;
+                    base[prefixed] = rowAny[prefixed] ?? rowAny[f];
+                }
+                base.total_value = rowAny.total_value;
+                base.total_tier = rowAny.total_tier;
+                base.reliability_score = rowAny.reliability_score;
+                base.risk_score = rowAny.risk_score;
+                byPlayer.set(id, base as PitcherScoringCategoryStats);
+            }
+            const out = byPlayer.get(id) as Record<string, unknown>;
+            const code = row.category_code;
+            if (code != null && String(code).trim() !== '') {
+                out[code] = {
+                    weighted_value: Number(row.weighted_value),
+                    category_tier: row.category_tier != null ? Number(row.category_tier) : null,
+                };
+            }
+        }
+
+        return Array.from(byPlayer.values()) as PitcherScoringCategoryStats[];
+    }
+
+    async getScoringCategoryStatsForTeamHitters(
+        teamId: number,
+        modelId: number,
+        spanDays: SpanDays = 14
+    ): Promise<HitterScoringCategoryStats[]> {
+        if (!teamId) { 
+            throw new Error('Team ID is required');
+        }
+        if (!modelId) {
+            throw new Error('Model ID is required');
+        }
+
+        const defaultPlayerFields = this.getDefaultPlayerFields();
+
+        const [hitterScoringCategoryValues] = await this.db.query<HitterScoringCategoryValue[]>(`
+            SELECT
+                ${this.getFields(defaultPlayerFields).join(', ')},
+                ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.total_value,
+                ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.tier AS total_tier,
+                ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.reliability_score,
+                ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.risk_score,
+                ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.category_code,
+                ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.weighted_value,
+                ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.tier AS category_tier
+            FROM ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS}
+            JOIN ${PLAYER_VALUE_SNAPSHOTS_TABLE} ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}
+                ON ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.player_pk = ${PLAYERS_TABLE_ALIAS}.id
+                AND ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.model_id = ?
+                AND ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.span_days = ?
+                AND ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.split_type = 'overall'
+                AND ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.position = 'B'
+                AND ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.as_of_date = (
+                    SELECT MAX(as_of_date)
+                    FROM ${PLAYER_VALUE_SNAPSHOTS_TABLE}
+                    WHERE model_id = ?
+                    AND span_days = ?
+                    AND split_type = 'overall'
+                    AND position = 'B'
+                )
+            LEFT JOIN ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE} ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}
+                ON ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.player_pk = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.player_pk
+                AND ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.model_id = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.model_id
+                AND ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.span_days = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.span_days
+                AND ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.split_type = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.split_type
+                AND ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.as_of_date = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.as_of_date
+            WHERE ${PLAYERS_TABLE_ALIAS}.team_id = ?
+            ORDER BY ${PLAYERS_TABLE_ALIAS}.id, ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.category_code;
+            `, [modelId, spanDays, modelId, spanDays, teamId]);
+
+        // Group flat rows (one per player per category) into one row per player with categories as keys.
+        // mysql2 may return column names as "id"/"name" (unqualified) or "p.id"/"p.name" (qualified); support both.
+        const byPlayer = new Map<number, HitterScoringCategoryStats>();
+
+        for (const row of hitterScoringCategoryValues) {
+            const rowAny = row as Record<string, unknown>;
+            const id = Number(rowAny[`${PLAYERS_TABLE_ALIAS}.id`] ?? rowAny['id']);
+            if (Number.isNaN(id)) continue;
+
+            if (!byPlayer.has(id)) {
+                const base: Record<string, unknown> = {};
+                for (const f of this.defaultPlayerFields) {
+                    const prefixed = `${PLAYERS_TABLE_ALIAS}.${f}`;
+                    base[prefixed] = rowAny[prefixed] ?? rowAny[f];
+                }
+                base.total_value = rowAny.total_value;
+                base.total_tier = rowAny.total_tier;
+                base.reliability_score = rowAny.reliability_score;
+                base.risk_score = rowAny.risk_score;
+                byPlayer.set(id, base as HitterScoringCategoryStats);
+            }
+            const out = byPlayer.get(id) as Record<string, unknown>;
+            const code = row.category_code;
+            if (code != null && String(code).trim() !== '') {
+                out[code] = {
+                    weighted_value: Number(row.weighted_value),
+                    category_tier: row.category_tier != null ? Number(row.category_tier) : null,
+                };
+            }
+        }
+
+        return Array.from(byPlayer.values()) as HitterScoringCategoryStats[];
+    }
+
+    async getScoringCategoryStatsForTeam(
+        leagueId: number,
+        teamId: number,
+        modelId: number,
+        spanDays: SpanDays = 14
+    ): Promise<TeamScoringCategoryStats[]> {
+        if (!leagueId) {
+            throw new Error('League ID is required');
+        }
+        if (!teamId) {
+            throw new Error('Team ID is required');
+        }
+        if (!modelId) {
+            throw new Error('Model ID is required');
+        }
+
+        const [teamScoringCategoryStats] = await this.db.query<TeamScoringCategoryStats[]>(`
+            SELECT
+                category_code,
+                total_value,
+                league_avg,
+                team_count,
+                ranking
+            FROM ${TEAM_VALUE_SNAPSHOT_CATEGORY_TOTALS_TABLE}
+            WHERE league_id = ?
+                AND team_id = ?
+                AND model_id = ?
+                AND span_days = ?
+                AND split_type = 'overall'
+                AND as_of_date = (
+                    SELECT MAX(as_of_date)
+                    FROM ${TEAM_VALUE_SNAPSHOT_CATEGORY_TOTALS_TABLE}
+                    WHERE league_id = ?
+                        AND model_id = ?
+                        AND span_days = ?
+                        AND split_type = 'overall'
+            )
+            ORDER BY category_code;
+        `, [leagueId, teamId, modelId, spanDays, leagueId, modelId, spanDays]);
+
+        return teamScoringCategoryStats as TeamScoringCategoryStats[];
+    }
+
+    async getPositionValueStatsForTeam(
+        leagueId: number,
+        teamId: number,
+        modelId: number,
+        spanDays: SpanDays = 14
+    ): Promise<TeamPositionValueStats[]> {
+        if (!leagueId) {
+            throw new Error('League ID is required');
+        }
+        if (!teamId) {
+            throw new Error('Team ID is required');
+        }
+        if (!modelId) {
+            throw new Error('Model ID is required');
+        }
+        
+        const [teamPositionValueStats] = await this.db.query<TeamPositionValueStats[]>(`
+            SELECT
+                slot_code,
+                total_value,
+                player_count,
+                league_avg,
+                team_count,
+                ranking
+            FROM ${TEAM_VALUE_SNAPSHOT_POSITION_TOTALS_TABLE}
+            WHERE league_id = ?
+                AND team_id = ?
+                AND model_id = ?
+                AND span_days = ?
+                AND split_type = 'overall'
+                AND as_of_date = (
+                    SELECT MAX(as_of_date)
+                    FROM ${TEAM_VALUE_SNAPSHOT_POSITION_TOTALS_TABLE}
+                    WHERE league_id = ?
+                        AND model_id = ?
+                        AND span_days = ?
+                        AND split_type = 'overall'
+            )
+            ORDER BY slot_code;
+        `, [leagueId, teamId, modelId, spanDays, leagueId, modelId, spanDays]);
+
+        return teamPositionValueStats as TeamPositionValueStats[];
+    }
+
 
     async getHitterSpeedWatchlist(
         page: number = 1, 

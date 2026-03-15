@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api, { handleApiResponse, handleApiError } from '../utils/api';
-import { ucfirst, formatIP, sortPlayers, getPercentileColor, formatDate, formatEligiblePositions } from '../utils/functions';
+import { ucfirst, formatIP, sortPlayers, getPercentileColor, formatDate, formatEligiblePositions, getRankingColor, getTierColor, sortScoringValuePlayers } from '../utils/functions';
+import { HITTER_CATEGORIES, PITCHER_CATEGORIES, POSITION_SORT_ORDER } from '../utils/leagueConstants';
 
 function LeagueTeams() {
   const [teams, setTeams] = useState([]);
@@ -18,7 +19,12 @@ function LeagueTeams() {
   const [error, setError] = useState('');
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('desc');
-
+  const [modelId, setModelId] = useState('');
+  const [valueModels, setValueModels] = useState([]);
+  const [battingValueStats, setBattingValueStats] = useState([]);
+  const [pitchingValueStats, setPitchingValueStats] = useState([]);
+  const [teamScoringStats, setTeamScoringStats] = useState([]);
+  const [teamPositionStats, setTeamPositionStats] = useState([]);
 
   useEffect(() => {
     fetchTeams();
@@ -30,28 +36,24 @@ function LeagueTeams() {
   }, []);
 
   useEffect(() => {
-    if (selectedTeamId && selectedDate) {
-      fetchTeamData();
-    }
-  }, [selectedTeamId, selectedDate, spanDays, activeTab]);
-
-  const fetchTeams = async () => {
-    try {
-      setTeamsLoading(true);
-      const response = await api.get('/league-teams');
-      const data = handleApiResponse(response);
-      setTeams(data || []);
-      if (data && data.length > 0) {
-        setSelectedTeamId(data[0].id);
+    const fetchValueModels = async () => {
+      try {
+        const response = await api.get('/league/value-models');
+        const models = handleApiResponse(response) || [];
+        setValueModels(models);
+        if (models.length > 0 && !modelId) {
+          setModelId(String(models[0].id));
+        } else if (models.length > 0 && !models.some((m) => Number(m.id) === Number(modelId))) {
+          setModelId(String(models[0].id));
+        }
+      } catch (err) {
+        setValueModels([]);
       }
-    } catch (err) {
-      setError(handleApiError(err));
-    } finally {
-      setTeamsLoading(false);
-    }
-  };
+    };
+    fetchValueModels();
+  }, [modelId]);
 
-  const fetchTeamData = async () => {
+  const fetchTeamData = useCallback(async () => {
     if (!selectedTeamId || !selectedDate) return;
 
     try {
@@ -108,11 +110,53 @@ function LeagueTeams() {
         
         setTwoStartPitchers(twoStart);
         setProbablePitchers(regular);
+      } else if (activeTab === 'scoring-value') {
+        const effectiveModelId = modelId || valueModels[0]?.id;
+        if (!effectiveModelId) {
+          setBattingValueStats([]);
+          setPitchingValueStats([]);
+          setTeamScoringStats([]);
+          setTeamPositionStats([]);
+        } else {
+          const valueParams = { modelId: effectiveModelId, spanDays };
+          const [battingRes, pitchingRes, scoringRes, positionRes] = await Promise.all([
+          api.get(`/preview/team/${selectedTeamId}/value-stats/batting`, { params: valueParams }),
+          api.get(`/preview/team/${selectedTeamId}/value-stats/pitching`, { params: valueParams }),
+          api.get(`/preview/team/${selectedTeamId}/value-stats/scoring`, { params: valueParams }),
+          api.get(`/preview/team/${selectedTeamId}/value-stats/position`, { params: valueParams })
+        ]);
+          setBattingValueStats(handleApiResponse(battingRes) || []);
+          setPitchingValueStats(handleApiResponse(pitchingRes) || []);
+          setTeamScoringStats(handleApiResponse(scoringRes) || []);
+          setTeamPositionStats(handleApiResponse(positionRes) || []);
+        }
       }
     } catch (err) {
       setError(handleApiError(err));
     } finally {
       setLoading(false);
+    }
+  }, [selectedTeamId, selectedDate, spanDays, activeTab, modelId, valueModels]);
+
+  useEffect(() => {
+    if (selectedTeamId && selectedDate) {
+      fetchTeamData();
+    }
+  }, [selectedTeamId, selectedDate, fetchTeamData]);
+
+  const fetchTeams = async () => {
+    try {
+      setTeamsLoading(true);
+      const response = await api.get('/league-teams');
+      const data = handleApiResponse(response);
+      setTeams(data || []);
+      if (data && data.length > 0) {
+        setSelectedTeamId(data[0].id);
+      }
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setTeamsLoading(false);
     }
   };
 
@@ -403,6 +447,336 @@ function LeagueTeams() {
             </tbody>
           </table>
         </div>
+      </div>
+    );
+  };
+
+  const playerField = (row, key) => row[`p.${key}`] ?? row[key];
+
+  const renderScoringValueBattersTable = (data) => {
+    if (!data || data.length === 0) {
+      return (
+        <div className="stats-panel">
+          <h3>Batter Scoring Value</h3>
+          <div className="empty-state">
+            <p>No batter value stats available.</p>
+          </div>
+        </div>
+      );
+    }
+    const batterCategoryCodes = HITTER_CATEGORIES.filter((code) =>
+      data.some((row) => row[code] != null && (row[code].weighted_value != null || row[code].category_tier != null))
+    );
+    const sortedData = sortScoringValuePlayers(data, sortField, sortDirection);
+    return (
+      <div className="stats-panel">
+        <h3>Batter Scoring Value</h3>
+        <div className="stats-table-container">
+          <table className="stats-table">
+            <thead>
+              <tr>
+                <th onClick={() => handleSort('p.selected_position')} className="sortable-header">
+                  Pos {sortField === 'p.selected_position' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th>Batters</th>
+                <th onClick={() => handleSort('total_tier')} className="sortable-header">
+                  Tier {sortField === 'total_tier' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('total_value')} className="sortable-header">
+                  Value {sortField === 'total_value' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                {batterCategoryCodes.map((code) => (
+                  <th key={code} onClick={() => handleSort(code)} className="sortable-header">
+                    {code} {sortField === code && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </th>
+                ))}
+                <th onClick={() => handleSort('risk_score')} className="sortable-header">
+                  Risk {sortField === 'risk_score' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedData.map((row, index) => (
+                <tr key={playerField(row, 'id') ?? index}>
+                  <td>{playerField(row, 'selected_position') || '—'}</td>
+                  <td className="player-cell">
+                    <div className="player-info-cell">
+                      {playerField(row, 'headshot_url') && (
+                        <img src={playerField(row, 'headshot_url')} alt="" className="player-headshot-small" />
+                      )}
+                      <div>
+                        <div className="player-name">{playerField(row, 'name') || '—'}</div>
+                        <div className="player-details">
+                          {playerField(row, 'mlb_team') || '—'} · {formatEligiblePositions(playerField(row, 'eligible_positions')) || '—'}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td
+                    className="stat-cell"
+                    style={{ backgroundColor: getTierColor(row.total_tier) }}
+                  >
+                    {row.total_tier != null ? row.total_tier : '—'}
+                  </td>
+                  <td
+                    className="stat-cell"
+                    style={{ backgroundColor: getTierColor(row.total_tier) }}
+                  >
+                    {row.total_value != null ? Number(row.total_value).toFixed(2) : '—'}
+                  </td>
+                  {batterCategoryCodes.map((code) => {
+                    const cat = row[code];
+                    const val = cat?.weighted_value;
+                    const tier = cat?.category_tier;
+                    return (
+                      <td
+                        key={code}
+                        className="stat-cell"
+                        style={{ backgroundColor: getTierColor(tier) }}
+                        title={tier != null ? `Tier ${tier}` : undefined}
+                      >
+                        {val != null ? Number(val).toFixed(2) : '—'}
+                      </td>
+                    );
+                  })}
+                  <td
+                    className="stat-cell"
+                    style={{ backgroundColor: getTierColor(null) }}
+                  >
+                    {row.risk_score != null ? row.risk_score : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const renderScoringValuePitchersTable = (data) => {
+    if (!data || data.length === 0) {
+      return (
+        <div className="stats-panel">
+          <h3>Pitcher Scoring Value</h3>
+          <div className="empty-state">
+            <p>No pitcher value stats available.</p>
+          </div>
+        </div>
+      );
+    }
+    const pitcherCategoryCodes = PITCHER_CATEGORIES.filter((code) =>
+      data.some((row) => row[code] != null && (row[code].weighted_value != null || row[code].category_tier != null))
+    );
+    const sortedData = sortScoringValuePlayers(data, sortField, sortDirection);
+    return (
+      <div className="stats-panel">
+        <h3>Pitcher Scoring Value</h3>
+        <div className="stats-table-container">
+          <table className="stats-table">
+            <thead>
+              <tr>
+                <th onClick={() => handleSort('p.selected_position')} className="sortable-header">
+                  Pos {sortField === 'p.selected_position' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th>Pitchers</th>
+                <th onClick={() => handleSort('total_tier')} className="sortable-header">
+                  Tier {sortField === 'total_tier' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('total_value')} className="sortable-header">
+                  Value {sortField === 'total_value' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                {pitcherCategoryCodes.map((code) => (
+                  <th key={code} onClick={() => handleSort(code)} className="sortable-header">
+                    {code} {sortField === code && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </th>
+                ))}
+                <th onClick={() => handleSort('risk_score')} className="sortable-header">
+                  Risk {sortField === 'risk_score' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedData.map((row, index) => (
+                <tr key={playerField(row, 'id') ?? index}>
+                  <td>{playerField(row, 'selected_position') || '—'}</td>
+                  <td className="player-cell">
+                    <div className="player-info-cell">
+                      {playerField(row, 'headshot_url') && (
+                        <img src={playerField(row, 'headshot_url')} alt="" className="player-headshot-small" />
+                      )}
+                      <div>
+                        <div className="player-name">{playerField(row, 'name') || '—'}</div>
+                        <div className="player-details">
+                          {playerField(row, 'mlb_team') || '—'} · {formatEligiblePositions(playerField(row, 'eligible_positions')) || '—'}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td
+                    className="stat-cell"
+                    style={{ backgroundColor: getTierColor(row.total_tier) }}
+                  >
+                    {row.total_tier != null ? row.total_tier : '—'}
+                  </td>
+                  <td
+                    className="stat-cell"
+                    style={{ backgroundColor: getTierColor(row.total_tier) }}
+                  >
+                    {row.total_value != null ? Number(row.total_value).toFixed(2) : '—'}
+                  </td>
+                  {pitcherCategoryCodes.map((code) => {
+                    const cat = row[code];
+                    const val = cat?.weighted_value;
+                    const tier = cat?.category_tier;
+                    return (
+                      <td
+                        key={code}
+                        className="stat-cell"
+                        style={{ backgroundColor: getTierColor(tier) }}
+                        title={tier != null ? `Tier ${tier}` : undefined}
+                      >
+                        {val != null ? Number(val).toFixed(2) : '—'}
+                      </td>
+                    );
+                  })}
+                  <td
+                    className="stat-cell"
+                    style={{ backgroundColor: getTierColor(null) }}
+                  >
+                    {row.risk_score != null ? row.risk_score : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const renderScoringCategoryChart = (data) => {
+    if (!data || data.length === 0) {
+      return (
+        <div className="stats-panel">
+          <h3>Team value by scoring category</h3>
+          <div className="empty-state">
+            <p>No category totals available.</p>
+          </div>
+        </div>
+      );
+    }
+    const order = [...HITTER_CATEGORIES, ...PITCHER_CATEGORIES];
+    const ordered = order.map((code) => data.find((d) => d.category_code === code)).filter(Boolean);
+    const teamCount = ordered[0]?.team_count ?? 1;
+    const values = ordered.map((d) => ({
+      ...d,
+      total_value: Number(d.total_value),
+      league_avg: Number(d.league_avg),
+      diff: Number(d.total_value) - Number(d.league_avg),
+    }));
+    const maxAbsDiff = Math.max(...values.map((d) => Math.abs(d.diff)), 0.01);
+    const barScale = 60 / maxAbsDiff;
+
+
+    return (
+      <div className="stats-panel">
+        <h3>Team value by scoring category</h3>
+        <div className="value-chart" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', minHeight: '180px' }}>
+          {values.map((d) => {
+            const color = getRankingColor(d.ranking, teamCount);
+            const barHeight = Math.min(Math.abs(d.diff) * barScale, 55);
+            const isAbove = d.diff >= 0;
+            return (
+              <div key={d.category_code} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 1 36px', minWidth: '36px' }}>
+                <div style={{ fontSize: '10px', marginBottom: '4px', fontWeight: 600 }}>{d.category_code}</div>
+                <div style={{ height: '120px', width: '28px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'stretch' }}>
+                  <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                    {isAbove && (
+                      <div
+                        style={{ width: '24px', height: `${barHeight}px`, backgroundColor: color, borderRadius: '3px 3px 0 0' }}
+                        title={`${d.total_value.toFixed(2)} (league avg ${d.league_avg.toFixed(2)})`}
+                      />
+                    )}
+                  </div>
+                  <div style={{ width: '100%', height: '2px', backgroundColor: '#444', flexShrink: 0 }} title="League avg" />
+                  <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
+                    {!isAbove && (
+                      <div
+                        style={{ width: '24px', height: `${barHeight}px`, backgroundColor: color, borderRadius: '0 0 3px 3px' }}
+                        title={`${d.total_value.toFixed(2)} (league avg ${d.league_avg.toFixed(2)})`}
+                      />
+                    )}
+                  </div>
+                </div>
+                <div style={{ fontSize: '10px', marginTop: '4px' }}>{d.ranking}{d.ranking === 1 ? 'st' : d.ranking === 2 ? 'nd' : d.ranking === 3 ? 'rd' : 'th'} in league</div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>Baseline = league average. Bar extends above (above avg) or below (below avg).</div>
+      </div>
+    );
+  };
+
+  const renderPositionValueChart = (data) => {
+    if (!data || data.length === 0) {
+      return (
+        <div className="stats-panel">
+          <h3>Team value by position</h3>
+          <div className="empty-state">
+            <p>No position totals available.</p>
+          </div>
+        </div>
+      );
+    }
+    const sorted = [...data].sort((a, b) => (POSITION_SORT_ORDER[a.slot_code] ?? 99) - (POSITION_SORT_ORDER[b.slot_code] ?? 99));
+    const teamCount = sorted[0]?.team_count ?? 1;
+    const values = sorted.map((d) => ({
+      ...d,
+      total_value: Number(d.total_value),
+      league_avg: Number(d.league_avg),
+      diff: Number(d.total_value) - Number(d.league_avg),
+    }));
+    const maxAbsDiff = Math.max(...values.map((d) => Math.abs(d.diff)), 0.01);
+    const barScale = 60 / maxAbsDiff;
+
+    return (
+      <div className="stats-panel">
+        <h3>Team value by position</h3>
+        <div className="value-chart" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', minHeight: '180px' }}>
+          {values.map((d) => {
+            const color = getRankingColor(d.ranking, teamCount);
+            const barHeight = Math.min(Math.abs(d.diff) * barScale, 55);
+            const isAbove = d.diff >= 0;
+            const playerCount = d.player_count ?? 0;
+            return (
+              <div
+                key={d.slot_code}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 1 36px', minWidth: '36px' }}
+                title={`${d.slot_code}: ${d.total_value.toFixed(2)} (avg ${d.league_avg.toFixed(2)}) · ${playerCount} players`}
+              >
+                <div style={{ fontSize: '10px', marginBottom: '4px', fontWeight: 600 }}>{d.slot_code}</div>
+                <div style={{ height: '120px', width: '28px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'stretch' }}>
+                  <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                    {isAbove && (
+                      <div style={{ width: '24px', height: `${barHeight}px`, backgroundColor: color, borderRadius: '3px 3px 0 0' }} />
+                    )}
+                  </div>
+                  <div style={{ width: '100%', height: '2px', backgroundColor: '#444', flexShrink: 0 }} title="League avg" />
+                  <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
+                    {!isAbove && (
+                      <div style={{ width: '24px', height: `${barHeight}px`, backgroundColor: color, borderRadius: '0 0 3px 3px' }} />
+                    )}
+                  </div>
+                </div>
+                <div style={{ fontSize: '10px', marginTop: '4px' }}>{d.ranking}{d.ranking === 1 ? 'st' : d.ranking === 2 ? 'nd' : d.ranking === 3 ? 'rd' : 'th'} in league</div>
+                <div style={{ fontSize: '9px', color: '#888', marginTop: '2px' }} title={`${playerCount} players`}>{playerCount} players</div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>Baseline = league average. Hover for player count.</div>
       </div>
     );
   };
@@ -847,6 +1221,23 @@ function LeagueTeams() {
           </div>
 
           <div className="form-group">
+            <label htmlFor="value-model-select">Value model (Scoring Value tab):</label>
+            <select
+              id="value-model-select"
+              value={modelId}
+              onChange={(e) => setModelId(e.target.value)}
+              className="form-input form-input-select"
+            >
+              <option value="">Select model...</option>
+              {valueModels.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name || `Model ${m.id}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
             <button 
               onClick={handleSyncRoster}
               disabled={syncing || !selectedTeamId}
@@ -879,6 +1270,12 @@ function LeagueTeams() {
               Summary
             </button>
             <button
+              className={`tab ${activeTab === 'scoring-value' ? 'active' : ''}`}
+              onClick={() => handleTabChange('scoring-value')}
+            >
+              Scoring Value
+            </button>
+            <button
               className={`tab ${activeTab === 'schedule-strength' ? 'active' : ''}`}
               onClick={() => handleTabChange('schedule-strength')}
             >
@@ -901,6 +1298,15 @@ function LeagueTeams() {
                   <div className="stats-container">
                     {renderBattersTable(batters, 'Batters')}
                     {renderPitchersTable(pitchers, 'Pitchers')}
+                  </div>
+                )}
+
+                {activeTab === 'scoring-value' && (
+                  <div className="stats-container">
+                    {renderScoringValueBattersTable(battingValueStats)}
+                    {renderScoringValuePitchersTable(pitchingValueStats)}
+                    {renderScoringCategoryChart(teamScoringStats)}
+                    {renderPositionValueChart(teamPositionStats)}
                   </div>
                 )}
 

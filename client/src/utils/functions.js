@@ -82,7 +82,7 @@ const sortPlayers = (players, field, direction) => {
     try {
       return JSON.parse(eligiblePositions).join(', ');
     } catch (error) {
-      return eligiblePositions.replace(/["\[\]]/g, '');
+      return eligiblePositions.replace(/["[\]]/g, '');
     }
   };
 
@@ -90,9 +90,55 @@ const sortPlayers = (players, field, direction) => {
     try {
       return JSON.parse(eligiblePositions);
     } catch (error) {
-      return [eligiblePositions.replace(/["\[\]]/g, '')];
+      return [eligiblePositions.replace(/["[\]]/g, '')];
     }
   };
 
+  /** Green (best, tier 1) to red (worst, tier 50+). Use for total_tier or category_tier in value stats tables. */
+  const getTierColor = (tier) => {
+    if (tier == null || tier === undefined) return 'rgba(171, 178, 183, 0.75)';
+    const t = Number(tier);
+    if (Number.isNaN(t) || t >= 50) return 'rgba(244, 120, 124, 0.9)';
+    if (t <= 1) return 'rgba(120, 200, 65, 0.9)';
+    const pct = (t - 1) / 49;
+    if (pct <= 0.2) return 'rgba(180, 229, 130, 0.9)';
+    if (pct <= 0.4) return 'rgba(229, 245, 190, 0.9)';
+    if (pct <= 0.6) return 'rgba(245, 245, 190, 0.9)';
+    if (pct <= 0.8) return 'rgba(245, 200, 190, 0.9)';
+    return 'rgba(244, 120, 124, 0.9)';
+  };
 
-export { ucfirst, formatIP, sortPlayers, getPercentileColor, formatDate, formatEligiblePositions, getEligiblePositions };
+  /** Red (worst) to green (best) by ranking; teamCount = number of teams in league. */
+  const getRankingColor = (ranking, teamCount) => {
+    if (ranking == null || teamCount == null || teamCount <= 1) return 'rgba(171, 178, 183, 0.85)';
+    const pct = (teamCount - ranking) / Math.max(teamCount, 1); // 0 = last, 1 = first
+    if (pct >= 0.8) return 'rgba(120, 200, 65, 0.9)';
+    if (pct >= 0.6) return 'rgba(180, 229, 130, 0.9)';
+    if (pct >= 0.4) return 'rgba(229, 245, 190, 0.9)';
+    if (pct >= 0.2) return 'rgba(245, 245, 190, 0.9)';
+    if (pct >= 0.1) return 'rgba(245, 200, 190, 0.9)';
+    return 'rgba(244, 120, 124, 0.9)';
+  };
+
+  /** Sort rows from batting/pitching value stats (flat + category objects with weighted_value). */
+  const sortScoringValuePlayers = (players, field, direction) => {
+    if (!field || !players?.length) return players || [];
+    const posField = field === 'position' || field === 'p.selected_position';
+    return [...players].sort((a, b) => {
+      if (posField) {
+        const aPos = positionOrder[a['p.selected_position'] || a.selected_position] ?? 999;
+        const bPos = positionOrder[b['p.selected_position'] || b.selected_position] ?? 999;
+        return direction === 'asc' ? aPos - bPos : bPos - aPos;
+      }
+      let aVal = a[field];
+      let bVal = b[field];
+      if (aVal != null && typeof aVal === 'object' && 'weighted_value' in aVal) aVal = aVal.weighted_value;
+      if (bVal != null && typeof bVal === 'object' && 'weighted_value' in bVal) bVal = bVal.weighted_value;
+      aVal = aVal ?? 0;
+      bVal = bVal ?? 0;
+      if (field === 'era' || field === 'whip') return direction === 'asc' ? aVal - bVal : bVal - aVal;
+      return direction === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+  };
+
+export { ucfirst, formatIP, sortPlayers, getPercentileColor, formatDate, formatEligiblePositions, getEligiblePositions, getRankingColor, getTierColor, sortScoringValuePlayers };

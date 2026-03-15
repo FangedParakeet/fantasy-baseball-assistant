@@ -5,6 +5,7 @@ import type {
 	HitterContactOnBaseWatchlist,
 	HitterPowerWatchlist,
 	HitterScheduleStrength,
+	HitterScoringCategoryStats,
 	HitterScoringWatchlist,
 	HitterSpeedWatchlist,
 	NRFIRanking,
@@ -13,6 +14,7 @@ import type {
 	PitcherOrBatter,
 	PitcherRelieverWatchlist,
 	PitcherScheduleStrength,
+	PitcherScoringCategoryStats,
 	PitcherScoringWatchlist,
 	PitcherStarterWatchlist,
 	PlayerAdvancedScoringFields,
@@ -21,6 +23,8 @@ import type {
 	Position,
 	ProbablePitcher,
 	SpanDays,
+	TeamPositionValueStats,
+	TeamScoringCategoryStats,
 	TwoStartPitcher,
 	WatchlistType,
 } from "../classes/player";
@@ -61,6 +65,37 @@ const ORDER_BY_SET = new Set<PlayerScoringFields | PlayerAdvancedScoringFields>(
 
 class PlayerStatsController {
     constructor(private readonly player: Player) {}
+
+    async getScoringCategoryStatsForTeam(
+        teamId: number,
+        modelId: number,
+        spanDays: SpanDays = 14,
+        type: 'batting' | 'pitching'
+    ): Promise<HitterScoringCategoryStats[] | PitcherScoringCategoryStats[]> {
+        if ( type === 'batting' ) {
+            return await this.player.getScoringCategoryStatsForTeamHitters(teamId, modelId, spanDays);
+        } else if ( type === 'pitching' ) {
+            return await this.player.getScoringCategoryStatsForTeamPitchers(teamId, modelId, spanDays);
+        } else {
+            throw new Error('Invalid type');
+        }
+    }
+
+    async getValueStatsForTeam(
+        leagueId: number,
+        teamId: number,
+        modelId: number,
+        spanDays: SpanDays = 14,
+        type: 'scoring' | 'position'
+    ): Promise<TeamScoringCategoryStats[] | TeamPositionValueStats[]> {
+        if ( type === 'scoring' ) {
+            return await this.player.getScoringCategoryStatsForTeam(leagueId, teamId, modelId, spanDays);
+        } else if ( type === 'position' ) {
+            return await this.player.getPositionValueStatsForTeam(leagueId, teamId, modelId, spanDays);
+        } else {
+            throw new Error('Invalid type');
+        }
+    }
 
     async searchPlayers(query: SearchPlayersQuery): Promise<SearchPlayersResult[]> {
         let {

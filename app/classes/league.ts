@@ -27,8 +27,8 @@ const POSITION_GROUP: Record<Position, PositionGroup> = {
     ...toGroupMap(NA_POSITIONS, 'na'),
 } as Record<Position, PositionGroup>;
 
-type HitterCategory = 'AB' | 'H' | 'R' | 'RBI' | 'AVG' | 'HR' | 'SB';
-type PitcherCategory = 'IP' | 'K' | 'ERA' | 'WHIP' | 'QS' | 'SV' | 'HLD' | 'SVH';
+export type HitterCategory = 'AB' | 'H' | 'R' | 'RBI' | 'AVG' | 'HR' | 'SB';
+export type PitcherCategory = 'IP' | 'K' | 'ERA' | 'WHIP' | 'QS' | 'SV' | 'HLD' | 'SVH';
 type CategoryCode = HitterCategory | PitcherCategory;
 
 const HITTER_CATEGORIES: readonly HitterCategory[] = ['AB', 'H', 'R', 'RBI', 'AVG', 'HR', 'SB'];
