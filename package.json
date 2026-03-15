@@ -22,6 +22,7 @@
     "sync:probable_pitchers": "docker exec pybaseball python main.py probable_pitchers",
     "sync:yahoo_player_data": "docker exec pybaseball python main.py yahoo_player_data",
     "sync:compute_auction_valuations": "docker exec pybaseball python main.py compute_auction_valuations",
-    "sync:compute_player_value_snapshots": "docker exec pybaseball python main.py compute_player_value_snapshots"
+    "sync:compute_player_value_snapshots": "docker exec pybaseball python main.py compute_player_value_snapshots",
+    "sync:backfill_lookup": "docker exec pybaseball python main.py backfill_lookup_position_team"
   }
 }

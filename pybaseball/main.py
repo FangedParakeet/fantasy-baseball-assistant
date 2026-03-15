@@ -9,6 +9,7 @@ scripts = {
     "yahoo_player_data": "services/sync_yahoo_player_data.py",
     "compute_auction_valuations": "services/compute_player_values_for_drafts.py",
     "compute_player_value_snapshots": "services/compute_player_value_snapshots.py",
+    "backfill_lookup_position_team": "services/backfill_lookup_position_team.py",
     "all": "sync_all.py"
 }
 

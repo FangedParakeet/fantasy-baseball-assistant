@@ -33,18 +33,23 @@ class MlbApi:
         logger.error(f"Max retries ({self.MAX_RETRIES}) exceeded. URL: {url}")
         return None
 
-    def get_player_info(self, player_ids: list[int]) -> list[dict]:
+    def get_player_info(
+        self, player_ids: list[int], hydrate: str | None = None
+    ) -> list[dict]:
         if not player_ids:
             return []
 
         results = []
         for i in range(0, len(player_ids), self.MAX_PLAYERS_PER_REQUEST):
-            batch_ids = player_ids[i:i + self.MAX_PLAYERS_PER_REQUEST]
-            data = self.request("people", {"personIds": ','.join(map(str, batch_ids))})
+            batch_ids = player_ids[i : i + self.MAX_PLAYERS_PER_REQUEST]
+            batch_params = {"personIds": ",".join(map(str, batch_ids))}
+            if hydrate:
+                batch_params["hydrate"] = hydrate
+            data = self.request("people", batch_params)
             if data and "people" in data:
                 results.extend(data["people"])
             else:
-                logger.warning(f"No data returned for batch {batch_ids}")
+                logger.warning("No data returned for batch %s", batch_ids)
             time.sleep(self.RETRY_WAIT_TIME)
 
         return results

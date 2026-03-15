@@ -7,6 +7,7 @@ from models.game_logs.player_lookup import PlayerLookup
 from models.game_logs.logs_inserter import LogsInserter
 from models.player_game_logs import PlayerGameLogs
 from models.probable_pitchers import ProbablePitchers
+from models.season_stats import SeasonStats
 from utils.constants import MLB_TEAM_IDS
 
 class PlayerHydrator(DB_Recorder):
@@ -102,12 +103,47 @@ class PlayerHydrator(DB_Recorder):
         if table_name == PlayerGameLogs.GAME_LOGS_TABLE:
             self.player_lookups.update_player_names_from_lookup(table_name, matching_conditions=["position"])
         elif table_name == ProbablePitchers.PROBABLE_PITCHERS_TABLE:
-            self.player_lookups.update_player_names_from_lookup(table_name, lookup_position="P")
+            self.player_lookups.update_player_ids_from_lookup(
+                table_name, 
+                matching_conditions={'espn_pitcher_id': 'espn_player_id'},
+                lookup_position="P",
+            )
             self.player_lookups.update_player_ids_from_lookup(
                 table_name,
                 matching_conditions={"team": "team"},
                 lookup_position="P",
             )
+            self.player_lookups.update_player_names_from_lookup(
+                table_name, 
+                lookup_position="P"
+            )
+            self.player_lookups.update_lookup_fields_from_table(
+                table_name, 
+                fields={'espn_player_id': 'espn_pitcher_id'},
+                matching_conditions={},
+                lookup_position="P",
+            )
+        elif table_name == SeasonStats.PLAYER_STATS_TABLE:
+            tables_to_update = [ table_name, table_name + '_percentiles']
+            for table in tables_to_update:
+                self.player_lookups.hydrate_season_stats_team_and_player_id(table)
+                self.player_lookups.update_player_ids_from_lookup(
+                    table,
+                    matching_conditions={'fangraphs_player_id': 'fangraphs_player_id', 'position': 'position'},
+                )
+                self.player_lookups.update_player_ids_from_lookup(
+                    table,
+                    matching_conditions={'team': 'team', 'position': 'position'},
+                )
+                self.player_lookups.update_player_names_from_lookup(
+                    table, 
+                    matching_conditions={'position': 'position'},
+                )
+                self.player_lookups.update_lookup_fields_from_table(
+                    table, 
+                    {'fangraphs_player_id': 'fangraphs_player_id'},
+                    matching_conditions={'position': 'position'},
+                )
 
     def should_run_sync(self, sync_name: str, force: bool=False) -> bool:
         if not self.sync_status.should_sync(sync_name, force):

@@ -3,6 +3,7 @@ from models.db_recorder import DB_Recorder
 from models.player_game_logs import PlayerGameLogs
 from datetime import datetime, timedelta, timezone
 from models.game_logs.logs_inserter import LogsInserter
+from utils.constants import MLB_TEAM_IDS
 
 class PlayerLookups(DB_Recorder):
     LOOKUP_TABLE = "player_lookup"
@@ -82,8 +83,9 @@ class PlayerLookups(DB_Recorder):
             self.consolidate_duplicate_players()
             default_join_conditions = ["t.normalised_name = pl.normalised_name"]
             join_conditions = default_join_conditions + [f"t.{key} = pl.{value}" for key, value in matching_conditions.items()]
+            if lookup_position is not None:
+                join_conditions.append("pl.position = %s")
             conditions_str = " AND ".join(join_conditions)
-            position_filter = " AND pl.position = %s" if lookup_position is not None else ""
 
             if unique_group_columns:
                 group_cols = ", ".join(unique_group_columns)
@@ -111,8 +113,7 @@ class PlayerLookups(DB_Recorder):
                         AND existing.existing_id <> t.id
                     SET t.player_id = pl.player_id
                     WHERE t.player_id IS NULL
-                    AND existing.existing_id IS NULL
-                    {position_filter}
+                        AND existing.existing_id IS NULL
                 """
             else:
                 update_query = f"""
@@ -120,7 +121,6 @@ class PlayerLookups(DB_Recorder):
                     JOIN {self.LOOKUP_TABLE} pl ON {conditions_str}
                     SET t.player_id = pl.player_id
                     WHERE t.player_id IS NULL
-                    {position_filter}
                 """
             if lookup_position is not None:
                 self.execute_query(update_query, (lookup_position,))
@@ -131,19 +131,31 @@ class PlayerLookups(DB_Recorder):
             logger.error(f"Error updating player ids from lookup table for {table}: {e}")
 
     def update_lookup_fields_from_table(
-        self, table: str, fields: list[str], position_column: str = "position"
+        self, 
+        table: str, 
+        fields: dict[str, str], 
+        matching_conditions: dict[str, str] = {},
+        lookup_position: str | None = None,
     ):
+        default_join_conditions = ["pl.player_id = t.player_id"]
+        join_conditions = default_join_conditions + [f"pl.{key} = t.{value}" for key, value in matching_conditions.items()]
+        conditions_str = " AND ".join(join_conditions)
         logger.info(f"Updating lookup fields from {table} for {fields}")
         try:
-            update_fields = ", ".join([f"pl.{field} = t.{field}" for field in fields])
-            where_clause = " AND ".join([f"pl.{field} IS NULL" for field in fields])
+            update_fields = ", ".join([f"pl.{key} = t.{value}" for key, value in fields.items()])
+            where_clause = " AND ".join([f"pl.{key} IS NULL" for key in fields.keys()])
+            if lookup_position is not None:
+                where_clause += f" AND pl.position = %s"
             update_query = f"""
                 UPDATE {self.LOOKUP_TABLE} pl
-                JOIN {table} t ON pl.player_id = t.player_id AND (pl.position <=> t.{position_column})
+                JOIN {table} t ON {conditions_str}
                 SET {update_fields}
                 WHERE {where_clause}
             """
-            self.execute_query(update_query)
+            if lookup_position is not None:
+                self.execute_query(update_query, (lookup_position,))
+            else:
+                self.execute_query(update_query)
             logger.info(f"Lookup fields updated successfully for {table}")
         except Exception as e:
             logger.error(f"Error updating lookup fields from {table} for {fields}: {e}")
@@ -301,3 +313,140 @@ class PlayerLookups(DB_Recorder):
 
         all_ids = ids_lookup + ids_game_log
         return list(set(id for id in all_ids if id is not None))
+
+    def consolidate_duplicate_season_stats(self, table: str) -> None:
+        """
+        Merge duplicate rows in a season stats table when (normalised_name, position) has
+        exactly two rows and player_lookup has exactly one row for that (normalised_name, position).
+        Keeps the row with fangraphs_player_id set, copies player_id from the other row, then deletes the other.
+        We null the non-keeper's player_id first to avoid unique (player_id, position) violation on update.
+        """
+        logger.info("Consolidating duplicate season stats for %s", table)
+        try:
+            self.begin_transaction()
+            # 1) Temp table: (keeper_id, pid_from_other) for each duplicate group with single lookup
+            self.execute_query_in_transaction(f"""
+                CREATE TEMPORARY TABLE _consolidate_keep (keeper_id INT PRIMARY KEY, pid_from_other INT)
+            """)
+            self.execute_query_in_transaction(f"""
+                INSERT INTO _consolidate_keep (keeper_id, pid_from_other)
+                SELECT grp.keeper_id, grp.pid_from_other
+                FROM (
+                    SELECT grp.normalised_name, grp.position,
+                           MAX(CASE WHEN t.fangraphs_player_id IS NOT NULL THEN t.id END) AS keeper_id,
+                           (SELECT t2.player_id FROM {table} t2
+                            WHERE t2.normalised_name = grp.normalised_name AND t2.position = grp.position
+                              AND t2.player_id IS NOT NULL
+                              AND t2.id <> (SELECT COALESCE(MAX(t3.id), 0) FROM {table} t3
+                                            WHERE t3.normalised_name = grp.normalised_name AND t3.position = grp.position
+                                              AND t3.fangraphs_player_id IS NOT NULL)
+                            LIMIT 1) AS pid_from_other
+                    FROM {table} t
+                    INNER JOIN (
+                        SELECT normalised_name, position
+                        FROM {table}
+                        GROUP BY normalised_name, position
+                        HAVING COUNT(*) = 2
+                    ) grp ON t.normalised_name = grp.normalised_name AND t.position = grp.position
+                    INNER JOIN (
+                        SELECT normalised_name, position
+                        FROM {self.LOOKUP_TABLE}
+                        GROUP BY normalised_name, position
+                        HAVING COUNT(*) = 1
+                    ) single_pl ON t.normalised_name = single_pl.normalised_name AND t.position = single_pl.position
+                    GROUP BY grp.normalised_name, grp.position
+                ) grp
+                WHERE grp.keeper_id IS NOT NULL AND grp.pid_from_other IS NOT NULL
+            """)
+            # 2) Null non-keeper's player_id so unique (player_id, position) is free before we assign it to keeper
+            self.execute_query_in_transaction(f"""
+                UPDATE {table} t
+                INNER JOIN {table} keeper ON keeper.id IN (SELECT keeper_id FROM _consolidate_keep)
+                    AND t.normalised_name = keeper.normalised_name AND t.position = keeper.position
+                    AND t.id <> keeper.id
+                SET t.player_id = NULL
+            """)
+            # 3) Copy saved player_id onto keeper
+            self.execute_query_in_transaction(f"""
+                UPDATE {table} t
+                INNER JOIN _consolidate_keep c ON t.id = c.keeper_id
+                SET t.player_id = COALESCE(t.player_id, c.pid_from_other)
+            """)
+            # 4) Delete the non-keeper row
+            self.execute_query_in_transaction(f"""
+                DELETE t FROM {table} t
+                INNER JOIN {table} keeper ON keeper.id IN (SELECT keeper_id FROM _consolidate_keep)
+                    AND t.normalised_name = keeper.normalised_name AND t.position = keeper.position
+                    AND t.id <> keeper.id
+            """)
+            self.execute_query_in_transaction("DROP TEMPORARY TABLE IF EXISTS _consolidate_keep")
+            self.commit_transaction()
+            logger.info("Consolidated duplicate season stats for %s", table)
+        except Exception as e:
+            self.rollback_transaction()
+            logger.exception("Error consolidating duplicate season stats for %s: %s", table, e)
+            raise
+
+    def hydrate_season_stats_team_and_player_id(
+        self,
+        table: str,
+        valid_teams: set[str] | None = None,
+        team_column: str = "team",
+    ) -> None:
+        """
+        Fix team and player_id on season stats using player_lookup (after Yahoo sync).
+        - When team is not in valid_teams: update from lookup by (fangraphs_player_id, position)
+          or (player_id, position), then set table.team and table.player_id from lookup.
+        - For rows still with invalid/missing team or player_id: match by (normalised_name, position)
+          only when both lookup and this table have exactly one row for that pair (unambiguous);
+          then update team and player_id from lookup. Avoids e.g. two "Max Muncy" B rows both
+          getting the same player_id and violating unique (player_id, position).
+        """
+        if valid_teams is None:
+            valid_teams = set(MLB_TEAM_IDS.keys())
+        logger.info("Hydrating season stats team and player_id from lookup for %s", table)
+        valid_teams_list = ",".join(repr(t) for t in valid_teams)
+        try:
+            # 1a) Rows where team not in valid_teams: update from lookup by (fangraphs_player_id, position)
+            self.execute_query(f"""
+                UPDATE {table} t
+                INNER JOIN {self.LOOKUP_TABLE} pl
+                    ON t.fangraphs_player_id IS NOT NULL AND pl.fangraphs_player_id = t.fangraphs_player_id AND (t.position <=> pl.position)
+                SET t.{team_column} = pl.team, t.player_id = COALESCE(t.player_id, pl.player_id)
+                WHERE (t.{team_column} IS NULL OR t.{team_column} NOT IN ({valid_teams_list}))
+                  AND pl.team IS NOT NULL
+            """)
+            # 1b) Rows where team not in valid_teams: update from lookup by (player_id, position)
+            self.execute_query(f"""
+                UPDATE {table} t
+                INNER JOIN {self.LOOKUP_TABLE} pl
+                    ON t.player_id IS NOT NULL AND pl.player_id = t.player_id AND (t.position <=> pl.position)
+                SET t.{team_column} = pl.team
+                WHERE (t.{team_column} IS NULL OR t.{team_column} NOT IN ({valid_teams_list}))
+                  AND pl.team IS NOT NULL
+            """)
+            # 2) Rows still with bad/missing team or player_id: match by (normalised_name, position) only when
+            #    both lookup and this table have exactly one row for that pair (unambiguous match).
+            self.execute_query(f"""
+                UPDATE {table} t
+                INNER JOIN {self.LOOKUP_TABLE} pl ON t.normalised_name = pl.normalised_name AND (t.position <=> pl.position)
+                INNER JOIN (
+                    SELECT normalised_name, position
+                    FROM {self.LOOKUP_TABLE}
+                    GROUP BY normalised_name, position
+                    HAVING COUNT(*) = 1
+                ) single_pl ON pl.normalised_name = single_pl.normalised_name AND (pl.position <=> single_pl.position)
+                INNER JOIN (
+                    SELECT normalised_name, position
+                    FROM {table}
+                    GROUP BY normalised_name, position
+                    HAVING COUNT(*) = 1
+                ) single_t ON t.normalised_name = single_t.normalised_name AND (t.position <=> single_t.position)
+                SET t.{team_column} = COALESCE(NULLIF(t.{team_column}, ''), pl.team), t.player_id = COALESCE(t.player_id, pl.player_id)
+                WHERE (t.{team_column} IS NULL OR t.{team_column} NOT IN ({valid_teams_list}) OR t.player_id IS NULL)
+                  AND pl.team IS NOT NULL
+            """)
+            logger.info("Hydrated season stats team and player_id for %s", table)
+        except Exception as e:
+            logger.exception("Error hydrating season stats for %s: %s", table, e)
+            raise
