@@ -155,17 +155,17 @@ class TeamPitchingRotations(DB_Recorder):
                     FROM (
                         SELECT home_team as team, home_pitcher_id as pitcher_id, pl.normalised_name, game_date
                         FROM {self.game_pitchers_table} gp
-                        LEFT JOIN {self.player_lookups_table} pl ON gp.home_pitcher_id = pl.player_id
+                        LEFT JOIN {self.player_lookups_table} pl ON gp.home_pitcher_id = pl.player_id AND pl.position = 'P'
                         WHERE home_pitcher_id IS NOT NULL
                         AND game_date >= CURDATE() - INTERVAL {self.MAX_ROTATION_DAYS_BEHIND} DAY
                         AND pl.status = 'Active'
                         AND pl.team = home_team
-                        
+
                         UNION ALL
-                        
+
                         SELECT away_team as team, away_pitcher_id as pitcher_id, pl.normalised_name, game_date
                         FROM {self.game_pitchers_table} gp
-                        LEFT JOIN {self.player_lookups_table} pl ON gp.away_pitcher_id = pl.player_id
+                        LEFT JOIN {self.player_lookups_table} pl ON gp.away_pitcher_id = pl.player_id AND pl.position = 'P'
                         WHERE away_pitcher_id IS NOT NULL
                         AND game_date >= CURDATE() - INTERVAL {self.MAX_ROTATION_DAYS_BEHIND} DAY
                         AND pl.status = 'Active'

@@ -105,7 +105,27 @@ class PlayerValueCalculator:
             )
 
         roster = roster_df.copy()
-        roster["slot_code"] = roster.apply(self.derive_slot_code, axis=1)
+        # Merge in eligibility flags so we can derive slot_code(s) from eligible_positions
+        elig_cols = ["player_pk", "position", "is_c", "is_1b", "is_2b", "is_3b", "is_ss", "is_of", "is_util", "is_sp", "is_rp"]
+        roster = roster.merge(
+            self.all_players_df[elig_cols].drop_duplicates(subset=["player_pk"]),
+            on="player_pk",
+            how="left",
+            suffixes=("", "_elig"),
+        )
+        # If position came from both, keep roster's; otherwise ensure we have position
+        if "position_elig" in roster.columns:
+            roster["position"] = roster["position"].fillna(roster["position_elig"])
+            roster = roster.drop(columns=["position_elig"])
+
+        # Build one row per (player_pk, team_id, slot_code) so multi-eligible players count in multiple columns
+        rows_expanded = []
+        for _, row in roster.iterrows():
+            for slot in self.get_eligible_slot_codes(row):
+                rows_expanded.append({"player_pk": row["player_pk"], "team_id": row["team_id"], "slot_code": slot})
+        roster_expanded = pd.DataFrame(rows_expanded)
+        if roster_expanded.empty:
+            roster_expanded = pd.DataFrame(columns=["player_pk", "team_id", "slot_code"])
 
         # --- By category: merge roster + components, sum weighted_value per (team_id, category_code), then league_avg + rank
         roster_components = components_df[["player_pk", "category_code", "weighted_value"]].merge(
@@ -121,9 +141,9 @@ class PlayerValueCalculator:
             team_category_totals["team_count"] = team_category_totals.groupby("category_code")["team_id"].transform("nunique")
             category_totals = team_category_totals[["team_id", "category_code", "total_value", "league_avg", "rank", "team_count"]]
 
-        # --- By position: merge roster + totals, sum total_value and count per (team_id, slot_code), then league_avg + rank
+        # --- By position: use expanded roster so multi-eligible players contribute to each eligible slot
         roster_totals = totals_df[["player_pk", "total_value"]].merge(
-            roster[["player_pk", "team_id", "slot_code"]], on="player_pk", how="inner"
+            roster_expanded[["player_pk", "team_id", "slot_code"]], on="player_pk", how="inner"
         )
         if roster_totals.empty:
             position_totals = pd.DataFrame(columns=["team_id", "slot_code", "total_value", "player_count", "league_avg", "rank", "team_count"])
@@ -249,11 +269,41 @@ class PlayerValueCalculator:
         }
 
     def derive_slot_code(self, row: pd.Series) -> str:
-        """Map roster row to slot_code: use selected_position if set, else UTIL/P by position."""
-        sel = row.get("selected_position")
-        if pd.notna(sel) and str(sel).strip():
-            return str(sel).strip()
-        return "UTIL" if row.get("position") == "B" else "P"
+        """Map roster row to a single slot_code: use selected_position if set, else first eligible or UTIL/P."""
+        slots = self.get_eligible_slot_codes(row)
+        return slots[0] if slots else ("UTIL" if row.get("position") == "B" else "P")
+
+    def get_eligible_slot_codes(self, row: pd.Series) -> List[str]:
+        """
+        Return all slot_codes this player counts toward, from eligible_positions (is_* flags).
+        Ignores selected_position (daily lineup slot); multi-eligible players are counted in every eligible column.
+        """
+        pos = row.get("position")
+        if pos == "P":
+            slots = []
+            if row.get("is_sp") == 1:
+                slots.append("SP")
+            if row.get("is_rp") == 1:
+                slots.append("RP")
+            slots.append("P")
+            return slots if slots else ["P"]
+
+        # Batter: use is_c, is_1b, is_2b, is_3b, is_ss, is_of; all batters count for UTIL
+        slots = []
+        if row.get("is_c") == 1:
+            slots.append("C")
+        if row.get("is_1b") == 1:
+            slots.append("1B")
+        if row.get("is_2b") == 1:
+            slots.append("2B")
+        if row.get("is_3b") == 1:
+            slots.append("3B")
+        if row.get("is_ss") == 1:
+            slots.append("SS")
+        if row.get("is_of") == 1:
+            slots.append("OF")
+        slots.append("UTIL")
+        return slots if slots else ["UTIL"]
 
 
     def calculate_tiers(self, values: pd.Series) -> pd.Series:

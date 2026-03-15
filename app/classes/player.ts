@@ -400,7 +400,8 @@ class Player {
             LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
                 ON ${PLAYERS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
             LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
+                AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = 'P'
             LEFT JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS} 
                 ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
                 AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
@@ -465,7 +466,8 @@ class Player {
             LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
                 ON ${PLAYERS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
             LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
+                AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = 'P'
             LEFT JOIN ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS} 
                 ON ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
@@ -761,7 +763,8 @@ class Player {
                             ON ${PLAYERS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
                             AND ${PLAYERS_TABLE_ALIAS}.position = 'P'
                         JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                            ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+                            ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
+                            AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = 'P'
                         LEFT JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
                             ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
                             AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
@@ -843,7 +846,8 @@ class Player {
                             CASE WHEN ${PROBABLE_PITCHERS_TABLE_ALIAS}.home = 1 THEN 1 ELSE 0 END AS our_home
                         FROM ${PROBABLE_PITCHERS_TABLE} ${PROBABLE_PITCHERS_TABLE_ALIAS}
                         JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS}
-                            ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.team = ${PROBABLE_PITCHERS_TABLE_ALIAS}.team
+                            ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.team = ${PROBABLE_PITCHERS_TABLE_ALIAS}.team 
+                            AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = 'B'
                         JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
                             ON ${PLAYERS_TABLE_ALIAS}.player_id = ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id 
                             AND ${PLAYERS_TABLE_ALIAS}.position = 'B'
@@ -862,8 +866,11 @@ class Player {
                             CASE WHEN ${PROBABLE_PITCHERS_TABLE_ALIAS}.home = 1 THEN 0 ELSE 1 END AS our_home
                         FROM ${PROBABLE_PITCHERS_TABLE} ${PROBABLE_PITCHERS_TABLE_ALIAS}
                         JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS}
-                            ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.team = ${PROBABLE_PITCHERS_TABLE_ALIAS}.opponent
-                        JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} ON ${PLAYERS_TABLE_ALIAS}.player_id = ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id AND ${PLAYERS_TABLE_ALIAS}.position = 'B'
+                            ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.team = ${PROBABLE_PITCHERS_TABLE_ALIAS}.opponent 
+                            AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = 'B'
+                        JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
+                            ON ${PLAYERS_TABLE_ALIAS}.player_id = ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id 
+                            AND ${PLAYERS_TABLE_ALIAS}.position = 'B'
                         WHERE ${PROBABLE_PITCHERS_TABLE_ALIAS}.game_date BETWEEN ? AND ?
                             AND ${PLAYERS_TABLE_ALIAS}.team_id = ?
                     ) AS g
@@ -888,7 +895,8 @@ class Player {
                     )) / NULLIF(SUM(t.games),0) AS hitter_week_score
                 FROM temp_opponents t
                 JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                    ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = t.player_id
+                    ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = t.player_id 
+                    AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = 'B'
                 JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
                     ON ${PLAYERS_TABLE_ALIAS}.player_id = ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id 
                     AND ${PLAYERS_TABLE_ALIAS}.position = 'B'
@@ -1218,7 +1226,8 @@ class Player {
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ? 
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = 'B'
             LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+                AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position
             LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
                 ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
                 AND ${PLAYERS_TABLE_ALIAS}.position = 'B'
@@ -1280,7 +1289,8 @@ class Player {
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ? 
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = 'B'
             LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+                AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position
             LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
                 ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
                 AND ${PLAYERS_TABLE_ALIAS}.position = 'B'
@@ -1343,7 +1353,8 @@ class Player {
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ? 
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = 'B'
             LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+                AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position
             LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
                 ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
                 AND ${PLAYERS_TABLE_ALIAS}.position = 'B'
@@ -1406,7 +1417,8 @@ class Player {
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ? 
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = 'P'
             LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+                AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position
             LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
                 ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
                 AND ${PLAYERS_TABLE_ALIAS}.position = 'P'
@@ -1466,7 +1478,8 @@ class Player {
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ? 
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = 'P'
             LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+                AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position
             LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
                 ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
                 AND ${PLAYERS_TABLE_ALIAS}.position = 'P'
@@ -1581,7 +1594,8 @@ class Player {
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ? 
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = ?
             LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+                AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position
             LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
                 ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
                 AND ${PLAYERS_TABLE_ALIAS}.position = ?
@@ -1627,7 +1641,9 @@ class Player {
 
             FROM ${PROBABLE_PITCHERS_TABLE} ${PROBABLE_PITCHERS_TABLE_ALIAS}
             LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} ON ${PLAYERS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
-            LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+            LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
+                AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = 'P'
             LEFT JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS} 
                 ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
                 AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 

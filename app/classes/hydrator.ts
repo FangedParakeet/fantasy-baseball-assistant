@@ -39,8 +39,8 @@ class Hydrator {
 
         await this.db.query(`
             UPDATE ${this.players_table} p
-            JOIN ${this.player_lookup_table} pl 
-                ON pl.normalised_name = p.normalised_name AND pl.team = p.mlb_team
+            JOIN ${this.player_lookup_table} pl
+                ON pl.normalised_name = p.normalised_name AND pl.team = p.mlb_team AND (pl.position <=> p.position)
             SET p.player_id = pl.player_id
             WHERE p.player_id IS NULL
         `);

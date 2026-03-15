@@ -106,7 +106,7 @@ class QSScoreCalculator(ScoreCalculator):
                     ) u
 
                     LEFT JOIN (
-                        SELECT pl.player_id, pl.throws FROM {self.player_lookup_table} pl
+                        SELECT pl.player_id, pl.throws FROM {self.player_lookup_table} pl WHERE pl.position = 'P'
                     ) ph  ON ph.player_id = u.player_id
 
                     LEFT JOIN (

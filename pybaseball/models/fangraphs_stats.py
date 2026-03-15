@@ -51,7 +51,10 @@ class FangraphsStats(SeasonStats):
         if pitcher_data_response is not None or batter_data_response is not None:
             logger.info("Updating player ids from lookup table")
             additional_join_conditions = {'team': 'team'}
-            self.player_lookups.update_player_ids_from_lookup(self.PLAYER_STATS_TABLE, additional_join_conditions)
+            self.player_lookups.update_player_ids_from_lookup(
+                self.PLAYER_STATS_TABLE,
+                {"team": "team", "position": "position"},
+            )
 
     def update_all_team_stats(self):
         logger.info("Updating all season team stats from Fangraphs")

@@ -17,6 +17,7 @@ def main(force: bool=False):
 
         logger.info("Starting Yahoo player data sync...")
         yahoo_player_hydrator.hydrate_all_players(force)
+        yahoo_player_hydrator.hydrate_stale_player_ids()
 
         logger.info("Yahoo player data sync complete.")
     except Exception as e:

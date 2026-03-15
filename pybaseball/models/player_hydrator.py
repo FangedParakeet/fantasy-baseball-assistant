@@ -100,10 +100,14 @@ class PlayerHydrator(DB_Recorder):
     def update_table_from_lookup(self, table_name: str) -> None:
         logger.info(f"Updating {table_name} from player lookup table")
         if table_name == PlayerGameLogs.GAME_LOGS_TABLE:
-            self.player_lookups.update_player_names_from_lookup(table_name)
+            self.player_lookups.update_player_names_from_lookup(table_name, matching_conditions=["position"])
         elif table_name == ProbablePitchers.PROBABLE_PITCHERS_TABLE:
-            self.player_lookups.update_player_names_from_lookup(table_name)
-            self.player_lookups.update_player_ids_from_lookup(table_name)
+            self.player_lookups.update_player_names_from_lookup(table_name, lookup_position="P")
+            self.player_lookups.update_player_ids_from_lookup(
+                table_name,
+                matching_conditions={"team": "team"},
+                lookup_position="P",
+            )
 
     def should_run_sync(self, sync_name: str, force: bool=False) -> bool:
         if not self.sync_status.should_sync(sync_name, force):

@@ -92,7 +92,7 @@ class PlayerRollingStats(RollingStats):
 
     def get_join_conditions(self):
         return """
-        (gl.is_home = 1 AND opp_pl.player_id = gp.away_pitcher_id)
+        (gl.is_home = 1 AND opp_pl.player_id = gp.away_pitcher_id AND opp_pl.position = 'P')
             OR
-        (gl.is_home = 0 AND opp_pl.player_id = gp.home_pitcher_id)
+        (gl.is_home = 0 AND opp_pl.player_id = gp.home_pitcher_id AND opp_pl.position = 'P')
         """

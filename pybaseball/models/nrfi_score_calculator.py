@@ -135,8 +135,8 @@ class NRFIScoreCalculator(ScoreCalculator):
                     ) bp
 
                     -- Hands
-                    LEFT JOIN {self.player_lookup_table} h1 ON h1.player_id = bp.player_id
-                    LEFT JOIN {self.player_lookup_table} h2 ON h2.player_id = bp.opp_pitcher_id
+                    LEFT JOIN {self.player_lookup_table} h1 ON h1.player_id = bp.player_id AND h1.position = 'P'
+                    LEFT JOIN {self.player_lookup_table} h2 ON h2.player_id = bp.opp_pitcher_id AND h2.position = 'P'
 
                     -- Pitcher rolling NRFI (our & opp), last :pitcher_span_days
                     LEFT JOIN (
