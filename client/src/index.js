@@ -7,6 +7,7 @@ import OAuthSuccess from './components/OAuthSuccess';
 import AuthRedirect from './components/AuthRedirect';
 import MyTeam from './components/MyTeam';
 import LeagueTeams from './components/LeagueTeams';
+import TradeAnalysis from './components/TradeAnalysis';
 import Settings from './components/Settings';
 import LeagueSettings from './components/LeagueSettings';
 import TwoStartPitchers from './components/TwoStartPitchers';
@@ -29,6 +30,7 @@ function App() {
         <Route path="/oauth-success" element={<OAuthSuccess />} />
         <Route path="/my-team" element={<MyTeam />} />
         <Route path="/league-teams" element={<LeagueTeams />} />
+        <Route path="/trade-analysis" element={<TradeAnalysis />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/league-settings" element={<LeagueSettings />} />
         <Route path="/two-start-pitchers" element={<TwoStartPitchers />} />

@@ -19,6 +19,7 @@ import type {
 	PitcherStarterWatchlist,
 	PlayerAdvancedScoringFields,
 	PlayerFantasyRanking,
+	PlayerScoringCategoryStats,
 	PlayerScoringFields,
 	Position,
 	ProbablePitcher,
@@ -28,6 +29,7 @@ import type {
 	TwoStartPitcher,
 	WatchlistType,
 } from "../classes/player";
+import { parseJsonArray, parseNumberRequired } from "../utils/functions";
 
 export type DateQuery = {
     startDate: string | false;
@@ -66,16 +68,41 @@ const ORDER_BY_SET = new Set<PlayerScoringFields | PlayerAdvancedScoringFields>(
 class PlayerStatsController {
     constructor(private readonly player: Player) {}
 
+    async getScoringCategoryStatsForPlayers(
+        rawPlayerIds: number[] | string,
+        modelId: number,
+        spanDays: SpanDays = 14,
+    ): Promise<PlayerScoringCategoryStats[]> {
+        // Validate query parameters
+        let playerIds = Array.isArray(rawPlayerIds) ? rawPlayerIds : parseJsonArray(rawPlayerIds as string, 'playerIds');
+        playerIds = playerIds.map(id => parseNumberRequired(id, 'playerId')) as number[];
+
+        if ( !playerIds?.length ) {
+            throw new Error('Player IDs are required');
+        }
+        const modelIdValid = parseNumberRequired(modelId, 'modelId');
+        const spanDaysValid = parseNumberRequired(spanDays, 'spanDays') as SpanDays;
+
+        return await this.player.getScoringCategoryStatsForPlayers(playerIds as number[], modelIdValid, spanDaysValid as SpanDays);
+    }
+
     async getScoringCategoryStatsForTeam(
         teamId: number,
         modelId: number,
         spanDays: SpanDays = 14,
         type: 'batting' | 'pitching'
     ): Promise<HitterScoringCategoryStats[] | PitcherScoringCategoryStats[]> {
+        // Validate query parameters
+        const teamIdValid = parseNumberRequired(teamId, 'teamId');
+        const modelIdValid = parseNumberRequired(modelId, 'modelId');
+        const spanDaysValid = parseNumberRequired(spanDays, 'spanDays') as SpanDays;
+        if ( !type ) {
+            throw new Error('Type is required');
+        }
         if ( type === 'batting' ) {
-            return await this.player.getScoringCategoryStatsForTeamHitters(teamId, modelId, spanDays);
+            return await this.player.getScoringCategoryStatsForTeamHitters(teamIdValid, modelIdValid, spanDaysValid);
         } else if ( type === 'pitching' ) {
-            return await this.player.getScoringCategoryStatsForTeamPitchers(teamId, modelId, spanDays);
+            return await this.player.getScoringCategoryStatsForTeamPitchers(teamIdValid, modelIdValid, spanDaysValid);
         } else {
             throw new Error('Invalid type');
         }
@@ -88,10 +115,18 @@ class PlayerStatsController {
         spanDays: SpanDays = 14,
         type: 'scoring' | 'position'
     ): Promise<TeamScoringCategoryStats[] | TeamPositionValueStats[]> {
+        // Validate query parameters
+        const leagueIdValid = parseNumberRequired(leagueId, 'leagueId');
+        const teamIdValid = parseNumberRequired(teamId, 'teamId');
+        const modelIdValid = parseNumberRequired(modelId, 'modelId');
+        const spanDaysValid = parseNumberRequired(spanDays, 'spanDays') as SpanDays;
+        if ( !type ) {
+            throw new Error('Type is required');
+        }
         if ( type === 'scoring' ) {
-            return await this.player.getScoringCategoryStatsForTeam(leagueId, teamId, modelId, spanDays);
+            return await this.player.getScoringCategoryStatsForTeam(leagueIdValid, teamIdValid, modelIdValid, spanDaysValid);
         } else if ( type === 'position' ) {
-            return await this.player.getPositionValueStatsForTeam(leagueId, teamId, modelId, spanDays);
+            return await this.player.getPositionValueStatsForTeam(leagueIdValid, teamIdValid, modelIdValid, spanDaysValid);
         } else {
             throw new Error('Invalid type');
         }

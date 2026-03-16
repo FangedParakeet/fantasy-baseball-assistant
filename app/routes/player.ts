@@ -4,6 +4,7 @@ import Player from "../classes/player";
 import type { 
     HitterScoringCategoryStats,
     PitcherScoringCategoryStats,
+    PlayerScoringCategoryStats,
     ProbablePitcher,
     SpanDays,
     TwoStartPitcher,
@@ -241,6 +242,30 @@ router.get('/preview/team/:teamId/value-stats/pitching', async (req: Request, re
     } catch (error) {
         console.error('Error getting team pitching value stats:', error);
         return sendError(res, 500, 'Failed to get team pitching value stats');
+    }
+});
+
+router.get('/preview/team/:teamId/value-stats/players', async (req: Request, res: Response) => {
+    try {
+        const { teamId } = req.params;
+        const id = teamId != null ? Number(teamId) : NaN;
+        if (!teamId || Number.isNaN(id)) {
+            return sendError(res, 400, 'Valid team ID is required');
+        }
+
+        const { modelId, spanDays } = req.query as unknown as {
+            modelId: number;
+            spanDays: number;
+        };
+        if (!modelId || !spanDays) {
+            return sendError(res, 400, 'Valid model ID and span days are required');
+        }
+
+        const playersValueStats = await playerStatsController.getScoringCategoryStatsForPlayers(req.query.playerIds as unknown as number[], modelId, spanDays as SpanDays) as PlayerScoringCategoryStats[];
+        return sendSuccess(res, playersValueStats, 'Players value stats retrieved successfully');
+    } catch (error) {
+        console.error('Error getting team value stats:', error);
+        return sendError(res, 500, 'Failed to get team value stats');
     }
 });
 

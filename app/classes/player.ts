@@ -195,6 +195,10 @@ export type HitterScoringCategoryStats = ScoringCategoryStatsBase
     & Partial<Record<HitterCategory, ScoringCategoryValue>>
     & Record<`${typeof PLAYERS_TABLE_ALIAS}.${DefaultPlayerFields}`, string>;
 
+export type PlayerScoringCategoryStats = ScoringCategoryStatsBase
+    & Partial<Record<PitcherCategory | HitterCategory, ScoringCategoryValue>>
+    & Record<`${typeof PLAYERS_TABLE_ALIAS}.${DefaultPlayerFields}`, string>;
+
 type ScoringCategoryValueBase = {
     weighted_value: number;
     category_tier: number | null;
@@ -214,6 +218,14 @@ type HitterScoringCategoryValueBase = ScoringCategoryValueBase
 type HitterScoringCategoryValue = HitterScoringCategoryValueBase
     & ScoringCategoryStatsBase
     & Record<`${typeof PLAYERS_TABLE_ALIAS}.${DefaultPlayerFields}`, string>;
+type PlayerScoringCategoryValueBase = ScoringCategoryValueBase
+    & {
+        category_code: PitcherCategory | HitterCategory;
+    };
+type PlayerScoringCategoryValue = PlayerScoringCategoryValueBase
+    & ScoringCategoryStatsBase
+    & Record<`${typeof PLAYERS_TABLE_ALIAS}.${DefaultPlayerFields}`, string>;
+
 
 export type TeamScoringCategoryStats = {
     category_code: PitcherCategory | HitterCategory;
@@ -975,38 +987,9 @@ class Player {
             ORDER BY ${PLAYERS_TABLE_ALIAS}.id, ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.category_code;
             `, [modelId, spanDays, modelId, spanDays, teamId]);
 
-        // Group flat rows (one per player per category) into one row per player with categories as keys.
-        // mysql2 may return column names as "id"/"name" (unqualified) or "p.id"/"p.name" (qualified); support both.
-        const byPlayer = new Map<number, PitcherScoringCategoryStats>();
+        const pitcherScoringCategoryStats = this.flattenScoringCategoryStatsForPlayers(pitcherScoringCategoryValues) as unknown as PitcherScoringCategoryStats[];
 
-        for (const row of pitcherScoringCategoryValues) {
-            const rowAny = row as Record<string, unknown>;
-            const id = Number(rowAny[`${PLAYERS_TABLE_ALIAS}.id`] ?? rowAny['id']);
-            if (Number.isNaN(id)) continue;
-
-            if (!byPlayer.has(id)) {
-                const base: Record<string, unknown> = {};
-                for (const f of this.defaultPlayerFields) {
-                    const prefixed = `${PLAYERS_TABLE_ALIAS}.${f}`;
-                    base[prefixed] = rowAny[prefixed] ?? rowAny[f];
-                }
-                base.total_value = rowAny.total_value;
-                base.total_tier = rowAny.total_tier;
-                base.reliability_score = rowAny.reliability_score;
-                base.risk_score = rowAny.risk_score;
-                byPlayer.set(id, base as PitcherScoringCategoryStats);
-            }
-            const out = byPlayer.get(id) as Record<string, unknown>;
-            const code = row.category_code;
-            if (code != null && String(code).trim() !== '') {
-                out[code] = {
-                    weighted_value: Number(row.weighted_value),
-                    category_tier: row.category_tier != null ? Number(row.category_tier) : null,
-                };
-            }
-        }
-
-        return Array.from(byPlayer.values()) as PitcherScoringCategoryStats[];
+        return pitcherScoringCategoryStats;
     }
 
     async getScoringCategoryStatsForTeamHitters(
@@ -1058,11 +1041,72 @@ class Player {
             ORDER BY ${PLAYERS_TABLE_ALIAS}.id, ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.category_code;
             `, [modelId, spanDays, modelId, spanDays, teamId]);
 
+        const hitterScoringCategoryStats = this.flattenScoringCategoryStatsForPlayers(hitterScoringCategoryValues) as unknown as HitterScoringCategoryStats[];
+
+        return hitterScoringCategoryStats;
+    }
+
+    async getScoringCategoryStatsForPlayers(
+        playerIds: number[],
+        modelId: number,
+        spanDays: SpanDays = 14,
+    ): Promise<PlayerScoringCategoryStats[]> {
+        if (!playerIds?.length) {
+            throw new Error('Player IDs are required');
+        }
+        if (!modelId) {
+            throw new Error('Model ID is required');
+        }
+        if (!spanDays) {
+            throw new Error('Span days are required');
+        }
+
+        const defaultPlayerFields = this.getDefaultPlayerFields();
+
+        const [playerScoringCategoryValues] = await this.db.query<PlayerScoringCategoryValue[]>(`
+            SELECT
+                ${this.getFields(defaultPlayerFields).join(', ')},
+                ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.total_value,
+                ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.tier AS total_tier,
+                ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.reliability_score,
+                ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.risk_score,
+                ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.category_code,
+                ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.weighted_value,
+                ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.tier AS category_tier
+            FROM ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS}
+            JOIN ${PLAYER_VALUE_SNAPSHOTS_TABLE} ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}
+                ON ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.player_pk = ${PLAYERS_TABLE_ALIAS}.id
+                AND ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.model_id = ?
+                AND ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.span_days = ?
+                AND ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.split_type = 'overall'
+                AND ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.as_of_date = (
+                    SELECT MAX(as_of_date)
+                    FROM ${PLAYER_VALUE_SNAPSHOTS_TABLE}
+                    WHERE model_id = ?
+                    AND span_days = ?
+                    AND split_type = 'overall'
+                )
+            LEFT JOIN ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE} ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}
+                ON ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.player_pk = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.player_pk
+                AND ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.model_id = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.model_id
+                AND ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.span_days = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.span_days
+                AND ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.split_type = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.split_type
+                AND ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.as_of_date = ${PLAYER_VALUE_SNAPSHOTS_TABLE_ALIAS}.as_of_date
+            WHERE ${PLAYERS_TABLE_ALIAS}.id IN (?)
+            ORDER BY ${PLAYERS_TABLE_ALIAS}.id, ${PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE_ALIAS}.category_code;
+            `, [modelId, spanDays, modelId, spanDays, playerIds]);
+
+        const playerScoringCategoryStats = this.flattenScoringCategoryStatsForPlayers(playerScoringCategoryValues) as unknown as PlayerScoringCategoryStats[];
+
+        return playerScoringCategoryStats;
+    }
+
+    flattenScoringCategoryStatsForPlayers(scoringCategoryValues: HitterScoringCategoryValue[] | PitcherScoringCategoryValue[] | PlayerScoringCategoryValue[] ): HitterScoringCategoryStats[] | PitcherScoringCategoryStats[] | PlayerScoringCategoryStats[] {
         // Group flat rows (one per player per category) into one row per player with categories as keys.
         // mysql2 may return column names as "id"/"name" (unqualified) or "p.id"/"p.name" (qualified); support both.
-        const byPlayer = new Map<number, HitterScoringCategoryStats>();
+        const byPlayer = new Map<number, HitterScoringCategoryStats | PitcherScoringCategoryStats | PlayerScoringCategoryStats>();
 
-        for (const row of hitterScoringCategoryValues) {
+        for (const row of scoringCategoryValues) {
             const rowAny = row as Record<string, unknown>;
             const id = Number(rowAny[`${PLAYERS_TABLE_ALIAS}.id`] ?? rowAny['id']);
             if (Number.isNaN(id)) continue;
@@ -1077,7 +1121,7 @@ class Player {
                 base.total_tier = rowAny.total_tier;
                 base.reliability_score = rowAny.reliability_score;
                 base.risk_score = rowAny.risk_score;
-                byPlayer.set(id, base as HitterScoringCategoryStats);
+                byPlayer.set(id, base as HitterScoringCategoryStats | PitcherScoringCategoryStats | PlayerScoringCategoryStats);
             }
             const out = byPlayer.get(id) as Record<string, unknown>;
             const code = row.category_code;
@@ -1089,7 +1133,7 @@ class Player {
             }
         }
 
-        return Array.from(byPlayer.values()) as HitterScoringCategoryStats[];
+        return Array.from(byPlayer.values()) as HitterScoringCategoryStats[] | PitcherScoringCategoryStats[] | PlayerScoringCategoryStats[];
     }
 
     async getScoringCategoryStatsForTeam(

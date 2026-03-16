@@ -54,13 +54,13 @@ function TokenStatus() {
                   <p>Token expires: {new Date(tokenStatus.expiresAt).toLocaleString()}</p>
                 )}
                 <div className="btn-group">
-                  <button 
+                  <button type="button" 
                     onClick={() => window.location.href = '/my-team'}
                     className="btn btn-primary btn-large"
                   >
                     View My Team
                   </button>
-                  <button 
+                  <button type="button" 
                     onClick={handleRefreshToken}
                     className="btn btn-success btn-large"
                   >
@@ -72,13 +72,13 @@ function TokenStatus() {
               <div>
                 <p style={{ color: 'orange' }}>⚠ Token expired</p>
                 <div className="btn-group">
-                  <button 
+                  <button type="button" 
                     onClick={handleRefreshToken}
                     className="btn btn-warning btn-large"
                   >
                     Refresh Token
                   </button>
-                  <button 
+                  <button type="button" 
                     onClick={handleYahooLogin}
                     className="btn btn-primary btn-large"
                   >
@@ -91,7 +91,7 @@ function TokenStatus() {
         ) : (
           <div>
             <p>Connect your Yahoo Fantasy account to get started</p>
-            <button 
+            <button type="button" 
               onClick={handleYahooLogin}
               className="btn btn-primary btn-large"
             >
@@ -105,7 +105,7 @@ function TokenStatus() {
         <h3>Quick Actions</h3>
         <ul className="quick-actions">
           <li>
-            <button 
+            <button type="button" 
               onClick={() => window.location.href = '/league-teams'}
               className="btn btn-primary btn-full"
             >
@@ -113,7 +113,15 @@ function TokenStatus() {
             </button>
           </li>
           <li>
-            <button 
+            <button type="button" 
+              onClick={() => window.location.href = '/trade-analysis'}
+              className="btn btn-primary btn-full"
+            >
+              Trade Analysis
+            </button>
+          </li>
+          <li>
+            <button type="button" 
               onClick={() => window.location.href = '/player-scouting'}
               className="btn btn-primary btn-full"
             >
@@ -121,7 +129,7 @@ function TokenStatus() {
             </button>
           </li>
           <li>
-            <button 
+            <button type="button" 
               onClick={() => window.location.href = '/streaming-pitchers'}
               className="btn btn-primary btn-full"
             >
@@ -129,7 +137,7 @@ function TokenStatus() {
             </button>
           </li>
           <li>
-            <button 
+            <button type="button" 
               onClick={() => window.location.href = '/nrfi-analysis'}
               className="btn btn-primary btn-full"
             >
@@ -137,7 +145,7 @@ function TokenStatus() {
             </button>
           </li>
           <li>
-            <button 
+            <button type="button" 
               onClick={() => window.location.href = '/drafts'}
               className="btn btn-primary btn-full"
             >
@@ -145,7 +153,7 @@ function TokenStatus() {
             </button>
           </li>
           <li className="quick-actions-separator">
-            <button 
+            <button type="button" 
               onClick={() => window.location.href = '/league-settings'}
               className="btn btn-secondary btn-full"
             >
@@ -153,7 +161,7 @@ function TokenStatus() {
             </button>
           </li>
           <li>
-            <button 
+            <button type="button" 
               onClick={() => window.location.href = '/settings'}
               className="btn btn-secondary btn-full"
             >
