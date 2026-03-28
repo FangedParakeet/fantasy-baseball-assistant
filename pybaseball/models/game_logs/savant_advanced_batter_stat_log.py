@@ -6,14 +6,14 @@ logger = logging.getLogger(__name__)
 
 class SavantAdvancedBatterStatLog(SavantPlayerStatLog):
     KEYS = [
-        'player_id', 'position', 'last_updated', # ID
+        'player_id', 'position', 'season_year', 'last_updated', # ID
         'games', 'ab', 'hits', 'hr', 'rbi', 'runs', 'sb', # Basic counting stats
         'chase_pct', 'contact_pct', 'zone_contact_pct', 'whiff_pct', # Plate discipline
         'sprint_speed', 'age' # Meta
     ]
 
-    def __init__(self, player_data: dict):
-        super().__init__(player_data)
+    def __init__(self, player_data: dict, season_year=None):
+        super().__init__(player_data, season_year)
         self.player_data = player_data
 
         self.zone_contact_pct = self.get_clean_value('iz_contact_percent')

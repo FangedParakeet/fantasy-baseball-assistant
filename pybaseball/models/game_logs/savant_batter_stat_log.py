@@ -2,12 +2,12 @@ from models.game_logs.savant_player_stat_log import SavantPlayerStatLog
 
 class SavantBatterStatLog(SavantPlayerStatLog):
     KEYS = [
-        'player_id', 'position', 'last_updated', # ID
+        'player_id', 'position', 'season_year', 'last_updated', # ID
         'barrel_pct', 'hard_hit_pct', 'avg_ev', 'max_ev', 'sweet_spot_pct' # Statcast batting stats
     ]
 
-    def __init__(self, player_data: dict):
-        super().__init__(player_data)
+    def __init__(self, player_data: dict, season_year=None):
+        super().__init__(player_data, season_year)
         self.player_data = player_data
         self.set_values()
 

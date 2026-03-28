@@ -1,7 +1,7 @@
 import requests
 from datetime import datetime
 from utils.logger import logger
-from utils.constants import SEASON_START_DATE, SEASON_END_DATE
+from utils.constants import SEASON_START_DATE, SEASON_END_DATE, CURRENT_SEASON
 
 class FangraphsApi:
     BASE_URL = 'https://www.fangraphs.com/api/leaders/'
@@ -57,8 +57,8 @@ class FangraphsApi:
                 'stats': 'bat' if position == 'B' else 'pit',
                 'lg': 'all',
                 'qual': 'y',
-                'season': datetime.now().year,
-                'season1': datetime.now().year,
+                'season': CURRENT_SEASON,
+                'season1': CURRENT_SEASON,
                 'startdate': SEASON_START_DATE,
                 'enddate': SEASON_END_DATE,
                 'month': '0',

@@ -68,10 +68,13 @@ class PlayerRollingStats(RollingStats):
                 return "AND 1=0"  # No results for pitchers on vs_rhp split
         return ''
 
-    def get_formulas(self, game_logs_table=None):
+    def get_formulas(self, game_logs_table=None, season_year=None):
         # Use last N days of stored data when table given; else last N days from today (e.g. live sync)
         if game_logs_table:
-            max_date_sql = f'(SELECT MAX(game_date) FROM {game_logs_table})'
+            if season_year is not None:
+                max_date_sql = f'(SELECT MAX(game_date) FROM {game_logs_table} WHERE season_year = {season_year})'
+            else:
+                max_date_sql = f'(SELECT MAX(game_date) FROM {game_logs_table})'
             date_formulas = {
                 'start_date': f'DATE_SUB({max_date_sql}, INTERVAL %s DAY) AS start_date',
                 'end_date': f'{max_date_sql} AS end_date',
@@ -81,7 +84,7 @@ class PlayerRollingStats(RollingStats):
                 'start_date': 'DATE_SUB(CURDATE(), INTERVAL %s DAY) AS start_date',
                 'end_date': 'CURDATE() AS end_date',
             }
-        return super().get_formulas() | {
+        return super().get_formulas(season_year) | {
             'player_id': 'gl.player_id',
             'normalised_name': 'MAX(gl.normalised_name) AS normalised_name',
             'position': 'MAX(gl.position) AS position',

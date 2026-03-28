@@ -2,13 +2,13 @@ from models.game_logs.fangraphs_team_stat_log import FangraphsTeamStatLog
 
 class FangraphsTeamPitchingStatLog(FangraphsTeamStatLog):
     KEYS = [
-        'team', 'last_updated', # ID
+        'team', 'season_year', 'last_updated', # ID
         'ip', 'era', 'whip', 'fip', 'x_fip', 'k_per_9', 'bb_per_9', 'hr_per_9', # Pitching
         'k_pct', 'bb_pct', 'swinging_strike_pct', 'csw_pct', 'ground_ball_pct', 'fly_ball_pct', 'lob_pct', # Statcast
     ]
 
-    def __init__(self, team_data):
-        super().__init__(team_data)
+    def __init__(self, team_data, season_year=None):
+        super().__init__(team_data, season_year)
         self.team_data = team_data
         self.set_values()
 

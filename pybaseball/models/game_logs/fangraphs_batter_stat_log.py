@@ -3,13 +3,13 @@ from utils.logger import logger
 
 class FangraphsBatterStatLog(FangraphsPlayerStatLog):
     KEYS = [
-        'fangraphs_player_id', 'normalised_name', 'team', 'position', 'last_updated', # ID
+        'fangraphs_player_id', 'normalised_name', 'team', 'position', 'season_year', 'last_updated', # ID
         'pa', 'avg', 'obp', 'slg', 'ops', 'bb_rate', 'k_rate', # Basic stats
         'iso', 'babip', 'woba', 'wrc_plus', 'wraa' # Advanced batting stats
     ]
 
-    def __init__(self, player_info):
-        super().__init__(player_info)
+    def __init__(self, player_info, season_year=None):
+        super().__init__(player_info, season_year)
         self.player_info = player_info
         self.set_values()
 

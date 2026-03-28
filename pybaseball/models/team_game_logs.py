@@ -98,23 +98,29 @@ class TeamGameLogs(GameLogsDB):
         """
         self.execute_query(pitching_update_query)
 
-    def compute_rolling_stats(self):
-        self.team_rolling_stats.compute_rolling_stats()
-        self.compute_team_vs_batter_splits()
-        self.compute_team_vs_pitcher_splits()
-        self.team_rolling_stats.compute_team_vs_splits_percentiles()
+    def compute_rolling_stats(self, season_year=None):
+        from datetime import datetime
+        if season_year is None:
+            season_year = datetime.now().year
+        self.team_rolling_stats.compute_rolling_stats(season_year)
+        self.compute_team_vs_batter_splits(season_year)
+        self.compute_team_vs_pitcher_splits(season_year)
+        self.team_rolling_stats.compute_team_vs_splits_percentiles(season_year)
 
-    def compute_team_vs_batter_splits(self):
-        # Clear all existing team vs batter splits before computing new ones
-        logger.info("Clearing all existing team vs batter splits")
-        self.purge_all_records(self.TEAM_VS_BATTER_SPLITS_TABLE)
+    def compute_team_vs_batter_splits(self, season_year=None):
+        from datetime import datetime
+        if season_year is None:
+            season_year = datetime.now().year
+        # Clear existing team vs batter splits for this season before computing new ones
+        logger.info(f"Clearing existing team vs batter splits for {season_year}")
+        self.purge_records_with_conditions(self.TEAM_VS_BATTER_SPLITS_TABLE, [f'season_year = {season_year}'])
 
         for window in ROLLING_WINDOWS:
             logger.info(f"Computing team vs batter splits for {window} days")
-        
+
             insert_query = f"""
                 INSERT INTO {self.TEAM_VS_BATTER_SPLITS_TABLE} (
-                    team, bats, span_days, start_date, end_date, games_played,
+                    team, bats, season_year, span_days, start_date, end_date, games_played,
                     ab, hits, doubles, triples, hr, rbi, runs, sb, bb, k,
                     sac_flies, hbp, ground_into_dp,
                     avg, obp, slg, ops, so_rate, bb_rate
@@ -122,6 +128,7 @@ class TeamGameLogs(GameLogsDB):
                 SELECT
                     pgl.opponent AS team,
                     pl.bats,
+                    {season_year} AS season_year,
                     %s AS span_days,
                     DATE_SUB(CURDATE(), INTERVAL %s DAY) AS start_date,
                     CURDATE() AS end_date,
@@ -156,6 +163,7 @@ class TeamGameLogs(GameLogsDB):
                 JOIN {PlayerLookups.LOOKUP_TABLE} AS pl ON pgl.player_id = pl.player_id AND (pgl.position <=> pl.position)
 
                 WHERE pgl.game_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
+                    AND pgl.season_year = {season_year}
                     AND pgl.position = 'B'
                     AND pl.bats IN ('L', 'R')
 
@@ -165,17 +173,20 @@ class TeamGameLogs(GameLogsDB):
             params = (window, window, window)
             self.execute_query(insert_query, params)
 
-    def compute_team_vs_pitcher_splits(self):
-        # Clear all existing team vs pitcher splits before computing new ones
-        logger.info("Clearing all existing team vs pitcher splits")
-        self.purge_all_records(self.TEAM_VS_PITCHER_SPLITS_TABLE)
+    def compute_team_vs_pitcher_splits(self, season_year=None):
+        from datetime import datetime
+        if season_year is None:
+            season_year = datetime.now().year
+        # Clear existing team vs pitcher splits for this season before computing new ones
+        logger.info(f"Clearing existing team vs pitcher splits for {season_year}")
+        self.purge_records_with_conditions(self.TEAM_VS_PITCHER_SPLITS_TABLE, [f'season_year = {season_year}'])
 
         for window in ROLLING_WINDOWS:
             logger.info(f"Computing team vs pitcher splits for {window} days")
 
             insert_query = f"""
                 INSERT INTO {self.TEAM_VS_PITCHER_SPLITS_TABLE} (
-                    team, throws, span_days, start_date, end_date, games_played,
+                    team, throws, season_year, span_days, start_date, end_date, games_played,
                     ab, hits, doubles, triples, hr, rbi, runs, sb, bb, k,
                     sac_flies, hbp, ground_into_dp,
                     avg, obp, slg, ops, so_rate, bb_rate
@@ -183,6 +194,7 @@ class TeamGameLogs(GameLogsDB):
                 SELECT
                     pgl.team,
                     opp_pl.throws,
+                    {season_year} AS season_year,
                     %s AS span_days,
                     DATE_SUB(CURDATE(), INTERVAL %s DAY) AS start_date,
                     CURDATE() AS end_date,
@@ -221,6 +233,7 @@ class TeamGameLogs(GameLogsDB):
                     (pgl.is_home = 0 AND opp_pl.player_id = gp.home_pitcher_id AND opp_pl.position = 'P')
                 )
                 WHERE pgl.game_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
+                    AND pgl.season_year = {season_year}
                     AND pgl.position = 'B'
                     AND opp_pl.throws IN ('L', 'R')
                 GROUP BY pgl.team, opp_pl.throws;

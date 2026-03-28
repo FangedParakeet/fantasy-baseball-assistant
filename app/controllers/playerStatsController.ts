@@ -35,10 +35,12 @@ export type DateQuery = {
     startDate: string | false;
     endDate: string | false;
     spanDays?: SpanDays;
+    season?: number;
 }
 export type TeamStatsQuery = {
     spanDays: SpanDays;
     orderBy?: PlayerScoringFields | PlayerAdvancedScoringFields | false;
+    season?: number;
 }
 export type SearchPlayersQuery = {
     positionType: PitcherOrBatter | WatchlistType;
@@ -48,6 +50,7 @@ export type SearchPlayersQuery = {
     page: number;
     orderBy: PlayerScoringFields | PlayerAdvancedScoringFields | false;
     isUserTeam: boolean;
+    season?: number;
 }
 export type SearchPlayersResult = PlayerFantasyRanking 
     | HitterSpeedWatchlist 
@@ -67,6 +70,11 @@ const ORDER_BY_SET = new Set<PlayerScoringFields | PlayerAdvancedScoringFields>(
 
 class PlayerStatsController {
     constructor(private readonly player: Player) {}
+
+    private resolveSeasonYear(season?: number | string): number {
+        const parsed = season != null ? Number(season) : NaN;
+        return Number.isNaN(parsed) ? new Date().getFullYear() : parsed;
+    }
 
     async getScoringCategoryStatsForPlayers(
         rawPlayerIds: number[] | string,
@@ -141,7 +149,9 @@ class PlayerStatsController {
             page,
             orderBy,
             isUserTeam,
+            season,
         } = query;
+        const seasonYear = this.resolveSeasonYear(season);
 
         // Coerce query string 'false'/'true' to booleans (req.query sends strings)
         const orderByStr = orderBy as unknown;
@@ -178,36 +188,37 @@ class PlayerStatsController {
         const orderByValid = orderBy as PlayerScoringFields | PlayerAdvancedScoringFields | false;
 
         if ( positionType === 'B' || positionType === 'P' ) {
-            return await this.player.getPlayerFantasyRankings(page, spanDaysValid, positionType, isRostered, position, orderByValid, teamId);
+            return await this.player.getPlayerFantasyRankings(page, spanDaysValid, positionType, isRostered, position, orderByValid, teamId, seasonYear);
         } else if ( positionType === 'speed' ) {
-            return await this.player.getHitterSpeedWatchlist(page, spanDaysValid, position, teamId);
+            return await this.player.getHitterSpeedWatchlist(page, spanDaysValid, position, teamId, seasonYear);
         } else if ( positionType === 'contact' ) {
-            return await this.player.getHitterContactOnBaseWatchlist(page, spanDaysValid, position, teamId);
+            return await this.player.getHitterContactOnBaseWatchlist(page, spanDaysValid, position, teamId, seasonYear);
         } else if ( positionType === 'power' ) {
-            return await this.player.getHitterPowerWatchlist(page, spanDaysValid, position, teamId);
+            return await this.player.getHitterPowerWatchlist(page, spanDaysValid, position, teamId, seasonYear);
         } else if ( positionType === 'starter' ) {
-            return await this.player.getPitcherStarterWatchlist(page, spanDaysValid, teamId);
+            return await this.player.getPitcherStarterWatchlist(page, spanDaysValid, teamId, seasonYear);
         } else if ( positionType === 'reliever' ) {
-            return await this.player.getPitcherRelieverWatchlist(page, spanDaysValid, teamId);
+            return await this.player.getPitcherRelieverWatchlist(page, spanDaysValid, teamId, seasonYear);
         } else {
             throw new Error('Invalid position type');
         }
     }
 
     async getAvailablePitchers(
-        query: DateQuery, 
+        query: DateQuery,
         type: 'daily-streamer' | 'two-start' | 'nrfi'
     ): Promise<AvailablePitchersResult[]> {
+        const seasonYear = this.resolveSeasonYear(query.season);
         const {
             startDate,
             endDate,
         } = this.getDateRange(query);
         if ( type === 'daily-streamer' ) {
-            return await this.player.getAvailableDailyStreamingPitchers(startDate, endDate);
+            return await this.player.getAvailableDailyStreamingPitchers(startDate, endDate, seasonYear);
         } else if ( type === 'two-start' ) {
-            return await this.player.getAvailableTwoStartPitchers(startDate, endDate);
+            return await this.player.getAvailableTwoStartPitchers(startDate, endDate, seasonYear);
         } else if ( type === 'nrfi' ) {
-            return await this.player.getNRFIRankings(startDate, endDate);
+            return await this.player.getNRFIRankings(startDate, endDate, seasonYear);
         } else {
             throw new Error('Invalid type');
         }
@@ -231,40 +242,42 @@ class PlayerStatsController {
     }
 
     async getStatsForTeam(
-        teamId: number, 
-        query: TeamStatsQuery, 
+        teamId: number,
+        query: TeamStatsQuery,
         type: 'batting' | 'pitching'
     ): Promise<TeamStatsResult[]> {
         const {
             spanDays,
             orderBy,
         } = query;
+        const seasonYear = this.resolveSeasonYear(query.season);
         if ( type === 'batting' ) {
-            return await this.player.getScoringStatsForTeamBatters(teamId, spanDays, orderBy as HitterBasicScoringFields | HitterAdvancedScoringFields | false);
+            return await this.player.getScoringStatsForTeamBatters(teamId, spanDays, orderBy as HitterBasicScoringFields | HitterAdvancedScoringFields | false, seasonYear);
         } else if ( type === 'pitching' ) {
-            return await this.player.getScoringStatsForTeamPitchers(teamId, spanDays, orderBy as PitcherBasicScoringFields | PitcherAdvancedScoringFields | false);
+            return await this.player.getScoringStatsForTeamPitchers(teamId, spanDays, orderBy as PitcherBasicScoringFields | PitcherAdvancedScoringFields | false, seasonYear);
         } else {
             throw new Error('Invalid type');
         }
     }
 
     async getScheduleStrengthForTeam(
-        teamId: number, 
-        query: DateQuery, 
+        teamId: number,
+        query: DateQuery,
         type: 'batting' | 'pitching'
     ): Promise<ScheduleStrengthResult[]> {
         const {
             spanDays: querySpanDays,
         } = query;
         const spanDays = querySpanDays ?? 14;
+        const seasonYear = this.resolveSeasonYear(query.season);
         const {
             startDate,
             endDate,
         } = this.getDateRange(query);
         if ( type === 'batting' ) {
-            return await this.player.getWeeklyHitterScheduleStrengthPreviewForTeam(teamId, startDate, endDate, spanDays);
+            return await this.player.getWeeklyHitterScheduleStrengthPreviewForTeam(teamId, startDate, endDate, spanDays, seasonYear);
         } else if ( type === 'pitching' ) {
-            return await this.player.getWeeklyPitcherScheduleStrengthPreviewForTeam(teamId, startDate, endDate, spanDays);
+            return await this.player.getWeeklyPitcherScheduleStrengthPreviewForTeam(teamId, startDate, endDate, spanDays, seasonYear);
         } else {
             throw new Error('Invalid type');
         }

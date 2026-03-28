@@ -1,7 +1,7 @@
 from models.db_recorder import DB_Recorder
 import pandas as pd
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import List
 from logging import Logger
 
@@ -475,32 +475,39 @@ class PlayerDataLoader(DB_Recorder):
         )
         return pd.DataFrame(roster) if roster else pd.DataFrame(columns=["player_pk", "team_id", "selected_position", "position"])
 
-    def load_player_season_stats(self) -> pd.DataFrame:
+    def load_player_season_stats(self, season_year=None) -> pd.DataFrame:
+        if season_year is None:
+            season_year = datetime.now().year
         player_season_stats = self.get_records_with_conditions(
-            self.PLAYER_SEASON_STATS_TABLE, 
-            fields=self.PLAYER_SEASON_STATS_COLUMNS
+            self.PLAYER_SEASON_STATS_TABLE,
+            fields=self.PLAYER_SEASON_STATS_COLUMNS,
+            conditions=[f"season_year = {season_year}"]
         )
         player_season_stats_df = pd.DataFrame(player_season_stats)
         if player_season_stats_df.empty:
             raise ValueError("No player season stats found")
         return player_season_stats_df
 
-    def load_player_rolling_stats(self, span_days: int, split_type: str, position: str) -> pd.DataFrame:
+    def load_player_rolling_stats(self, span_days: int, split_type: str, position: str, season_year=None) -> pd.DataFrame:
+        if season_year is None:
+            season_year = datetime.now().year
         player_rolling_stats = self.get_records_with_conditions(
-            self.PLAYER_ROLLING_STATS_TABLE, 
+            self.PLAYER_ROLLING_STATS_TABLE,
             fields=self.PLAYER_ROLLING_STATS_COLUMNS,
-            conditions=[f"span_days = {span_days}", f"split_type = '{split_type}'", f"position = '{position}'"]
+            conditions=[f"season_year = {season_year}", f"span_days = {span_days}", f"split_type = '{split_type}'", f"position = '{position}'"]
         )
         player_rolling_stats_df = pd.DataFrame(player_rolling_stats)
         if player_rolling_stats_df.empty:
             raise ValueError("No player rolling stats found")
         return player_rolling_stats_df
 
-    def load_player_advanced_rolling_stats(self, span_days: int, split_type: str, position: str) -> pd.DataFrame:
+    def load_player_advanced_rolling_stats(self, span_days: int, split_type: str, position: str, season_year=None) -> pd.DataFrame:
+        if season_year is None:
+            season_year = datetime.now().year
         player_advanced_rolling_stats = self.get_records_with_conditions(
-            self.PLAYER_ADVANCED_ROLLING_STATS_TABLE, 
+            self.PLAYER_ADVANCED_ROLLING_STATS_TABLE,
             fields=self.PLAYER_ADVANCED_ROLLING_STATS_COLUMNS,
-            conditions=[f"span_days = {span_days}", f"split_type = '{split_type}'", f"position = '{position}'"]
+            conditions=[f"season_year = {season_year}", f"span_days = {span_days}", f"split_type = '{split_type}'", f"position = '{position}'"]
         )
         player_advanced_rolling_stats_df = pd.DataFrame(player_advanced_rolling_stats)
         if player_advanced_rolling_stats_df.empty:

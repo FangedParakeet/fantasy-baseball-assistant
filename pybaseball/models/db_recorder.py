@@ -57,6 +57,14 @@ class DB_Recorder():
             deleted_count = cursor.rowcount
             logger.info(f"Deleted {deleted_count} records from {table_name}")
 
+    def purge_season_records_in_transaction(self, table_name, season_year):
+        """Purge records for a specific season within the current transaction (no auto-commit)"""
+        logger.info(f"Purging {season_year} records from {table_name}")
+        with self.conn.cursor() as cursor:
+            cursor.execute(f"DELETE FROM {table_name} WHERE season_year = %s", (season_year,))
+            deleted_count = cursor.rowcount
+            logger.info(f"Deleted {deleted_count} records from {table_name} for season {season_year}")
+
     def batch_upsert(self, insert_query, rows):
         self.reset_connection_state()
         with self.conn.cursor() as cursor:

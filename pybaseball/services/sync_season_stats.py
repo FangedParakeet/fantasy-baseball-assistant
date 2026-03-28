@@ -1,3 +1,4 @@
+import argparse
 from models.db import get_db_connection
 from models.api.fangraphs_api import FangraphsApi
 from models.api.mlb_api import MlbApi
@@ -10,9 +11,25 @@ from models.rolling_stats.player_season_stats_percentiles import PlayerSeasonSta
 from models.rolling_stats.team_season_stats_percentiles import TeamSeasonStatsPercentiles
 from models.season_stats import SeasonStats
 from models.sync_status import SyncStatus
+from utils.constants import CURRENT_SEASON
 from utils.logger import logger
 
-def main():
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Sync season stats from Fangraphs and Baseball Savant.")
+    parser.add_argument(
+        "--season",
+        type=int,
+        metavar="YEAR",
+        default=CURRENT_SEASON,
+        help=f"Season year to sync (default: {CURRENT_SEASON}).",
+    )
+    return parser.parse_args()
+
+
+def main(season_year=None):
+    if season_year is None:
+        season_year = CURRENT_SEASON
     conn = None
     try:
         conn = get_db_connection()
@@ -21,25 +38,24 @@ def main():
         player_hydrator = PlayerHydrator(conn, MlbApi(), sync_status, player_lookups)
         fangraphs_stats = FangraphsStats(conn, FangraphsApi(), player_lookups)
         savant_stats = SavantStats(conn, SavantApi())
-        
-        logger.info("Starting season stats sync...")
+
+        logger.info(f"Starting season stats sync for {season_year}...")
         # Deduplicate: merge (name, position) pairs with exactly two rows and one lookup row
         for table in (SeasonStats.PLAYER_STATS_TABLE, SeasonStats.PLAYER_STATS_TABLE + "_percentiles"):
             player_lookups.update_player_names_from_lookup(table, matching_conditions=['position'])
             player_lookups.consolidate_duplicate_season_stats(table)
-        fangraphs_stats.update_all_player_stats()
-        fangraphs_stats.update_all_team_stats()
+        fangraphs_stats.update_all_player_stats(season_year)
+        fangraphs_stats.update_all_team_stats(season_year)
         logger.info("Hydrating Fangraphs player stats...")
         player_hydrator.update_table_from_lookup(SeasonStats.PLAYER_STATS_TABLE)
         logger.info("Updating statcast player stats...")
-        savant_stats.update_all_statcast_player_stats()
+        savant_stats.update_all_statcast_player_stats(season_year)
 
         logger.info("Computing season stats percentiles...")
         player_season_stats_percentiles = PlayerSeasonStatsPercentiles(conn)
         player_season_stats_percentiles.compute_percentiles()
         team_season_stats_percentiles = TeamSeasonStatsPercentiles(conn)
         team_season_stats_percentiles.compute_percentiles()
-
 
         logger.info("Season stats sync complete.")
     except Exception as e:
@@ -50,4 +66,5 @@ def main():
             logger.info("Database connection closed.")
 
 if __name__ == "__main__":
-    main() 
+    args = parse_args()
+    main(season_year=args.season)

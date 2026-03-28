@@ -13,8 +13,8 @@ class PlayerBasicRollingStats(PlayerRollingStats):
         self.rolling_stats_table = PlayerGameLogs.BASIC_ROLLING_STATS_TABLE
         self.game_logs_table = PlayerGameLogs.GAME_LOGS_TABLE
 
-    def get_formulas(self, game_logs_table=None):
-        return super().get_formulas(game_logs_table) | {
+    def get_formulas(self, game_logs_table=None, season_year=None):
+        return super().get_formulas(game_logs_table, season_year) | {
             'rbi': 'SUM(COALESCE(gl.rbi, 0)) AS rbi',
             'runs': 'SUM(COALESCE(gl.r, 0)) AS runs',
             'hr': 'SUM(COALESCE(gl.hr, 0)) AS hr',
@@ -32,40 +32,46 @@ class PlayerBasicRollingStats(PlayerRollingStats):
             'nrfi': 'SUM(COALESCE(gl.nrfi, 0)) AS nrfi',
         }
 
-    def compute_rolling_stats(self):
+    def compute_rolling_stats(self, season_year=None):
+        from datetime import datetime
+        if season_year is None:
+            season_year = datetime.now().year
         # Start transaction for the entire operation
         self.begin_transaction()
-        
+
         try:
-            # Clear all existing rolling stats before computing new ones
-            logger.info("Clearing all existing player basic rolling stats")
-            self.purge_all_records_in_transaction(self.rolling_stats_table)
-            
+            # Clear existing rolling stats for this season before computing new ones
+            logger.info(f"Clearing existing player basic rolling stats for {season_year}")
+            self.purge_season_records_in_transaction(self.rolling_stats_table, season_year)
+
             # Include all keys that have formulas, including those with %s placeholders
             for key, stats_list in self.STATS_KEYS.items():
                 insert_keys = self.SPLIT_WINDOW_KEYS + self.ID_KEYS + self.EXTRA_KEYS + self.DATE_KEYS + stats_list
-                all_formulas = self.get_formulas(self.game_logs_table)
+                all_formulas = self.get_formulas(self.game_logs_table, season_year)
                 select_formulas = [all_formulas[key] for key in insert_keys]
                 join_conditions = super().get_join_conditions()
 
                 logger.info(f"Computing player basic rolling stats for {key}")
                 # Pass the correct position value based on the key
                 position = 'B' if key == 'batting' else 'P'
-                
-                super().compute_rolling_stats(self.rolling_stats_table, self.game_logs_table, insert_keys, select_formulas, join_conditions, 'GROUP BY gl.player_id', position)
-            
-            self.compute_percentiles()
-            
+
+                super().compute_rolling_stats(self.rolling_stats_table, self.game_logs_table, insert_keys, select_formulas, join_conditions, 'GROUP BY gl.player_id', position, season_year)
+
+            self.compute_percentiles(season_year)
+
             # Commit transaction
             self.commit_transaction()
             logger.info("Successfully computed basic rolling stats")
-            
+
         except Exception as e:
             logger.error(f"Error computing basic rolling stats: {e}")
             self.rollback_transaction()
             raise
 
-    def compute_percentiles(self):
+    def compute_percentiles(self, season_year=None):
+        from datetime import datetime
+        if season_year is None:
+            season_year = datetime.now().year
         logger.info(f"Computing percentiles for basic rolling stats")
-        self.purge_all_records_in_transaction(self.rolling_stats_table + '_percentiles')
-        super().compute_percentiles(self.rolling_stats_table, self.STATS_KEYS, self.STATS_THRESHOLDS, self.CONDITIONS, self.ID_KEYS)
+        self.purge_season_records_in_transaction(self.rolling_stats_table + '_percentiles', season_year)
+        super().compute_percentiles(self.rolling_stats_table, self.STATS_KEYS, self.STATS_THRESHOLDS, self.CONDITIONS, self.ID_KEYS, season_year=season_year)

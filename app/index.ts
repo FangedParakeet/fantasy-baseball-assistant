@@ -7,6 +7,8 @@ import authRoutes from "./routes/auth";
 import { draftLiveRoutes } from "./routes/draftLive";
 import draftSettingsRoutes from "./routes/draftSettings";
 import leagueRoutes from "./routes/league";
+import mcpRoutes from "./routes/mcp";
+import oauthRoutes from "./routes/oauth";
 import playerRoutes from "./routes/player";
 import rosterRoutes from "./routes/roster";
 // import aiRoutes from './routes/ai';
@@ -17,6 +19,7 @@ app.use(cors({
 	credentials: true,
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 // Simple request logging middleware
 app.use((req, _, next) => {
@@ -31,6 +34,8 @@ app.use('/api', playerRoutes);
 app.use('/api/league', leagueRoutes);
 app.use('/api/draft/settings', draftSettingsRoutes);
 app.use('/api/draft/live', draftLiveRoutes);
+app.use('/api/oauth', oauthRoutes);
+app.use('/api/mcp', mcpRoutes);
 
 const PORT = Number(process.env.APP_PORT) || 3001;
 app.listen(PORT, async () => {

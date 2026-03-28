@@ -3,13 +3,13 @@ from utils.logger import logger
 
 class FangraphsPitcherStatLog(FangraphsPlayerStatLog):
     KEYS = [
-        'fangraphs_player_id', 'normalised_name', 'team', 'position', 'last_updated', # ID
+        'fangraphs_player_id', 'normalised_name', 'team', 'position', 'season_year', 'last_updated', # ID
         'babip', # Advanced batting stats
         'ip', 'whip', 'fip', 'x_fip', 'k_per_9', 'bb_per_9', 'hr_per_9', 'k_pct', 'bb_pct', 'lob_pct' # Advanced pitching stats
     ]
 
-    def __init__(self, player_info):
-        super().__init__(player_info)
+    def __init__(self, player_info, season_year=None):
+        super().__init__(player_info, season_year)
         self.player_info = player_info
 
         self.set_values()

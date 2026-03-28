@@ -45,10 +45,13 @@ class LeagueGameLogs():
         self.game_pitchers.upsert_game_pitchers(game_pitchers)
         self.team_game_logs.update_advanced_statistics()
 
-    def compute_rolling_stats(self):
-        self.player_game_logs.compute_rolling_stats()
-        self.team_game_logs.compute_rolling_stats()
-        self.league_statistics.compute_league_averages()
+    def compute_rolling_stats(self, season_year=None):
+        from datetime import datetime
+        if season_year is None:
+            season_year = datetime.now().year
+        self.player_game_logs.compute_rolling_stats(season_year)
+        self.team_game_logs.compute_rolling_stats(season_year)
+        self.league_statistics.compute_league_averages(season_year)
 
     def fetch_game_logs(self, start_date=None, end_date=None):
         """Get game logs from MLB Stats API.

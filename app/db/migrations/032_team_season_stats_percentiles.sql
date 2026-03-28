@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS team_season_stats_percentiles (
-  team VARCHAR(10) PRIMARY KEY,
+  team VARCHAR(10),
+  season_year SMALLINT NOT NULL DEFAULT 2025,
 
   runs_pct INT,
   hits_pct INT,
@@ -40,5 +41,6 @@ CREATE TABLE IF NOT EXISTS team_season_stats_percentiles (
   reliability_score TINYINT UNSIGNED,
   is_reliable BOOLEAN GENERATED ALWAYS AS (reliability_score >= 70) STORED,
 
-  last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+  last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (team, season_year)
 );

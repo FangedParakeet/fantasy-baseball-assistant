@@ -3,14 +3,17 @@ from utils.functions import normalise_name
 from datetime import datetime, timezone
 
 class FangraphsPlayerStatLog(MlbLog):
-    ID_KEYS = ['fangraphs_player_id', 'position']
+    ID_KEYS = ['fangraphs_player_id', 'position', 'season_year']
 
-    def __init__(self, player_info):
+    def __init__(self, player_info, season_year=None):
         super().__init__()
         self.player_info = player_info
+        self.season_year = season_year if season_year is not None else datetime.now().year
 
     def get_value_for_key(self, key):
-        if key == 'fangraphs_player_id':
+        if key == 'season_year':
+            return self.season_year
+        elif key == 'fangraphs_player_id':
             return self.player_info.get('playerid', None)
         elif key == 'normalised_name':
             return normalise_name(self.player_info.get('playerName', ''))

@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS player_season_stats (
   id INT AUTO_INCREMENT PRIMARY KEY,
   player_id INT,
+  season_year SMALLINT NOT NULL DEFAULT 2025,
   fangraphs_player_id INT,
   normalised_name VARCHAR(100),
   team VARCHAR(10),
@@ -62,8 +63,8 @@ CREATE TABLE IF NOT EXISTS player_season_stats (
   age INT,
   last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
 
-  UNIQUE KEY unique_player_season (player_id, position),
-  UNIQUE KEY unique_fangraphs_player_season (fangraphs_player_id, position),
+  UNIQUE KEY unique_player_season (player_id, position, season_year),
+  UNIQUE KEY unique_fangraphs_player_season (fangraphs_player_id, position, season_year),
   INDEX idx_normalised_name_ps (normalised_name),
   INDEX idx_player_id (player_id)
 );

@@ -23,6 +23,6 @@ class PlayerGameLogs(GameLogsDB):
         
         super().upsert_game_logs(player_game_logs)
 
-    def compute_rolling_stats(self):
-        self.player_basic_rolling_stats.compute_rolling_stats()
-        self.player_advanced_rolling_stats.compute_rolling_stats()
+    def compute_rolling_stats(self, season_year=None):
+        self.player_basic_rolling_stats.compute_rolling_stats(season_year)
+        self.player_advanced_rolling_stats.compute_rolling_stats(season_year)

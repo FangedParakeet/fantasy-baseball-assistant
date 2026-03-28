@@ -3,28 +3,34 @@ from models.game_pitchers import GamePitchers
 from models.player_lookups import PlayerLookups
 from utils.constants import SPLITS, ROLLING_WINDOWS
 from utils.logger import logger
+from datetime import datetime
 
 class RollingStats(DB_Recorder):
-    SPLIT_WINDOW_KEYS = ['split_type', 'span_days']
-    
+    SPLIT_WINDOW_KEYS = ['season_year', 'split_type', 'span_days']
+
     def __init__(self, conn, rolling_stats_percentiles):
         super().__init__(conn)
         self.rolling_stats_percentiles = rolling_stats_percentiles
         self.game_pitchers_table = GamePitchers.GAME_PITCHERS_TABLE
         self.player_lookups_table = PlayerLookups.LOOKUP_TABLE
-        
-    def get_formulas(self):
+
+    def get_formulas(self, season_year=None):
+        if season_year is None:
+            season_year = datetime.now().year
         return {
+            'season_year': f'{season_year} AS season_year',
             'split_type': '%s AS split_type',
             'span_days': '%s AS span_days'
         }
 
-    def compute_rolling_stats(self, rolling_stats_table, game_logs_table, insert_keys, select_formulas, join_conditions, group_by='', position=None):
+    def compute_rolling_stats(self, rolling_stats_table, game_logs_table, insert_keys, select_formulas, join_conditions, group_by='', position=None, season_year=None):
+        if season_year is None:
+            season_year = datetime.now().year
         insert_values = ', '.join(insert_keys)
         select_values = ', '.join(select_formulas)
 
         duplicate_values = ','.join([f'{key} = VALUES({key})' for key in insert_keys])
-        
+
         # Count %s placeholders more precisely
         insert_placeholder_count = sum(item.count('%s') for item in insert_keys)
         select_placeholder_count = sum(item.count('%s') for item in select_formulas)
@@ -42,7 +48,8 @@ class RollingStats(DB_Recorder):
                     LEFT JOIN {self.player_lookups_table} opp_pl ON (
                         {join_conditions}
                     )
-                    WHERE gl.game_date >= DATE_SUB((SELECT MAX(game_date) FROM {game_logs_table}), INTERVAL %s DAY)
+                    WHERE gl.game_date >= DATE_SUB((SELECT MAX(game_date) FROM {game_logs_table} WHERE season_year = {season_year}), INTERVAL %s DAY)
+                    AND gl.season_year = {season_year}
                     {where_clause}
                     {group_by}
                     ON DUPLICATE KEY UPDATE {duplicate_values}
@@ -52,10 +59,12 @@ class RollingStats(DB_Recorder):
                 params = [split] + [window] * (total_placeholders)
                 self.execute_query_in_transaction(insert_query, params)
 
-    def compute_percentiles(self, rolling_stats_table, stats, thresholds, conditions, id_keys, split_type_key='split_type', custom_splits=None):
+    def compute_percentiles(self, rolling_stats_table, stats, thresholds, conditions, id_keys, split_type_key='split_type', custom_splits=None, season_year=None):
+        if season_year is None:
+            season_year = datetime.now().year
         for key, stat_list in stats.items():
             logger.info(f"Computing percentiles for {key}")
             for stat in stat_list:
                 logger.info(f"Computing percentiles for {stat}")
                 condition = conditions[key] if conditions is not None else None
-                self.rolling_stats_percentiles.compute_percentiles(rolling_stats_table, stat, thresholds[key], condition, id_keys, split_type_key, custom_splits)
+                self.rolling_stats_percentiles.compute_percentiles(rolling_stats_table, stat, thresholds[key], condition, id_keys, split_type_key, custom_splits, season_year)

@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS player_advanced_rolling_stats_percentiles (
   id INT AUTO_INCREMENT PRIMARY KEY,
   player_id INT NOT NULL,
+  season_year SMALLINT NOT NULL DEFAULT 2025,
   span_days INT NOT NULL,
   split_type VARCHAR(10) NOT NULL,
 
@@ -39,6 +40,6 @@ CREATE TABLE IF NOT EXISTS player_advanced_rolling_stats_percentiles (
   position VARCHAR(10),
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-  UNIQUE KEY unique_player_span (player_id, position, span_days, split_type),
+  UNIQUE KEY unique_player_span (player_id, position, span_days, split_type, season_year),
   INDEX idx_normalised_name_ars_percentiles (normalised_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS team_rolling_stats_percentiles (
   team VARCHAR(10),
+  season_year SMALLINT NOT NULL DEFAULT 2025,
   split_type VARCHAR(10),
   span_days INT,
 
@@ -25,5 +26,5 @@ CREATE TABLE IF NOT EXISTS team_rolling_stats_percentiles (
   is_reliable BOOLEAN GENERATED ALWAYS AS (reliability_score >= 70) STORED,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-  PRIMARY KEY (team, split_type, span_days)
+  PRIMARY KEY (team, split_type, span_days, season_year)
 );

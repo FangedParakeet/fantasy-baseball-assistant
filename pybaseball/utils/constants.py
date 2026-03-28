@@ -121,6 +121,8 @@ ESPN_TO_BACKEND_TEAM_MAP = {
 SPLITS = ['overall', 'home', 'away', 'vs_lhp', 'vs_rhp']
 WOBASCALE = 1.240 # See https://www.fangraphs.com/tools/guts
 FIP_CONSTANT = 3.094 # See https://www.fangraphs.com/tools/guts
-SEASON_START_DATE = '2025-03-01' # For FanGraphs API requests
-SEASON_END_DATE = '2025-11-01' # For FanGraphs API requests
+from datetime import datetime
+CURRENT_SEASON = datetime.now().year
+SEASON_START_DATE = f'{CURRENT_SEASON}-03-01' # For FanGraphs API requests
+SEASON_END_DATE = f'{CURRENT_SEASON}-11-01' # For FanGraphs API requests
 CURRENT_TIMEZONE = 'America/New_York'

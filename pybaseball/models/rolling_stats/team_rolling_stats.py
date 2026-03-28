@@ -51,8 +51,8 @@ class TeamRollingStats(RollingStats):
         self.team_vs_pitcher_splits_table = TeamGameLogs.TEAM_VS_PITCHER_SPLITS_TABLE
         super().__init__(conn, rolling_stats_percentiles)
 
-    def get_formulas(self):
-        return super().get_formulas() | {
+    def get_formulas(self, season_year=None):
+        return super().get_formulas(season_year) | {
             'team': 'gl.team',
             'games_played': 'COUNT(*) AS games_played',
             'runs_scored': 'SUM(COALESCE(gl.runs_scored, 0)) AS runs_scored',
@@ -146,24 +146,27 @@ class TeamRollingStats(RollingStats):
         return ''
 
 
-    def compute_rolling_stats(self):
+    def compute_rolling_stats(self, season_year=None):
+        from datetime import datetime
+        if season_year is None:
+            season_year = datetime.now().year
         # Start transaction for the entire operation
         self.begin_transaction()
         try:
-            # Clear all existing rolling stats before computing new ones
-            logger.info("Clearing all existing team rolling stats")
-            self.purge_all_records_in_transaction(self.rolling_stats_table)
-            
+            # Clear existing rolling stats for this season before computing new ones
+            logger.info(f"Clearing existing team rolling stats for {season_year}")
+            self.purge_season_records_in_transaction(self.rolling_stats_table, season_year)
+
             # Include all keys that have formulas, including those with %s placeholders
             insert_keys = self.SPLIT_WINDOW_KEYS + self.ID_KEYS + self.EXTRA_KEYS + self.STATS_KEYS['batting'] + self.STATS_KEYS['pitching']
-            all_formulas = self.get_formulas()
+            all_formulas = self.get_formulas(season_year)
             select_formulas = [all_formulas[key] for key in insert_keys]
             join_conditions = self.get_join_conditions()
 
             logger.info(f"Computing team rolling stats")
-            super().compute_rolling_stats(self.rolling_stats_table, self.game_logs_table, insert_keys, select_formulas, join_conditions, 'GROUP BY gl.team')
-            self.compute_percentiles()
-            
+            super().compute_rolling_stats(self.rolling_stats_table, self.game_logs_table, insert_keys, select_formulas, join_conditions, 'GROUP BY gl.team', season_year=season_year)
+            self.compute_percentiles(season_year)
+
             # Commit transaction
             self.commit_transaction()
             logger.info("Successfully computed team rolling stats")
@@ -172,25 +175,31 @@ class TeamRollingStats(RollingStats):
             self.rollback_transaction()
             raise
 
-    def compute_percentiles(self):
-        logger.info("Clearing all existing team rolling stats percentiles")
-        self.purge_all_records_in_transaction(self.rolling_stats_table + '_percentiles')
+    def compute_percentiles(self, season_year=None):
+        from datetime import datetime
+        if season_year is None:
+            season_year = datetime.now().year
+        logger.info(f"Clearing existing team rolling stats percentiles for {season_year}")
+        self.purge_season_records_in_transaction(self.rolling_stats_table + '_percentiles', season_year)
         logger.info("Computing team rolling stats percentiles")
-        super().compute_percentiles(self.rolling_stats_table, self.PERCENTILE_STATS_KEYS, self.STATS_THRESHOLDS, None, self.ID_KEYS)
+        super().compute_percentiles(self.rolling_stats_table, self.PERCENTILE_STATS_KEYS, self.STATS_THRESHOLDS, None, self.ID_KEYS, season_year=season_year)
 
-    def compute_team_vs_splits_percentiles(self):
+    def compute_team_vs_splits_percentiles(self, season_year=None):
+        from datetime import datetime
+        if season_year is None:
+            season_year = datetime.now().year
         # Start transaction for the entire operation
         self.begin_transaction()
         try:
-            logger.info("Clearing all existing team vs batter splits percentiles")
-            self.purge_all_records_in_transaction(self.team_vs_batter_splits_table + '_percentiles')
-            logger.info("Clearing all existing team vs pitcher splits percentiles")
-            self.purge_all_records_in_transaction(self.team_vs_pitcher_splits_table + '_percentiles')
+            logger.info(f"Clearing existing team vs batter splits percentiles for {season_year}")
+            self.purge_season_records_in_transaction(self.team_vs_batter_splits_table + '_percentiles', season_year)
+            logger.info(f"Clearing existing team vs pitcher splits percentiles for {season_year}")
+            self.purge_season_records_in_transaction(self.team_vs_pitcher_splits_table + '_percentiles', season_year)
 
             logger.info(f"Computing team vs batter splits percentiles for {self.TEAM_VS_BATTER_SPLITS_PERCENTILE_KEYS['batting']}")
-            super().compute_percentiles(self.team_vs_batter_splits_table, self.TEAM_VS_BATTER_SPLITS_PERCENTILE_KEYS, self.STATS_THRESHOLDS, None, self.ID_KEYS, 'bats', ['L', 'R'])
+            super().compute_percentiles(self.team_vs_batter_splits_table, self.TEAM_VS_BATTER_SPLITS_PERCENTILE_KEYS, self.STATS_THRESHOLDS, None, self.ID_KEYS, 'bats', ['L', 'R'], season_year)
             logger.info(f"Computing team vs pitcher splits percentiles for {self.TEAM_VS_PITCHER_SPLITS_PERCENTILE_KEYS['pitching']}")
-            super().compute_percentiles(self.team_vs_pitcher_splits_table, self.TEAM_VS_PITCHER_SPLITS_PERCENTILE_KEYS, self.STATS_THRESHOLDS, None, self.ID_KEYS, 'throws', ['L', 'R'])
+            super().compute_percentiles(self.team_vs_pitcher_splits_table, self.TEAM_VS_PITCHER_SPLITS_PERCENTILE_KEYS, self.STATS_THRESHOLDS, None, self.ID_KEYS, 'throws', ['L', 'R'], season_year)
 
             # Commit transaction
             self.commit_transaction()

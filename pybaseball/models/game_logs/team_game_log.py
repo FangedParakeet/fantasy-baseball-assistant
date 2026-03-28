@@ -1,8 +1,9 @@
 from models.game_logs.game_log import GameLog
+from utils.functions import convert_utc_date
 
 class TeamGameLog(GameLog):
     KEYS = [
-        'team', 'game_date', 'opponent', 'is_home', 'is_win', 'nrfi', # General
+        'team', 'season_year', 'game_date', 'opponent', 'is_home', 'is_win', 'nrfi', # General
         'runs_scored', 'runs_allowed', 'avg', 'obp', 'slg', 'ops', # Batting
         'er', 'whip', 'strikeouts', 'walks', 'ip', 'hits_allowed', # Pitching
         'game_id' # General
@@ -32,7 +33,9 @@ class TeamGameLog(GameLog):
         self.set_values()
 
     def get_value_for_key(self, key):
-        if key == 'runs_scored':
+        if key == 'season_year':
+            return int(convert_utc_date(self.game_data['game_date']).year)
+        elif key == 'runs_scored':
             return self.runs_scored
         elif key == 'runs_allowed':
             return self.runs_allowed
