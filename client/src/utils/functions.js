@@ -79,10 +79,13 @@ const sortPlayers = (players, field, direction) => {
   };
 
   const formatEligiblePositions = (eligiblePositions) => {
+    if (eligiblePositions == null || eligiblePositions === '') {
+      return '';
+    }
     try {
       return JSON.parse(eligiblePositions).join(', ');
     } catch (error) {
-      return eligiblePositions.replace(/["[\]]/g, '');
+      return String(eligiblePositions).replace(/["[\]]/g, '');
     }
   };
 

@@ -743,7 +743,7 @@ class Player {
             throw new Error('Missing required parameters');
         }
         return executeInTransaction(async (connection) => {
-            const outerPlayerFields = this.defaultPlayerFields.map(field => `${field}`).join(', ');
+            const outerPlayerFields = this.defaultPlayerFields.map(field => `ANY_VALUE(${field})`).join(', ');
             const innerPlayerFields = this.getDefaultPlayerFields();
             const teamVsPitcherWeight = 0.45;
             const fipWeight = 0.25;
@@ -912,15 +912,24 @@ class Player {
             `, [startDate, endDate, teamId, startDate, endDate, teamId]);
 
             // Query the aggregated results from temporary table
-            const defaultPlayerFields = this.getDefaultPlayerFields();
-            const advancedScoringFields = this.getHitterAdvancedScoringFields();
+            // getFields() always prepends p.* — merge once so we do not duplicate player columns.
+            // ANY_VALUE(...) satisfies ONLY_FULL_GROUP_BY: p.* and pars_pct.* are constant per t.player_id given the joins.
+            const hitterScheduleFields = this.mergeScoringFields(
+                this.getDefaultPlayerFields(),
+                this.getHitterAdvancedScoringFields(),
+            );
+            const anyValuePlayerAndAdvanced = this.getFields(hitterScheduleFields)
+                .map((col) => {
+                    const alias = col.includes('.') ? col.split('.').pop() as string : col;
+                    return `ANY_VALUE(${col}) AS \`${alias}\``;
+                })
+                .join(', ');
             const [hitterScores] = await connection.query(`
                 SELECT
-                    ${this.getFields(defaultPlayerFields).join(', ')}, 
-                    ${this.getFields(advancedScoringFields).join(', ')},
-                    ${PLAYERS_TABLE_ALIAS}.player_id,
+                    ${anyValuePlayerAndAdvanced},
+                    ANY_VALUE(${PLAYERS_TABLE_ALIAS}.player_id) AS player_id,
                     SUM(t.games) AS games,
-                    ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.reliability_score,
+                    ANY_VALUE(${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.reliability_score) AS reliability_score,
                     SUM(t.games * (
                         0.50*(100 - ${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.whip_pct)
                         + 0.30*(100 - ${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.fip_pct)
