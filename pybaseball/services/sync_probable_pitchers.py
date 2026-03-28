@@ -41,7 +41,7 @@ def main(force=False):
 
         logger.info("Probable pitchers sync complete.")
     except Exception as e:
-        logger.exception("Error syncing probable pitchers: {e}")
+        logger.exception(f"Error syncing probable pitchers: {e}")
     finally:
         if conn:
             conn.close()

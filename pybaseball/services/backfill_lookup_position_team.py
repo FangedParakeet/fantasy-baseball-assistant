@@ -24,6 +24,12 @@ def main():
         lookups = PlayerLookups(conn)
         mlb_api = MlbApi()
 
+        # Clean up any NULL-position duplicates before we try to UPDATE them.
+        # backfill sets position on the MIN(id) NULL-position row, which fails with a
+        # duplicate key error if a canonical (player_id, position) row already exists.
+        # Consolidation merges their data into the canonical row and removes the nulls.
+        lookups.consolidate_null_position_lookup_rows()
+
         # One row per player_id to update (avoid duplicate player_id+position)
         cursor = conn.cursor()
         cursor.execute(

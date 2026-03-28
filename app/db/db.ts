@@ -54,20 +54,46 @@ export async function executeInTransaction<T>(
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 
 /**
+ * MySQL error codes that are safe to ignore in idempotent migrations.
+ * These arise when re-running ALTER TABLE / ADD INDEX statements that have
+ * already been applied (MySQL 8 has no ADD COLUMN IF NOT EXISTS).
+ */
+const IDEMPOTENT_MIGRATION_ERRORS = new Set([
+  1060, // ER_DUP_FIELDNAME  – ADD COLUMN for a column that already exists
+  1061, // ER_DUP_KEY        – ADD INDEX for an index that already exists
+  1091, // ER_CANT_DROP_FIELD_OR_KEY – DROP COLUMN / DROP INDEX that doesn't exist
+]);
+
+/**
  * Run all SQL migration files in db/migrations in order.
- * Each .sql file is executed as a single statement.
+ * Each file is split on ";\n" so a single file may contain multiple statements
+ * (needed for ALTER TABLE migrations which cannot use IF NOT EXISTS in MySQL 8).
+ * Idempotent-safe error codes are swallowed so re-running is always safe.
  */
 export async function runMigrations(): Promise<void> {
   const files = fs.readdirSync(MIGRATIONS_DIR);
-  const sqlFiles = files
-    .filter((f) => f.endsWith('.sql'))
-    .sort();
+  const sqlFiles = files.filter((f) => f.endsWith('.sql')).sort();
 
   for (const file of sqlFiles) {
     const filePath = path.join(MIGRATIONS_DIR, file);
     const sql = fs.readFileSync(filePath, 'utf-8').trim();
-    if (sql) {
-      await rawPool.query(sql);
+    if (!sql) continue;
+
+    const statements = sql
+      .split(/;\s*\n/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    for (const statement of statements) {
+      try {
+        await rawPool.query(statement);
+      } catch (err: unknown) {
+        const mysqlErr = err as { errno?: number; message?: string };
+        if (mysqlErr.errno !== undefined && IDEMPOTENT_MIGRATION_ERRORS.has(mysqlErr.errno)) {
+          continue;
+        }
+        throw err;
+      }
     }
   }
 }

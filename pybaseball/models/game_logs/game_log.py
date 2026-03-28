@@ -29,12 +29,19 @@ class GameLog(MlbLog):
             return None
 
     def ip_to_decimal(self, ip_str):
-        if not ip_str or ip_str == '0':
+        # MLB API returns '-' for stats that are not applicable (e.g. no IP recorded yet)
+        if not ip_str or ip_str in ('0', '-'):
             return '0'
-        
-        # Use regex to replace fractional innings
-        # Replace .1 with .333 and .2 with .667
+
         ip_str = re.sub(r'\.1$', '.333', str(ip_str))
         ip_str = re.sub(r'\.2$', '.667', ip_str)
-        
+
         return ip_str
+
+    @staticmethod
+    def safe_float(value, default: float = 0.0) -> float:
+        """Convert a value to float, returning default for '-', None, or any non-numeric string."""
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return default

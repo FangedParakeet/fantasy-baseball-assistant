@@ -35,6 +35,12 @@ class PlayerLookup(MlbLog):
             return self.last_name
         if key == 'team':
             return self.team
+        if key == 'position':
+            primary = self.player_info.get('primaryPosition') or {}
+            abbr = (primary.get('abbreviation') or '').strip().upper()
+            if not abbr:
+                return None
+            return 'P' if abbr == 'P' else 'B'
         if key == 'bats':
             return self.player_info.get('batSide', {}).get('code', None)
         if key == 'throws':

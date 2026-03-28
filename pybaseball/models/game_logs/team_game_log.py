@@ -42,17 +42,17 @@ class TeamGameLog(GameLog):
         elif key == 'is_win':
             return self.runs_scored > self.runs_allowed
         elif key == 'avg':
-            return float(self.batting_stats.get("avg", 0.0))
+            return self.safe_float(self.batting_stats.get("avg"))
         elif key == 'obp':
-            return float(self.batting_stats.get("obp", 0.0))
+            return self.safe_float(self.batting_stats.get("obp"))
         elif key == 'slg':
-            return float(self.batting_stats.get("slg", 0.0))
+            return self.safe_float(self.batting_stats.get("slg"))
         elif key == 'ops':
-            return float(self.batting_stats.get("ops", 0.0))
+            return self.safe_float(self.batting_stats.get("ops"))
         elif key == 'er':
             return self.pitching_stats.get("earnedRuns", 0)
         elif key == 'whip':
-            return float(self.pitching_stats.get("whip", 0.0))
+            return self.safe_float(self.pitching_stats.get("whip"))
         elif key == 'strikeouts':
             return self.pitching_stats.get("strikeOuts", 0)
         elif key == 'walks':

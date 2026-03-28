@@ -1,3 +1,4 @@
+from datetime import datetime
 from models.score_calculator import ScoreCalculator
 from utils.logger import logger
 
@@ -5,14 +6,19 @@ class QSScoreCalculator(ScoreCalculator):
     def __init__(self, conn):
         super().__init__(conn)
 
-    def update_probables_qs_scores(self):
+    def update_probables_qs_scores(self, season_year=None):
         start_date, end_date = self.get_window_dates()
-        self.update_qs_likelihood_scores(start_date, end_date)
+        self.update_qs_likelihood_scores(start_date, end_date, season_year)
 
-    def update_qs_likelihood_scores(self, start_date, end_date):
-        logger.info(f"Updating QS likelihood scores for probable pitchers from {start_date} to {end_date}")
-        
-        # Build the INSERT query using subquery instead of WITH clause
+    def update_qs_likelihood_scores(self, start_date, end_date, season_year=None):
+        if season_year is None:
+            season_year = datetime.now().year
+        logger.info(f"Updating QS likelihood scores for probable pitchers from {start_date} to {end_date} (season {season_year})")
+
+        # Build the INSERT query using subquery instead of WITH clause.
+        # ON DUPLICATE KEY UPDATE guards against fan-out from joined percentile
+        # tables that may have multiple rows per player/team (e.g. multiple
+        # season_year values), which would otherwise produce duplicate pp_id rows.
         insert_query = f"""
             INSERT INTO tmp_qs_scores (pp_id, qs_score)
             SELECT
@@ -113,58 +119,63 @@ class QSScoreCalculator(ScoreCalculator):
                         SELECT pars.player_id, pars.ip, pars.games
                         FROM {self.player_advanced_rolling_stats_table} pars
                         WHERE pars.span_days = %s AND pars.split_type = 'overall' AND pars.position = 'P'
+                            AND pars.season_year = %s
                     ) pr  ON pr.player_id = u.player_id
 
                     LEFT JOIN (
                         SELECT prs.player_id, prs.qs, prs.games AS qs_games
                         FROM {self.player_rolling_stats_table} prs
                         WHERE prs.span_days = %s AND prs.split_type = 'overall' AND prs.position = 'P'
+                            AND prs.season_year = %s
                     ) pq  ON pq.player_id = u.player_id
 
                     LEFT JOIN (
                         SELECT ps.player_id, ps.k_pct_pct, ps.bb_pct_pct, ps.hr_per_9_pct
                         FROM {self.player_season_stats_percentiles_table} ps
-                        WHERE ps.position = 'P'
+                        WHERE ps.position = 'P' AND ps.season_year = %s
                     ) ps ON ps.player_id = u.player_id
 
                     LEFT JOIN (
                         SELECT pars_pct.player_id, pars_pct.fip_minus_pct
                         FROM {self.player_advanced_rolling_stats_percentiles_table} pars_pct
                         WHERE pars_pct.span_days = %s AND pars_pct.split_type = 'overall' AND pars_pct.position = 'P'
+                            AND pars_pct.season_year = %s
                     ) prp ON prp.player_id = u.player_id
 
                     -- Opponent recent runs by home/away split (team_rolling_stats_percentiles)
                     LEFT JOIN (
                         SELECT team, avg_runs_scored_pct
                         FROM {self.team_rolling_stats_percentiles_table}
-                        WHERE span_days = %s AND split_type = 'home'
+                        WHERE span_days = %s AND split_type = 'home' AND season_year = %s
                     ) t_opp_home ON t_opp_home.team = u.opp_team
 
                     LEFT JOIN (
                         SELECT team, avg_runs_scored_pct
                         FROM {self.team_rolling_stats_percentiles_table}
-                        WHERE span_days = %s AND split_type = 'away'
+                        WHERE span_days = %s AND split_type = 'away' AND season_year = %s
                     ) t_opp_away ON t_opp_away.team = u.opp_team
 
                     -- Opponent vs our pitcher handedness (team_vs_pitcher_splits_percentiles)
                     LEFT JOIN (
                         SELECT tvpp.team, tvpp.throws, tvpp.ops_pct, tvpp.so_rate_pct
                         FROM {self.team_vs_pitcher_splits_percentiles_table} tvpp
-                        WHERE tvpp.span_days = %s
+                        WHERE tvpp.span_days = %s AND tvpp.season_year = %s
                     ) ovh ON ovh.team = u.opp_team AND ovh.throws = ph.throws
                 ) a
-            ) s;
+            ) s
+            ON DUPLICATE KEY UPDATE qs_score = VALUES(qs_score);
         """
         
         
         params = [
             start_date, end_date,
-            self.PITCHER_SPAN_DAYS,  # for p_roll_raw
-            self.PITCHER_SPAN_DAYS,  # for p_roll_qs
-            self.PITCHER_SPAN_DAYS,  # for p_roll_pct,
-            self.TEAM_SPAN_DAYS,     # for opp_team home/away split
-            self.TEAM_SPAN_DAYS,     # for opp_team home/away split
-            self.TEAM_SPAN_DAYS,     # for opp_vs_hand
+            self.PITCHER_SPAN_DAYS, season_year,  # player_advanced_rolling_stats (pr)
+            self.PITCHER_SPAN_DAYS, season_year,  # player_rolling_stats (pq)
+            season_year,                           # player_season_stats_percentiles (ps)
+            self.PITCHER_SPAN_DAYS, season_year,  # player_advanced_rolling_stats_percentiles (prp)
+            self.TEAM_SPAN_DAYS, season_year,     # team_rolling_stats_percentiles home (t_opp_home)
+            self.TEAM_SPAN_DAYS, season_year,     # team_rolling_stats_percentiles away (t_opp_away)
+            self.TEAM_SPAN_DAYS, season_year,     # team_vs_pitcher_splits_percentiles (ovh)
         ]
         
         update_query = f"""
@@ -175,11 +186,10 @@ class QSScoreCalculator(ScoreCalculator):
         
         # Execute the complex query within a transaction
         self.begin_transaction()
-        try:                
-
+        try:
             # Drop any existing temporary table first
             self.execute_query_in_transaction("DROP TEMPORARY TABLE IF EXISTS tmp_qs_scores")
-            
+
             # Create temporary table
             self.execute_query_in_transaction("""
                 CREATE TEMPORARY TABLE tmp_qs_scores (
@@ -187,24 +197,24 @@ class QSScoreCalculator(ScoreCalculator):
                     qs_score DECIMAL(5,1)
                 ) ENGINE=MEMORY
             """)
-            
-            # Execute the INSERT query with parameters
+
+            # INSERT with ON DUPLICATE KEY UPDATE to handle any fan-out from JOINs
+            # producing multiple rows for the same pp_id (e.g. percentile tables
+            # storing data across multiple season_years or span_day buckets).
             self.execute_query_in_transaction(insert_query, params)
-            
+
             # Execute the UPDATE query (no parameters needed)
             self.execute_query_in_transaction(update_query)
 
-            # Drop temporary table
-            self.execute_query_in_transaction("DROP TEMPORARY TABLE IF EXISTS tmp_qs_scores")            
+            self.execute_query_in_transaction("DROP TEMPORARY TABLE IF EXISTS tmp_qs_scores")
+            self.commit_transaction()
+            logger.info("QS likelihood scores updated successfully")
         except Exception as e:
             logger.exception(f"Error updating QS likelihood scores: {e}")
             self.rollback_transaction()
-            raise e
-        finally:
-            # Ensure we always try to drop the temp table
+            # Best-effort cleanup: temp tables are session-scoped so survive a rollback
             try:
-                self.execute_query_in_transaction("DROP TEMPORARY TABLE IF EXISTS tmp_qs_scores")
-            except:
-                pass  # Ignore errors when dropping temp table
-            self.commit_transaction()
-            logger.info("QS likelihood scores updated successfully")
+                self.execute_query("DROP TEMPORARY TABLE IF EXISTS tmp_qs_scores")
+            except Exception:
+                pass
+            raise e

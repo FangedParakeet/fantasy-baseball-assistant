@@ -49,27 +49,29 @@ class PlayerHydrator(DB_Recorder):
         logger.info("Updating player lookup table with active team rosters")
         try:        
             # Get rosters for all MLB teams
-            extra_keys = ['team', 'status']
+            extra_keys = ['position', 'team', 'status']
             all_players = LogsInserter(PlayerLookup.KEYS + extra_keys, PlayerLookup.ID_KEYS)
             all_player_ids = []
             logger.info(f"Getting rosters for {len(MLB_TEAM_IDS)} MLB teams...")
-            
+
             for team_code, team_id in MLB_TEAM_IDS.items():
                 logger.info(f"Getting roster for {team_code} (ID: {team_id})...")
-                
+
                 roster_data = self.mlb_api.get_team_roster(team_id)
-                
+
                 if roster_data and 'roster' in roster_data:
                     roster = roster_data['roster']
                     logger.info(f"  Found {len(roster)} players")
-                    
+
                     for player in roster:
                         person = player.get('person', {})
                         player_id = person.get('id')
                         full_name = person.get('fullName')
-                        
+
                         if player_id and full_name:
-                            # Split name into first and last
+                            # Roster entries carry position at the player level as 'position';
+                            # inject it as 'primaryPosition' so PlayerLookup can read it uniformly.
+                            person['primaryPosition'] = player.get('position', {})
                             all_player_ids.append(player_id)
                             all_players.add_row(PlayerLookup(extra_keys, person, team_code))
                 else:
@@ -92,7 +94,7 @@ class PlayerHydrator(DB_Recorder):
             self.set_sync_status(self.UPDATE_ACTIVE_TEAM_ROSTERS_SYNC_NAME, "error", f"Error updating player lookup table with active team rosters: {e}")
 
     def process_players(self, player_info: list[dict]) -> LogsInserter:
-        extra_keys = ['bats', 'throws']
+        extra_keys = ['position', 'bats', 'throws']
         all_rows = LogsInserter(PlayerLookup.KEYS + extra_keys, PlayerLookup.ID_KEYS)
         for player in player_info:
             all_rows.add_row(PlayerLookup(extra_keys, player))

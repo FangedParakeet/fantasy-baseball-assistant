@@ -291,29 +291,63 @@ class RiskScorer:
     # dataframe helpers
     # -------------------------
 
+    @staticmethod
+    def _to_int_series(result: "pd.Series | pd.DataFrame", index) -> pd.Series:
+        """
+        Guarantee a 1-D integer Series from a df.apply(axis=1) result.
+
+        In pandas 2.x, if the applied function returns a pd.Series for even one
+        row (e.g. because a row lookup returns a multi-element Series due to
+        duplicate row indices or column-name collisions after a merge fan-out),
+        apply infers a DataFrame output. Collapse that to a flat Series so the
+        column assignment doesn't raise ValueError.
+        """
+        if isinstance(result, pd.DataFrame):
+            result = result.iloc[:, 0]
+        return pd.Series(result.values, index=index, dtype=int)
+
     def add_hitter_risk_and_reliability_scores(self, hitters_df: pd.DataFrame, *, span_days: int) -> pd.DataFrame:
-        df = hitters_df.copy()
-        # reliability first
-        df["reliability_score"] = df.apply(lambda r: self.compute_hitter_reliability_score(r, span_days), axis=1)
-        df["risk_score"] = df.apply(
-            lambda r: self.compute_hitter_risk_score(
-                r,
-                span_days=span_days,
-                reliability_score=int(r["reliability_score"]),
+        # reset_index so row labels are unique; guards against merge fan-out
+        # creating duplicate indices that confuse apply's type inference.
+        df = hitters_df.copy().reset_index(drop=True)
+
+        reliability = self._to_int_series(
+            df.apply(lambda r: self.compute_hitter_reliability_score(r, span_days), axis=1),
+            index=df.index,
+        )
+        df["reliability_score"] = reliability
+
+        df["risk_score"] = self._to_int_series(
+            df.apply(
+                lambda r: self.compute_hitter_risk_score(
+                    r,
+                    span_days=span_days,
+                    reliability_score=int(reliability.iloc[r.name]),
+                ),
+                axis=1,
             ),
-            axis=1
+            index=df.index,
         )
         return df
 
     def add_pitcher_risk_and_reliability_scores(self, pitchers_df: pd.DataFrame, *, span_days: int) -> pd.DataFrame:
-        df = pitchers_df.copy()
-        df["reliability_score"] = df.apply(lambda r: self.compute_pitcher_reliability_score(r, span_days), axis=1)
-        df["risk_score"] = df.apply(
-            lambda r: self.compute_pitcher_risk_score(
-                r,
-                span_days=span_days,
-                reliability_score=int(r["reliability_score"]),
+        df = pitchers_df.copy().reset_index(drop=True)
+
+        reliability = self._to_int_series(
+            df.apply(lambda r: self.compute_pitcher_reliability_score(r, span_days), axis=1),
+            index=df.index,
+        )
+        df["reliability_score"] = reliability
+
+        df["risk_score"] = self._to_int_series(
+            df.apply(
+                lambda r: self.compute_pitcher_risk_score(
+                    r,
+                    span_days=span_days,
+                    reliability_score=int(reliability.iloc[r.name]),
+                ),
+                axis=1,
             ),
-            axis=1
+            index=df.index,
         )
         return df

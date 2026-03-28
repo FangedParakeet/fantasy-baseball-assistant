@@ -1,3 +1,4 @@
+from datetime import datetime
 from models.score_calculator import ScoreCalculator
 from utils.logger import logger
 
@@ -5,12 +6,14 @@ class NRFIScoreCalculator(ScoreCalculator):
     def __init__(self, conn):
         super().__init__(conn)
 
-    def update_probables_nrfi_scores(self):
+    def update_probables_nrfi_scores(self, season_year=None):
         start_date, end_date = self.get_window_dates()
-        self.update_nrfi_likelihood_scores(start_date, end_date)
+        self.update_nrfi_likelihood_scores(start_date, end_date, season_year)
 
-    def update_nrfi_likelihood_scores(self, start_date, end_date):
-        logger.info(f"Updating NRFI likelihood scores for probable pitchers from {start_date} to {end_date}")
+    def update_nrfi_likelihood_scores(self, start_date, end_date, season_year=None):
+        if season_year is None:
+            season_year = datetime.now().year
+        logger.info(f"Updating NRFI likelihood scores for probable pitchers from {start_date} to {end_date} (season {season_year})")
 
         insert_query = f"""
             INSERT INTO tmp_nrfi_scores (pp_id, nrfi_score)
@@ -145,6 +148,7 @@ class NRFIScoreCalculator(ScoreCalculator):
                         WHERE prs.span_days = %s
                             AND prs.split_type = 'overall'
                             AND prs.position = 'P'
+                            AND prs.season_year = %s
                     ) pr1 ON pr1.player_id = bp.player_id
 
                     LEFT JOIN (
@@ -153,13 +157,14 @@ class NRFIScoreCalculator(ScoreCalculator):
                         WHERE prs.span_days = %s
                             AND prs.split_type = 'overall'
                             AND prs.position = 'P'
+                            AND prs.season_year = %s
                     ) pr2 ON pr2.player_id = bp.opp_pitcher_id
 
                     /* Opponent offense NRFI vs our hand */
                     LEFT JOIN (
                         SELECT tvpp.team, tvpp.throws, tvpp.nrfi_pct
                         FROM {self.team_vs_pitcher_splits_percentiles_table} tvpp
-                        WHERE tvpp.span_days = %s
+                        WHERE tvpp.span_days = %s AND tvpp.season_year = %s
                     ) o1
                     ON o1.team = bp.opp_team
                     AND o1.throws = h1.throws
@@ -168,7 +173,7 @@ class NRFIScoreCalculator(ScoreCalculator):
                     LEFT JOIN (
                         SELECT tvpp.team, tvpp.throws, tvpp.nrfi_pct
                         FROM {self.team_vs_pitcher_splits_percentiles_table} tvpp
-                        WHERE tvpp.span_days = %s
+                        WHERE tvpp.span_days = %s AND tvpp.season_year = %s
                     ) o2
                     ON o2.team = bp.pitcher_team
                     AND o2.throws = h2.throws
@@ -179,6 +184,7 @@ class NRFIScoreCalculator(ScoreCalculator):
                         FROM {self.team_rolling_stats_percentiles_table} trsp
                         WHERE trsp.span_days = %s
                             AND trsp.split_type = 'home'
+                            AND trsp.season_year = %s
                     ) t1h ON t1h.team = bp.pitcher_team
 
                     LEFT JOIN (
@@ -186,6 +192,7 @@ class NRFIScoreCalculator(ScoreCalculator):
                         FROM {self.team_rolling_stats_percentiles_table} trsp
                         WHERE trsp.span_days = %s
                             AND trsp.split_type = 'away'
+                            AND trsp.season_year = %s
                     ) t1a ON t1a.team = bp.pitcher_team
 
                     LEFT JOIN (
@@ -193,6 +200,7 @@ class NRFIScoreCalculator(ScoreCalculator):
                         FROM {self.team_rolling_stats_percentiles_table} trsp
                         WHERE trsp.span_days = %s
                             AND trsp.split_type = 'home'
+                            AND trsp.season_year = %s
                     ) t2h ON t2h.team = bp.opp_team
 
                     LEFT JOIN (
@@ -200,23 +208,24 @@ class NRFIScoreCalculator(ScoreCalculator):
                         FROM {self.team_rolling_stats_percentiles_table} trsp
                         WHERE trsp.span_days = %s
                             AND trsp.split_type = 'away'
+                            AND trsp.season_year = %s
                     ) t2a ON t2a.team = bp.opp_team
 
                 ) a
-            ) s;
+            ) s
+            ON DUPLICATE KEY UPDATE nrfi_score = VALUES(nrfi_score);
         """
 
         params = [
-            start_date,
-            end_date,
-            self.PITCHER_SPAN_DAYS,
-            self.PITCHER_SPAN_DAYS,
-            self.TEAM_SPAN_DAYS,
-            self.TEAM_SPAN_DAYS,
-            self.TEAM_SPAN_DAYS,
-            self.TEAM_SPAN_DAYS,
-            self.TEAM_SPAN_DAYS,
-            self.TEAM_SPAN_DAYS,
+            start_date, end_date,
+            self.PITCHER_SPAN_DAYS, season_year,  # player_rolling_stats our pitcher (pr1)
+            self.PITCHER_SPAN_DAYS, season_year,  # player_rolling_stats opp pitcher (pr2)
+            self.TEAM_SPAN_DAYS, season_year,     # team_vs_pitcher_splits_percentiles opp offense (o1)
+            self.TEAM_SPAN_DAYS, season_year,     # team_vs_pitcher_splits_percentiles our offense (o2)
+            self.TEAM_SPAN_DAYS, season_year,     # team_rolling_stats_percentiles our team home (t1h)
+            self.TEAM_SPAN_DAYS, season_year,     # team_rolling_stats_percentiles our team away (t1a)
+            self.TEAM_SPAN_DAYS, season_year,     # team_rolling_stats_percentiles opp team home (t2h)
+            self.TEAM_SPAN_DAYS, season_year,     # team_rolling_stats_percentiles opp team away (t2a)
         ]
 
         update_query = f"""
@@ -225,32 +234,29 @@ class NRFIScoreCalculator(ScoreCalculator):
             SET pp.nrfi_likelihood_score = LEAST(GREATEST(t.nrfi_score, 0), 100);
         """
 
+        self.begin_transaction()
         try:
-            self.begin_transaction()
+            self.execute_query_in_transaction("DROP TEMPORARY TABLE IF EXISTS tmp_nrfi_scores")
 
-            #Create temporary table
             self.execute_query_in_transaction("""
                 CREATE TEMPORARY TABLE tmp_nrfi_scores (
                     pp_id INT PRIMARY KEY,
                     nrfi_score DECIMAL(5,1)
-                ) ENGINE=MEMORY;
+                ) ENGINE=MEMORY
             """)
 
-            #Execute the query
             self.execute_query_in_transaction(insert_query, params)
 
-            #Execute the update query
             self.execute_query_in_transaction(update_query)
 
-            #Drop temporary table
-            self.execute_query_in_transaction("""
-                DROP TEMPORARY TABLE tmp_nrfi_scores;
-            """)
-
+            self.execute_query_in_transaction("DROP TEMPORARY TABLE IF EXISTS tmp_nrfi_scores")
+            self.commit_transaction()
+            logger.info("Updated NRFI likelihood scores for probable pitchers successfully")
         except Exception as e:
             logger.exception(f"Error updating NRFI likelihood scores: {e}")
             self.rollback_transaction()
+            try:
+                self.execute_query("DROP TEMPORARY TABLE IF EXISTS tmp_nrfi_scores")
+            except Exception:
+                pass
             raise e
-        finally:
-            self.commit_transaction()
-            logger.info(f"Updated NRFI likelihood scores for probable pitchers successfully")

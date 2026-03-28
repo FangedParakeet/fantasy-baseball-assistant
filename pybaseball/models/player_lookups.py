@@ -258,6 +258,73 @@ class PlayerLookups(DB_Recorder):
             logger.error("Error updating player ids from lookup by yahoo: %s", e)
             raise
 
+    def consolidate_null_position_lookup_rows(self) -> None:
+        """
+        Remove spurious NULL-position rows from player_lookup that are created when
+        hydrate_players() or update_active_team_rosters() insert without a position value.
+        MySQL allows multiple NULLs in UNIQUE(player_id, position), so each sync creates a
+        fresh NULL-position duplicate instead of updating the canonical (player_id, position) row.
+
+        Steps:
+        1) For each player_id that has both NULL-position and non-NULL-position rows, merge any
+           non-null fields from the NULL rows into the canonical rows (COALESCE — never overwrites).
+        2) Delete all NULL-position rows where at least one canonical row exists.
+        3) For player_ids with only NULL-position rows (no canonical yet), keep the oldest row
+           (MIN id) and delete the rest.
+        """
+        logger.info("Consolidating NULL-position duplicate rows in player_lookup")
+        try:
+            self.begin_transaction()
+
+            # Step 1: Merge non-null fields from NULL-position rows into canonical rows
+            self.execute_query_in_transaction(f"""
+                UPDATE {self.LOOKUP_TABLE} canonical
+                JOIN {self.LOOKUP_TABLE} nullrow
+                    ON nullrow.player_id = canonical.player_id
+                    AND nullrow.position IS NULL
+                    AND canonical.position IS NOT NULL
+                SET
+                    canonical.bats              = COALESCE(canonical.bats, nullrow.bats),
+                    canonical.throws            = COALESCE(canonical.throws, nullrow.throws),
+                    canonical.team              = COALESCE(canonical.team, nullrow.team),
+                    canonical.status            = COALESCE(canonical.status, nullrow.status),
+                    canonical.espn_player_id    = COALESCE(canonical.espn_player_id, nullrow.espn_player_id),
+                    canonical.yahoo_player_id   = COALESCE(canonical.yahoo_player_id, nullrow.yahoo_player_id),
+                    canonical.fangraphs_player_id = COALESCE(canonical.fangraphs_player_id, nullrow.fangraphs_player_id)
+            """)
+
+            # Step 2: Delete NULL-position rows where a canonical row exists
+            self.execute_query_in_transaction(f"""
+                DELETE nullrow FROM {self.LOOKUP_TABLE} nullrow
+                WHERE nullrow.position IS NULL
+                AND EXISTS (
+                    SELECT 1 FROM (
+                        SELECT player_id FROM {self.LOOKUP_TABLE} WHERE position IS NOT NULL
+                    ) has_canonical
+                    WHERE has_canonical.player_id = nullrow.player_id
+                )
+            """)
+
+            # Step 3: For player_ids with only NULL-position rows, keep the oldest (MIN id)
+            self.execute_query_in_transaction(f"""
+                DELETE nullrow FROM {self.LOOKUP_TABLE} nullrow
+                INNER JOIN (
+                    SELECT player_id, MIN(id) AS keep_id
+                    FROM {self.LOOKUP_TABLE}
+                    WHERE position IS NULL AND player_id IS NOT NULL
+                    GROUP BY player_id
+                    HAVING COUNT(*) > 1
+                ) dupes ON nullrow.player_id = dupes.player_id
+                WHERE nullrow.position IS NULL AND nullrow.id <> dupes.keep_id
+            """)
+
+            self.commit_transaction()
+            logger.info("Consolidated NULL-position duplicate rows in player_lookup")
+        except Exception as e:
+            self.rollback_transaction()
+            logger.exception("Error consolidating NULL-position lookup rows: %s", e)
+            raise
+
     def consolidate_duplicate_players(self):
         with self.conn.cursor() as cursor:
             cursor.execute(f"""
