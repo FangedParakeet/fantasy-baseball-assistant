@@ -383,8 +383,9 @@ class Player {
     }
 
     async getAvailableTwoStartPitchers(
-        startDate: string, 
-        endDate: string
+        startDate: string,
+        endDate: string,
+        seasonYear: number = new Date().getFullYear()
     ): Promise<TwoStartPitcher[]> {
         if (!startDate || !endDate) {
             throw new Error('Missing required parameters');
@@ -414,29 +415,32 @@ class Player {
             LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
                 ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
                 AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = 'P'
-            LEFT JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS} 
-                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall' 
+            LEFT JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
+                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall'
                 AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'P'
-            LEFT JOIN ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS} 
-                ON ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
-                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall' 
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
+            LEFT JOIN ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
+                ON ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall'
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'P'
-            LEFT JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS} 
-                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = 'overall' 
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
+            LEFT JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS}
+                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = 'overall'
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = 'P'
-            WHERE 
-                ${PROBABLE_PITCHERS_TABLE_ALIAS}.game_date BETWEEN ? AND ? 
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.season_year = ?
+            WHERE
+                ${PROBABLE_PITCHERS_TABLE_ALIAS}.game_date BETWEEN ? AND ?
                 AND EXISTS (
-                    SELECT 1 
+                    SELECT 1
                     FROM ${PROBABLE_PITCHERS_TABLE} ${PROBABLE_PITCHERS_TABLE_ALIAS}2
-                    LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS}2 
+                    LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS}2
                         ON ${PLAYERS_TABLE_ALIAS}2.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}2.player_id
-                    WHERE 
+                    WHERE
                         ${PROBABLE_PITCHERS_TABLE_ALIAS}2.normalised_name = ${PROBABLE_PITCHERS_TABLE_ALIAS}.normalised_name
                         AND ${PLAYERS_TABLE_ALIAS}2.status = 'free_agent'
                         AND ${PROBABLE_PITCHERS_TABLE_ALIAS}2.game_date BETWEEN ? AND ?
@@ -444,14 +448,15 @@ class Player {
                 )
             ORDER BY avg_qs_score DESC, ${PROBABLE_PITCHERS_TABLE_ALIAS}.normalised_name ASC, ${PROBABLE_PITCHERS_TABLE_ALIAS}.game_date ASC
             `,
-            [spanDays, spanDays, spanDays, startDate, endDate, startDate, endDate]
+            [spanDays, seasonYear, spanDays, seasonYear, spanDays, seasonYear, startDate, endDate, startDate, endDate]
         );
         return probablePitchers;
     }
 
     async getAvailableDailyStreamingPitchers(
-        startDate: string, 
-        endDate: string
+        startDate: string,
+        endDate: string,
+        seasonYear: number = new Date().getFullYear()
     ): Promise<ProbablePitcher[]> {
         if (!startDate || !endDate) {
             throw new Error('Missing required parameters');
@@ -480,27 +485,30 @@ class Player {
             LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
                 ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
                 AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = 'P'
-            LEFT JOIN ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS} 
-                ON ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
-                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall' 
+            LEFT JOIN ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
+                ON ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall'
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'P'
-            LEFT JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS} 
-                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall' 
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
+            LEFT JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
+                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall'
                 AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'P'
-            LEFT JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS} 
-                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = 'overall' 
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
+            LEFT JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS}
+                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = 'overall'
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = 'P'
-            WHERE 
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.season_year = ?
+            WHERE
                 ${PROBABLE_PITCHERS_TABLE_ALIAS}.game_date BETWEEN ? AND ?
                 AND ${PLAYERS_TABLE_ALIAS}.status = 'free_agent'
             ORDER BY ${PROBABLE_PITCHERS_TABLE_ALIAS}.game_date, ${PROBABLE_PITCHERS_TABLE_ALIAS}.qs_likelihood_score DESC, ${PROBABLE_PITCHERS_TABLE_ALIAS}.normalised_name
             `,
-            [spanDays, spanDays, spanDays, startDate, endDate]
+            [spanDays, seasonYear, spanDays, seasonYear, spanDays, seasonYear, startDate, endDate]
         );
         return probablePitchers;
     }
@@ -592,9 +600,10 @@ class Player {
     }
 
     async getScoringStatsForTeamBatters(
-        teamId: number, 
-        spanDays: SpanDays = 14, 
-        orderBy: HitterBasicScoringFields | HitterAdvancedScoringFields | false = false
+        teamId: number,
+        spanDays: SpanDays = 14,
+        orderBy: HitterBasicScoringFields | HitterAdvancedScoringFields | false = false,
+        seasonYear: number = new Date().getFullYear()
     ): Promise<HitterScoringWatchlist[]> {
         if (!teamId) {
             throw new Error('Missing required parameters');
@@ -630,34 +639,38 @@ class Player {
 
             FROM ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS}
             LEFT JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS}
-                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${PLAYERS_TABLE_ALIAS}.player_id 
+                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${PLAYERS_TABLE_ALIAS}.player_id
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = ${PLAYERS_TABLE_ALIAS}.position
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ?
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = 'overall'
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.season_year = ?
             LEFT JOIN ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
                 ON ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PLAYERS_TABLE_ALIAS}.player_id
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = ${PLAYERS_TABLE_ALIAS}.position
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall'
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
             LEFT JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PLAYERS_TABLE_ALIAS}.player_id 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall' 
+                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PLAYERS_TABLE_ALIAS}.player_id
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall'
                 AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'B'
-            WHERE 
-                ${PLAYERS_TABLE_ALIAS}.team_id = ? 
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
+            WHERE
+                ${PLAYERS_TABLE_ALIAS}.team_id = ?
                 AND ${PLAYERS_TABLE_ALIAS}.position = 'B'
             ${orderByClause}
             `,
-            [spanDays, spanDays, spanDays, teamId]
+            [spanDays, seasonYear, spanDays, seasonYear, spanDays, seasonYear, teamId]
         );
         return playerStats;
     }
 
     async getScoringStatsForTeamPitchers(
-        teamId: number, 
-        spanDays: SpanDays = 14, 
-        orderBy: PitcherBasicScoringFields | PitcherAdvancedScoringFields | false = false
+        teamId: number,
+        spanDays: SpanDays = 14,
+        orderBy: PitcherBasicScoringFields | PitcherAdvancedScoringFields | false = false,
+        seasonYear: number = new Date().getFullYear()
     ): Promise<PitcherScoringWatchlist[]> {
         if (!teamId) {
             throw new Error('Missing required parameters');
@@ -693,34 +706,38 @@ class Player {
 
             FROM ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS}
             LEFT JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS}
-                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${PLAYERS_TABLE_ALIAS}.player_id 
+                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${PLAYERS_TABLE_ALIAS}.player_id
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = ${PLAYERS_TABLE_ALIAS}.position
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ?
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = 'overall'
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.season_year = ?
             LEFT JOIN ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
                 ON ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PLAYERS_TABLE_ALIAS}.player_id
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = ${PLAYERS_TABLE_ALIAS}.position
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall'
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
             LEFT JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PLAYERS_TABLE_ALIAS}.player_id 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall' 
+                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PLAYERS_TABLE_ALIAS}.player_id
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall'
                 AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'P'
-            WHERE 
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
+            WHERE
                 ${PLAYERS_TABLE_ALIAS}.team_id = ? AND ${PLAYERS_TABLE_ALIAS}.position = 'P'
             ${orderByClause}
             `,
-            [spanDays, spanDays, spanDays, teamId]
+            [spanDays, seasonYear, spanDays, seasonYear, spanDays, seasonYear, teamId]
         );
         return playerStats;
     }
 
     async getWeeklyPitcherScheduleStrengthPreviewForTeam(
-        teamId: number, 
-        startDate: string, 
-        endDate: string, 
-        spanDays: SpanDays = 14
+        teamId: number,
+        startDate: string,
+        endDate: string,
+        spanDays: SpanDays = 14,
+        seasonYear: number = new Date().getFullYear()
     ): Promise<PitcherScheduleStrength[]> {
         if (!teamId || !startDate || !endDate) {
             throw new Error('Missing required parameters');
@@ -778,36 +795,40 @@ class Player {
                             ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
                             AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = 'P'
                         LEFT JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                            ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
-                            AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                            AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ? 
+                            ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+                            AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                            AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ?
                             AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'P'
+                            AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
                         LEFT JOIN ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                            ON ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
-                            AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                            AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ? 
+                            ON ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+                            AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                            AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ?
                             AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'P'
+                            AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
                         LEFT JOIN ${TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE} ${TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE_ALIAS}
-                            ON ${TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE_ALIAS}.team = ${PROBABLE_PITCHERS_TABLE_ALIAS}.opponent 
-                            AND ${TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE_ALIAS}.throws = ${PLAYER_LOOKUPS_TABLE_ALIAS}.throws 
+                            ON ${TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE_ALIAS}.team = ${PROBABLE_PITCHERS_TABLE_ALIAS}.opponent
+                            AND ${TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE_ALIAS}.throws = ${PLAYER_LOOKUPS_TABLE_ALIAS}.throws
                             AND ${TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE_ALIAS}.span_days = ?
-                        WHERE 
+                            AND ${TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE_ALIAS}.season_year = ?
+                        WHERE
                             ${PROBABLE_PITCHERS_TABLE_ALIAS}.game_date BETWEEN ? AND ?
                             AND ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id IS NOT NULL
                             AND ${PLAYERS_TABLE_ALIAS}.team_id = ?
                         ) ${PROBABLE_PITCHERS_TABLE_ALIAS}
                     GROUP BY ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
                     ORDER BY pitcher_week_score DESC
-                `, [spanDays, 'overall', spanDays, 'overall', spanDays, startDate, endDate, teamId]);
+                `, [spanDays, 'overall', seasonYear, spanDays, 'overall', seasonYear, spanDays, seasonYear, startDate, endDate, teamId]);
             return pitcherScores as PitcherScheduleStrength[];
         });
     }
 
     async getWeeklyHitterScheduleStrengthPreviewForTeam(
-        teamId: number | false, 
-        startDate: string, 
-        endDate: string, 
-        spanDays: SpanDays = 14
+        teamId: number | false,
+        startDate: string,
+        endDate: string,
+        spanDays: SpanDays = 14,
+        seasonYear: number = new Date().getFullYear()
     ): Promise<HitterScheduleStrength[]> {
         if (!teamId || !startDate || !endDate) {
             throw new Error('Missing required parameters');
@@ -913,21 +934,24 @@ class Player {
                     ON ${PLAYERS_TABLE_ALIAS}.player_id = ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id 
                     AND ${PLAYERS_TABLE_ALIAS}.position = 'B'
                 JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                    ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = t.player_id 
-                    AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                    AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall' 
+                    ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = t.player_id
+                    AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                    AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall'
                     AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'B'
+                    AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
                 JOIN ${TEAM_ROLLING_STATS_PERCENTILES_TABLE} ${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                    ON ${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.team = t.opponent_team 
-                    AND ${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall' 
+                    ON ${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.team = t.opponent_team
+                    AND ${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall'
                     AND ${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                    AND ${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
                 JOIN ${TEAM_VS_BATTER_SPLITS_PERCENTILES_TABLE} ${TEAM_VS_BATTER_SPLITS_PERCENTILES_TABLE_ALIAS}
-                    ON ${TEAM_VS_BATTER_SPLITS_PERCENTILES_TABLE_ALIAS}.team = t.opponent_team 
-                    AND ${TEAM_VS_BATTER_SPLITS_PERCENTILES_TABLE_ALIAS}.bats = ${PLAYER_LOOKUPS_TABLE_ALIAS}.bats 
+                    ON ${TEAM_VS_BATTER_SPLITS_PERCENTILES_TABLE_ALIAS}.team = t.opponent_team
+                    AND ${TEAM_VS_BATTER_SPLITS_PERCENTILES_TABLE_ALIAS}.bats = ${PLAYER_LOOKUPS_TABLE_ALIAS}.bats
                     AND ${TEAM_VS_BATTER_SPLITS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                    AND ${TEAM_VS_BATTER_SPLITS_PERCENTILES_TABLE_ALIAS}.season_year = ?
                 GROUP BY t.player_id
                 ORDER BY hitter_week_score DESC;
-            `, [spanDays, spanDays, spanDays]);
+            `, [spanDays, seasonYear, spanDays, seasonYear, spanDays, seasonYear]);
 
             // Drop the temporary table
             await connection.query(`
@@ -1225,10 +1249,11 @@ class Player {
 
 
     async getHitterSpeedWatchlist(
-        page: number = 1, 
-        spanDays: SpanDays = 14, 
-        position: Position | false = false, 
-        teamId: number | false = false
+        page: number = 1,
+        spanDays: SpanDays = 14,
+        position: Position | false = false,
+        teamId: number | false = false,
+        seasonYear: number = new Date().getFullYear()
     ): Promise<HitterSpeedWatchlist[]> {
         const positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
         const offset = (page - 1) * this.pageSize;
@@ -1260,24 +1285,27 @@ class Player {
 
             FROM ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
             JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type 
+                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year
                 AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'B'
             JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS}
-                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ? 
+                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.season_year = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = 'B'
-            LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+            LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS}
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
                 AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position
-            LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
-                ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+            LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS}
+                ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
                 AND ${PLAYERS_TABLE_ALIAS}.position = 'B'
-            WHERE 
+            WHERE
                 ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ?
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'B'
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.reliability_score >= 60
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.abs >= ?
@@ -1285,15 +1313,16 @@ class Player {
                 ${positionFilter}
             ORDER BY sb_pickup_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minAbs, playerFilterValue, this.pageSize, offset]);
+        `, [spanDays, 'overall', spanDays, 'overall', seasonYear, minAbs, playerFilterValue, this.pageSize, offset]);
         return hitterScores;
     }
 
     async getHitterContactOnBaseWatchlist(
-        page: number = 1, 
-        spanDays: SpanDays = 14, 
-        position: Position | false = false, 
-        teamId: number | false = false
+        page: number = 1,
+        spanDays: SpanDays = 14,
+        position: Position | false = false,
+        teamId: number | false = false,
+        seasonYear: number = new Date().getFullYear()
     ): Promise<HitterContactOnBaseWatchlist[]> {
         const positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
         const offset = (page - 1) * this.pageSize;
@@ -1323,24 +1352,27 @@ class Player {
 
             FROM ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
             JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type 
+                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year
                 AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'B'
-            JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS} 
-                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ? 
+            JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS}
+                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.season_year = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = 'B'
-            LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+            LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS}
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
                 AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position
-            LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
-                ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+            LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS}
+                ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
                 AND ${PLAYERS_TABLE_ALIAS}.position = 'B'
-            WHERE 
-                ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ? 
+            WHERE
+                ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ?
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'B'
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.reliability_score >= 60
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.abs >= ?
@@ -1348,15 +1380,16 @@ class Player {
                 ${positionFilter}
             ORDER BY contact_onbase_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minAbs, playerFilterValue, this.pageSize, offset]);
+        `, [spanDays, 'overall', spanDays, 'overall', seasonYear, minAbs, playerFilterValue, this.pageSize, offset]);
         return hitterScores;
     }
 
     async getHitterPowerWatchlist(
-        page: number = 1, 
-        spanDays: SpanDays = 14, 
-        position: Position | false = false, 
-        teamId: number | false = false
+        page: number = 1,
+        spanDays: SpanDays = 14,
+        position: Position | false = false,
+        teamId: number | false = false,
+        seasonYear: number = new Date().getFullYear()
     ): Promise<HitterPowerWatchlist[]> {
         const positionFilter = position ? `AND p.is_${position.toLowerCase()} = 1` : '';
         const offset = (page - 1) * this.pageSize;
@@ -1387,24 +1420,27 @@ class Player {
 
             FROM ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
             JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type 
+                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year
                 AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'B'
-            JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS} 
-                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ? 
+            JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS}
+                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.season_year = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = 'B'
-            LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+            LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS}
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
                 AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position
-            LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
-                ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+            LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS}
+                ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
                 AND ${PLAYERS_TABLE_ALIAS}.position = 'B'
-            WHERE 
-                ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ? 
+            WHERE
+                ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ?
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'B'
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.reliability_score >= 60
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.abs >= ?
@@ -1412,14 +1448,15 @@ class Player {
                 ${positionFilter}
             ORDER BY power_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minAbs, playerFilterValue, this.pageSize, offset]);
+        `, [spanDays, 'overall', spanDays, 'overall', seasonYear, minAbs, playerFilterValue, this.pageSize, offset]);
         return hitterScores;
     }
 
     async getPitcherStarterWatchlist(
-        page: number = 1, 
-        spanDays: SpanDays = 14, 
-        teamId: number | false = false
+        page: number = 1,
+        spanDays: SpanDays = 14,
+        teamId: number | false = false,
+        seasonYear: number = new Date().getFullYear()
     ): Promise<PitcherStarterWatchlist[]> {
         const offset = (page - 1) * this.pageSize;
         const minIp = 6;
@@ -1451,38 +1488,42 @@ class Player {
 
             FROM ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
             JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type 
+                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year
                 AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'P'
-            JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS} 
-                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ? 
+            JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS}
+                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.season_year = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = 'P'
-            LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+            LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS}
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
                 AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position
-            LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
-                ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+            LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS}
+                ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
                 AND ${PLAYERS_TABLE_ALIAS}.position = 'P'
-            WHERE 
-                ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ? 
+            WHERE
+                ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ?
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'P'
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.reliability_score >= 60
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.ip >= ?
                 ${playerFilter}
             ORDER BY k_qs_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minIp, playerFilterValue, this.pageSize, offset]);
+        `, [spanDays, 'overall', spanDays, 'overall', seasonYear, minIp, playerFilterValue, this.pageSize, offset]);
         return starterScores;
     }
 
     async getPitcherRelieverWatchlist(
-        page: number = 1, 
-        spanDays: SpanDays = 14, 
-        teamId: number | false = false
+        page: number = 1,
+        spanDays: SpanDays = 14,
+        teamId: number | false = false,
+        seasonYear: number = new Date().getFullYear()
     ): Promise<PitcherRelieverWatchlist[]> {
         const offset = (page - 1) * this.pageSize;
         const minIp = 4;
@@ -1512,49 +1553,53 @@ class Player {
 
             FROM ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
             JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type 
+                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year
                 AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'P'
             JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS}
-                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ? 
+                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.season_year = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = 'P'
-            LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+            LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS}
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
                 AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position
-            LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
-                ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+            LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS}
+                ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
                 AND ${PLAYERS_TABLE_ALIAS}.position = 'P'
-            WHERE 
-                ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ? 
+            WHERE
+                ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ?
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'P'
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.reliability_score >= 55
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.ip >= ?
                 ${playerFilter}
             ORDER BY leverage_relief_score DESC
             LIMIT ? OFFSET ?;
-        `, [spanDays, 'overall', spanDays, 'overall', minIp, playerFilterValue, this.pageSize, offset]);
+        `, [spanDays, 'overall', spanDays, 'overall', seasonYear, minIp, playerFilterValue, this.pageSize, offset]);
         return relieverScores;
     }
 
     async getPlayerFantasyRankings(
-        page: number = 1, 
-        spanDays: SpanDays = 14, 
-        batterOrPitcher: PitcherOrBatter = 'B', 
-        isRostered: boolean = false, 
-        position: Position | false = false, 
-        orderBy: PlayerScoringFields | PlayerAdvancedScoringFields | false = false, 
-        teamId: number | false = false
+        page: number = 1,
+        spanDays: SpanDays = 14,
+        batterOrPitcher: PitcherOrBatter = 'B',
+        isRostered: boolean = false,
+        position: Position | false = false,
+        orderBy: PlayerScoringFields | PlayerAdvancedScoringFields | false = false,
+        teamId: number | false = false,
+        seasonYear: number = new Date().getFullYear()
     ): Promise<PlayerFantasyRanking[]> {
         const playerFields: PlayerSelectScoringFields = this.getDefaultPlayerFields();
         const scoringFields: PlayerSelectScoringFields = batterOrPitcher === 'B' ? this.getHitterScoringFields() : this.getPitcherScoringFields();
         const advancedScoringFields: PlayerSelectScoringFields = batterOrPitcher === 'B' ? this.getHitterAdvancedScoringFields() : this.getPitcherAdvancedScoringFields();
 
         const filters: string[] = [];
-        const params: (string | number)[] = [batterOrPitcher, spanDays, 'overall', batterOrPitcher, batterOrPitcher, spanDays, 'overall', batterOrPitcher];
+        const params: (string | number)[] = [batterOrPitcher, spanDays, 'overall', batterOrPitcher, batterOrPitcher, spanDays, 'overall', batterOrPitcher, seasonYear];
         const orderByClauses: string[] = [];
 
         if ( orderBy ) {
@@ -1628,25 +1673,28 @@ class Player {
                 
             FROM ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
             JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type 
+                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year
                 AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = ?
-            JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS} 
-                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ? 
+            JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS}
+                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.season_year = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = ?
-            LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
-                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+            LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS}
+                ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
                 AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position
-            LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS} 
-                ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id 
+            LEFT JOIN ${PLAYERS_TABLE} ${PLAYERS_TABLE_ALIAS}
+                ON ${PLAYERS_TABLE_ALIAS}.player_id = ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id
                 AND ${PLAYERS_TABLE_ALIAS}.position = ?
-            WHERE 
-                ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ? 
+            WHERE
+                ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = ?
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = ?
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
                 ${filters.length > 0 ? `AND ${filters.join(' AND ')}` : ''}
             ORDER BY ${orderByClauses.join(', ')}
             LIMIT ? OFFSET ?;
@@ -1656,7 +1704,7 @@ class Player {
         return playerRankings;
     }
 
-    async getNRFIRankings(startDate: string, endDate: string): Promise<NRFIRanking[]> {
+    async getNRFIRankings(startDate: string, endDate: string, seasonYear: number = new Date().getFullYear()): Promise<NRFIRanking[]> {
         if (!startDate || !endDate) {
             throw new Error('Missing required parameters');
         }
@@ -1688,35 +1736,40 @@ class Player {
             LEFT JOIN ${PLAYER_LOOKUPS_TABLE} ${PLAYER_LOOKUPS_TABLE_ALIAS} 
                 ON ${PLAYER_LOOKUPS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
                 AND ${PLAYER_LOOKUPS_TABLE_ALIAS}.position = 'P'
-            LEFT JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS} 
-                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall' 
+            LEFT JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
+                ON ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall'
                 AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'P'
+                AND ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
             LEFT JOIN ${BASIC_ROLLING_STATS_PERCENTILES_TABLE} ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                ON ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
-                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall' 
+                ON ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall'
                 AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.position = 'P'
+                AND ${BASIC_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
             LEFT JOIN ${BASIC_ROLLING_STATS_TABLE} ${BASIC_ROLLING_STATS_TABLE_ALIAS}
-                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ? 
-                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = 'overall' 
+                ON ${BASIC_ROLLING_STATS_TABLE_ALIAS}.player_id = ${PROBABLE_PITCHERS_TABLE_ALIAS}.player_id
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.span_days = ?
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.split_type = 'overall'
                 AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.position = 'P'
+                AND ${BASIC_ROLLING_STATS_TABLE_ALIAS}.season_year = ?
             RIGHT JOIN ${TEAM_ROLLING_STATS_PERCENTILES_TABLE} team_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                ON team_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.team = ${PROBABLE_PITCHERS_TABLE_ALIAS}.team 
-                AND team_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
+                ON team_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.team = ${PROBABLE_PITCHERS_TABLE_ALIAS}.team
+                AND team_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
                 AND team_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall'
+                AND team_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
             RIGHT JOIN ${TEAM_ROLLING_STATS_PERCENTILES_TABLE} opponent_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}
-                ON opponent_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.team = ${PROBABLE_PITCHERS_TABLE_ALIAS}.opponent 
-                AND opponent_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ? 
+                ON opponent_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.team = ${PROBABLE_PITCHERS_TABLE_ALIAS}.opponent
+                AND opponent_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.span_days = ?
                 AND opponent_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.split_type = 'overall'
-            WHERE 
-                ${PROBABLE_PITCHERS_TABLE_ALIAS}.game_date BETWEEN ? AND ? 
+                AND opponent_${TEAM_ROLLING_STATS_PERCENTILES_TABLE_ALIAS}.season_year = ?
+            WHERE
+                ${PROBABLE_PITCHERS_TABLE_ALIAS}.game_date BETWEEN ? AND ?
                 AND ${PROBABLE_PITCHERS_TABLE_ALIAS}.nrfi_likelihood_score IS NOT NULL
             ORDER BY ${PROBABLE_PITCHERS_TABLE_ALIAS}.game_date ASC, avg_nrfi_score DESC
-            `, 
-            [spanDays, spanDays, spanDays, spanDays, spanDays, startDate, endDate]
+            `,
+            [spanDays, seasonYear, spanDays, seasonYear, spanDays, seasonYear, spanDays, seasonYear, spanDays, seasonYear, startDate, endDate]
         );
         console.log(`Query returned ${nrfiRankings ? nrfiRankings.length : 0} rows`);
         return nrfiRankings as NRFIRanking[];

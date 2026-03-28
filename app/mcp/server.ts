@@ -152,6 +152,7 @@ function registerPlayerSearchTools(
 					"Sort by stat: runs, hr, rbi, sb, avg, strikeouts, era, whip, qs, sv, hld, ip, etc.",
 				),
 			page: z.number().int().positive().default(1),
+			season_year: z.number().int().optional().describe("Season year (e.g. 2025). Defaults to current year."),
 		},
 		async ({
 			position_type,
@@ -160,6 +161,7 @@ function registerPlayerSearchTools(
 			position,
 			order_by,
 			page,
+			season_year,
 		}: {
 			position_type: string;
 			span_days: number;
@@ -167,6 +169,7 @@ function registerPlayerSearchTools(
 			position?: string;
 			order_by?: string;
 			page: number;
+			season_year?: number;
 		}) => {
 			const results = await playerStatsController.searchPlayers({
 				positionType: position_type,
@@ -176,6 +179,7 @@ function registerPlayerSearchTools(
 				orderBy: (order_by || false) as OrderBy,
 				page,
 				isUserTeam: false,
+				season: season_year,
 			} as SearchPlayersQuery);
 			return toText(results);
 		},
@@ -195,6 +199,7 @@ function registerPlayerSearchTools(
 				.describe("Filter by position slot: C, 1B, 2B, 3B, SS, OF, SP, RP"),
 			order_by: z.string().optional(),
 			page: z.number().int().positive().default(1),
+			season_year: z.number().int().optional().describe("Season year (e.g. 2025). Defaults to current year."),
 		},
 		async ({
 			position_type,
@@ -202,12 +207,14 @@ function registerPlayerSearchTools(
 			position,
 			order_by,
 			page,
+			season_year,
 		}: {
 			position_type: string;
 			span_days: number;
 			position?: string;
 			order_by?: string;
 			page: number;
+			season_year?: number;
 		}) => {
 			const results = await playerStatsController.searchPlayers({
 				positionType: position_type,
@@ -217,6 +224,7 @@ function registerPlayerSearchTools(
 				orderBy: (order_by || false) as OrderBy,
 				page,
 				isUserTeam: false,
+				season: season_year,
 			} as SearchPlayersQuery);
 			return toText(results);
 		},
@@ -230,23 +238,27 @@ function registerPlayerSearchTools(
 			type: statTypeSchema,
 			span_days: spanDaysSchema,
 			order_by: z.string().optional().describe("Stat column to sort by"),
+			season_year: z.number().int().optional().describe("Season year (e.g. 2025). Defaults to current year."),
 		},
 		async ({
 			team_id,
 			type,
 			span_days,
 			order_by,
+			season_year,
 		}: {
 			team_id: number;
 			type: "batting" | "pitching";
 			span_days: number;
 			order_by?: string;
+			season_year?: number;
 		}) => {
 			const stats = await playerStatsController.getStatsForTeam(
 				team_id,
 				{
 					spanDays: span_days as SpanDays,
 					orderBy: (order_by || false) as OrderBy,
+					season: season_year,
 				},
 				type,
 			);
@@ -277,6 +289,7 @@ function registerPlayerSearchTools(
 			span_days: spanDaysSchema.describe(
 				"Rolling window to use for opponent quality assessment",
 			),
+			season_year: z.number().int().optional().describe("Season year (e.g. 2025). Defaults to current year."),
 		},
 		async ({
 			team_id,
@@ -284,12 +297,14 @@ function registerPlayerSearchTools(
 			start_date,
 			end_date,
 			span_days,
+			season_year,
 		}: {
 			team_id: number;
 			type: "batting" | "pitching";
 			start_date?: string;
 			end_date?: string;
 			span_days: number;
+			season_year?: number;
 		}) => {
 			const strength = await playerStatsController.getScheduleStrengthForTeam(
 				team_id,
@@ -297,6 +312,7 @@ function registerPlayerSearchTools(
 					startDate: start_date || false,
 					endDate: end_date || false,
 					spanDays: span_days as SpanDays,
+					season: season_year,
 				},
 				type,
 			);
@@ -535,10 +551,11 @@ function registerPitchingTools(
 				.string()
 				.optional()
 				.describe("YYYY-MM-DD, defaults to end of current week"),
+			season_year: z.number().int().optional().describe("Season year (e.g. 2025). Defaults to current year."),
 		},
-		async ({ start_date, end_date }: { start_date?: string; end_date?: string }) => {
+		async ({ start_date, end_date, season_year }: { start_date?: string; end_date?: string; season_year?: number }) => {
 			const pitchers = await playerStatsController.getAvailablePitchers(
-				{ startDate: start_date || false, endDate: end_date || false },
+				{ startDate: start_date || false, endDate: end_date || false, season: season_year },
 				"two-start",
 			);
 			return toText(pitchers);
@@ -554,10 +571,11 @@ function registerPitchingTools(
 				.optional()
 				.describe("YYYY-MM-DD, defaults to today"),
 			end_date: z.string().optional().describe("YYYY-MM-DD, defaults to today"),
+			season_year: z.number().int().optional().describe("Season year (e.g. 2025). Defaults to current year."),
 		},
-		async ({ start_date, end_date }: { start_date?: string; end_date?: string }) => {
+		async ({ start_date, end_date, season_year }: { start_date?: string; end_date?: string; season_year?: number }) => {
 			const pitchers = await playerStatsController.getAvailablePitchers(
-				{ startDate: start_date || false, endDate: end_date || false },
+				{ startDate: start_date || false, endDate: end_date || false, season: season_year },
 				"daily-streamer",
 			);
 			return toText(pitchers);
@@ -573,10 +591,11 @@ function registerPitchingTools(
 				.optional()
 				.describe("YYYY-MM-DD, defaults to today"),
 			end_date: z.string().optional().describe("YYYY-MM-DD, defaults to today"),
+			season_year: z.number().int().optional().describe("Season year (e.g. 2025). Defaults to current year."),
 		},
-		async ({ start_date, end_date }: { start_date?: string; end_date?: string }) => {
+		async ({ start_date, end_date, season_year }: { start_date?: string; end_date?: string; season_year?: number }) => {
 			const pitchers = await playerStatsController.getAvailablePitchers(
-				{ startDate: start_date || false, endDate: end_date || false },
+				{ startDate: start_date || false, endDate: end_date || false, season: season_year },
 				"nrfi",
 			);
 			return toText(pitchers);

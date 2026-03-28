@@ -3,7 +3,7 @@ import math
 
 class SavantPitcherStatLog(SavantPlayerStatLog):
     KEYS = [
-        'player_id', 'position', 'last_updated', # ID
+        'player_id', 'position', 'season_year', 'last_updated', # ID
         'games', 'hits', 'hr', 'runs', 'avg', 'obp', 'slg',  # Basic counting stats
         'woba', 'era',  # Advanced batting/pitching stats
         'csw_pct', 'swinging_strike_pct', 'ground_ball_pct', 'fly_ball_pct', # Advanced pitching stats
@@ -11,8 +11,8 @@ class SavantPitcherStatLog(SavantPlayerStatLog):
         'age' # Meta
     ]
 
-    def __init__(self, player_data: dict):
-        super().__init__(player_data)
+    def __init__(self, player_data: dict, season_year=None):
+        super().__init__(player_data, season_year)
         self.player_data = player_data
         
         swinging_strikes = self.get_clean_value('p_swinging_strike')

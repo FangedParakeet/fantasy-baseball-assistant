@@ -1,4 +1,5 @@
 import sys
+import argparse
 from models.db import get_db_connection
 from models.api.mlb_api import MlbApi
 from models.player_hydrator import PlayerHydrator
@@ -13,9 +14,26 @@ from models.rolling_stats.player_basic_rolling_stats import PlayerBasicRollingSt
 from models.rolling_stats.player_advanced_rolling_stats import PlayerAdvancedRollingStats
 from models.rolling_stats.team_rolling_stats import TeamRollingStats
 from models.rolling_stats.rolling_stats_percentiles import RollingStatsPercentiles
+from utils.constants import CURRENT_SEASON
 from utils.logger import logger
 
-def main(force=False):
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Compute rolling stats from game logs.")
+    parser.add_argument("--force", action="store_true", default=False, help="Force re-hydration of player data.")
+    parser.add_argument(
+        "--season",
+        type=int,
+        metavar="YEAR",
+        default=CURRENT_SEASON,
+        help=f"Season year to compute stats for (default: {CURRENT_SEASON}).",
+    )
+    return parser.parse_args()
+
+
+def main(force=False, season_year=None):
+    if season_year is None:
+        season_year = CURRENT_SEASON
     conn = None
     try:
         conn = get_db_connection()
@@ -33,11 +51,11 @@ def main(force=False):
         league_statistics = LeagueStatistics(conn)
         league_game_log = LeagueGameLogs(mlb_api, player_game_log, team_game_log, game_pitchers, league_statistics)
 
-        logger.info("Starting rolling stats computation...")
+        logger.info(f"Starting rolling stats computation for season {season_year}...")
         player_hydrator.hydrate_players(force)
         logger.info("Hydration complete.")
         logger.info("Computing rolling stats...")
-        league_game_log.compute_rolling_stats()
+        league_game_log.compute_rolling_stats(season_year)
         logger.info("Rolling stats computation complete.")
     except Exception as e:
         logger.exception("Error computing rolling stats")
@@ -47,6 +65,6 @@ def main(force=False):
             logger.info("Database connection closed.")
 
 if __name__ == "__main__":
-    force = "--force" in sys.argv
-    logger.info(f"Hydrating player data with force={force}")
-    main(force=force)
+    args = parse_args()
+    logger.info(f"Hydrating player data with force={args.force}, season={args.season}")
+    main(force=args.force, season_year=args.season)

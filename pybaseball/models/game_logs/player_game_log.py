@@ -1,8 +1,9 @@
 from models.game_logs.game_log import GameLog
+from utils.functions import convert_utc_date
 
 class PlayerGameLog(GameLog):
     KEYS = [
-        'player_id', 'game_id', 'game_date', 'opponent', 'is_home', 'position', # General
+        'player_id', 'season_year', 'game_id', 'game_date', 'opponent', 'is_home', 'position', # General
         'ab', 'h', 'r', 'rbi', 'hr', 'sb', 'bb', 'k', # Batting
         'ip', 'er', 'hits_allowed', 'walks_allowed', 'strikeouts', 'qs', 'sv', 'hld', 'nrfi', # Pitching
         'fantasy_points', 'team', # General'
@@ -22,6 +23,8 @@ class PlayerGameLog(GameLog):
     def get_value_for_key(self, key):
         if key == 'player_id':
             return self.player_id
+        elif key == 'season_year':
+            return int(convert_utc_date(self.game_data['game_date']).year)
         elif key == 'fantasy_points':
             return None # Fantasy points not calculated yet
         else:

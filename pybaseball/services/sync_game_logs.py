@@ -10,7 +10,7 @@ from models.player_game_logs import PlayerGameLogs
 from models.team_game_logs import TeamGameLogs
 from models.league_game_logs import LeagueGameLogs
 from models.game_pitchers import GamePitchers
-from utils.constants import MAX_AGE_DAYS
+from utils.constants import MAX_AGE_DAYS, CURRENT_SEASON
 from utils.logger import logger
 
 
@@ -25,6 +25,13 @@ def parse_args():
         metavar="YYYY-MM-DD",
         default=None,
         help="End date for a 30-day backfill window (e.g. last day of last season). When set, purges all existing game logs, then upserts only (end_date - 30 days) through end_date.",
+    )
+    parser.add_argument(
+        "--season",
+        type=int,
+        metavar="YEAR",
+        default=CURRENT_SEASON,
+        help=f"Season year to sync (default: {CURRENT_SEASON}).",
     )
     return parser.parse_args()
 

@@ -1,11 +1,12 @@
 import sys
+import argparse
 import pandas as pd
 from datetime import date
 from typing import List
 
 from models.db import get_db_connection
 from utils.logger import logger
-from utils.constants import SPLITS, ROLLING_WINDOWS
+from utils.constants import SPLITS, ROLLING_WINDOWS, CURRENT_SEASON
 
 from models.player_data_loader import PlayerDataLoader, LeagueSettings, ModelConfig, CategoryConfig
 from models.zscore_calculator import ZScoreCalculator
@@ -13,7 +14,23 @@ from models.projections import Projections
 from models.risk_scorer import RiskScorer
 from models.player_value_calculator import PlayerValueCalculator
 
-def main(dry_run: bool = False):
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Compute player value snapshots.")
+    parser.add_argument("--dry-run", action="store_true", default=False, help="Dry run — do not write to DB.")
+    parser.add_argument(
+        "--season",
+        type=int,
+        metavar="YEAR",
+        default=CURRENT_SEASON,
+        help=f"Season year to compute snapshots for (default: {CURRENT_SEASON}).",
+    )
+    return parser.parse_args()
+
+
+def main(dry_run: bool = False, season_year=None):
+    if season_year is None:
+        season_year = CURRENT_SEASON
     conn = None
     try:
         conn = get_db_connection()
@@ -23,7 +40,7 @@ def main(dry_run: bool = False):
         models: List[ModelConfig] = loader.load_models_for_league(league.league_id)
         scoring_categories: List[CategoryConfig] = loader.load_scoring_categories_for_league(league.league_id)
         players: pd.DataFrame = loader.load_players()
-        season_stats: pd.DataFrame = loader.load_player_season_stats()
+        season_stats: pd.DataFrame = loader.load_player_season_stats(season_year)
 
         risk_scorer = RiskScorer()
         calculators = {
@@ -32,7 +49,7 @@ def main(dry_run: bool = False):
 
         as_of = date.today()
         spans = ROLLING_WINDOWS + [0]
-        
+
         roster_df = loader.load_roster_with_teams()
 
         for model in models:
@@ -60,10 +77,10 @@ def main(dry_run: bool = False):
                         hitter_span = span
                         pitcher_span = span
                         try:
-                            hitter_rolling_basic = loader.load_player_rolling_stats(hitter_span, split, "B")
-                            pitcher_rolling_basic = loader.load_player_rolling_stats(pitcher_span, split, "P")
-                            hitter_rolling_advanced = loader.load_player_advanced_rolling_stats(hitter_span, split, "B")
-                            pitcher_rolling_advanced = loader.load_player_advanced_rolling_stats(pitcher_span, split, "P")
+                            hitter_rolling_basic = loader.load_player_rolling_stats(hitter_span, split, "B", season_year)
+                            pitcher_rolling_basic = loader.load_player_rolling_stats(pitcher_span, split, "P", season_year)
+                            hitter_rolling_advanced = loader.load_player_advanced_rolling_stats(hitter_span, split, "B", season_year)
+                            pitcher_rolling_advanced = loader.load_player_advanced_rolling_stats(pitcher_span, split, "P", season_year)
                         except Exception as e:
                             # If a split is missing, skip it.
                             logger.info(f"Skipping span={span} split={split} (missing stats): {e}")
@@ -71,7 +88,7 @@ def main(dry_run: bool = False):
 
                     hitter_projections = projections.get_hitter_projections(hitter_rolling_basic, hitter_rolling_advanced, hitter_span)
                     pitcher_projections = projections.get_pitcher_projections(pitcher_rolling_basic, pitcher_rolling_advanced, pitcher_span)
-                    
+
                     calculator.set_player_stats(hitter_projections, pitcher_projections)
                     player_value_calculator = PlayerValueCalculator(calculator, league, None, players, hitter_projections, pitcher_projections)
                     calculated_values = player_value_calculator.get_player_value_snapshots(roster_df)
@@ -104,6 +121,6 @@ def main(dry_run: bool = False):
 
 
 if __name__ == "__main__":
-    dry_run = "--dry-run" in sys.argv
-    logger.info(f"Computing player value snapshots with dry_run={dry_run}")
-    main(dry_run=dry_run)
+    args = parse_args()
+    logger.info(f"Computing player value snapshots with dry_run={args.dry_run}, season={args.season}")
+    main(dry_run=args.dry_run, season_year=args.season)

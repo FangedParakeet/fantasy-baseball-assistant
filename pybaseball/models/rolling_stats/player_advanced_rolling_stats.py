@@ -24,8 +24,8 @@ class PlayerAdvancedRollingStats(PlayerRollingStats):
         self.basic_rolling_stats_table = PlayerGameLogs.BASIC_ROLLING_STATS_TABLE
         self.game_logs_table = PlayerGameLogs.GAME_LOGS_TABLE
 
-    def get_formulas(self, game_logs_table=None):
-        return super().get_formulas(game_logs_table) | {
+    def get_formulas(self, game_logs_table=None, season_year=None):
+        return super().get_formulas(game_logs_table, season_year) | {
             'obp': """-- OBP = (H + BB + HBP) / (AB + BB + HBP + SF)
                         ROUND(
                             (SUM(COALESCE(gl.h, 0)) + SUM(COALESCE(gl.bb, 0)) + SUM(COALESCE(gl.hit_by_pitch, 0))) /
@@ -185,84 +185,89 @@ class PlayerAdvancedRollingStats(PlayerRollingStats):
             'wraa': f"""IF(p.woba IS NOT NULL AND l.woba IS NOT NULL AND l.woba > 0 AND p.abs IS NOT NULL, ROUND((p.woba - l.woba) * p.abs / {WOBASCALE}, 2), NULL)""",
         }
 
-    def compute_rolling_stats(self):
+    def compute_rolling_stats(self, season_year=None):
+        from datetime import datetime
+        if season_year is None:
+            season_year = datetime.now().year
         # Start transaction for the entire operation
         self.begin_transaction()
-        
+
         try:
-            self.compute_league_averages()
-            # Clear all existing rolling stats before computing new ones
-            logger.info("Clearing all existing advanced player rolling stats")
-            self.purge_all_records_in_transaction(self.rolling_stats_table)
-            
+            self.compute_league_averages(season_year)
+            # Clear existing rolling stats for this season before computing new ones
+            logger.info(f"Clearing existing advanced player rolling stats for {season_year}")
+            self.purge_season_records_in_transaction(self.rolling_stats_table, season_year)
+
             for key, stats_list in self.STATS_KEYS.items():
                 insert_keys = self.SPLIT_WINDOW_KEYS + self.ID_KEYS + self.EXTRA_KEYS + self.DATE_KEYS + stats_list
-                all_formulas = self.get_formulas(self.game_logs_table)
+                all_formulas = self.get_formulas(self.game_logs_table, season_year)
                 select_formulas = [all_formulas[key] for key in insert_keys]
                 join_conditions = super().get_join_conditions()
 
                 logger.info(f"Computing advanced player rolling stats for {key}")
                 # Pass the correct position value based on the key
                 position = 'B' if key == 'batting' else 'P'
-                
-                # # Define custom splits for each position
-                # if key == 'batting':
-                #     # Batters can have all splits including vs_lhp and vs_rhp
-                #     custom_splits = ['overall', 'home', 'away', 'vs_lhp', 'vs_rhp']
-                # else:
-                #     # Pitchers only have basic splits (vs_lhp and vs_rhp don't apply to pitchers)
-                #     custom_splits = ['overall', 'home', 'away']
-                
-                super().compute_rolling_stats(self.rolling_stats_table, self.game_logs_table, insert_keys, select_formulas, join_conditions, 'GROUP BY gl.player_id', position)
-                
-            self.update_advanced_rolling_stats()
-            self.compute_percentiles()
-            
+
+                super().compute_rolling_stats(self.rolling_stats_table, self.game_logs_table, insert_keys, select_formulas, join_conditions, 'GROUP BY gl.player_id', position, season_year)
+
+            self.update_advanced_rolling_stats(season_year)
+            self.compute_percentiles(season_year)
+
             # Commit transaction
             self.commit_transaction()
             logger.info("Successfully computed advanced rolling stats")
-            
+
         except Exception as e:
             logger.error(f"Error computing advanced rolling stats: {e}")
             self.rollback_transaction()
             raise
 
-    def update_advanced_rolling_stats(self):
-        logger.info(f"Updating advanced rolling statistics")
+    def update_advanced_rolling_stats(self, season_year=None):
+        from datetime import datetime
+        if season_year is None:
+            season_year = datetime.now().year
+        logger.info(f"Updating advanced rolling statistics for {season_year}")
         all_advanced_formulas = self.get_advanced_formulas()
         update_values = ', '.join([f"p.{key} = {formula}" for key, formula in all_advanced_formulas.items()])
         update_query = f"""
             UPDATE {self.rolling_stats_table} p
-            JOIN {self.LEAGUE_AVERAGE_TABLE} l 
-                ON (p.span_days = l.span_days AND p.split_type = l.split_type)
+            JOIN {self.LEAGUE_AVERAGE_TABLE} l
+                ON (p.season_year = l.season_year AND p.span_days = l.span_days AND p.split_type = l.split_type)
             LEFT JOIN {self.basic_rolling_stats_table} b
-                ON (p.player_id = b.player_id AND p.span_days = b.span_days AND p.split_type = b.split_type)
+                ON (p.player_id = b.player_id AND p.season_year = b.season_year AND p.span_days = b.span_days AND p.split_type = b.split_type)
             SET {update_values}
+            WHERE p.season_year = {season_year}
         """
         self.execute_query_in_transaction(update_query)
 
-    def compute_league_averages(self):
-        # Clear all existing league averages before computing new ones
-        logger.info("Clearing all existing league averages")
-        self.purge_all_records_in_transaction(self.LEAGUE_AVERAGE_TABLE)
-        
+    def compute_league_averages(self, season_year=None):
+        from datetime import datetime
+        if season_year is None:
+            season_year = datetime.now().year
+        # Clear existing league averages for this season before computing new ones
+        logger.info(f"Clearing existing league averages for {season_year}")
+        self.purge_season_records_in_transaction(self.LEAGUE_AVERAGE_TABLE, season_year)
+
         # Compute league averages separately for batters and pitchers
         for key, stats_list in self.LEAGUE_AVERAGE_KEYS.items():
             # Only include stats that are relevant for this position
             position = 'B' if key == 'batting' else 'P'
-            
+
             insert_keys = self.SPLIT_WINDOW_KEYS + self.DATE_KEYS + stats_list
-            all_formulas = self.get_formulas(self.game_logs_table)
+            all_formulas = self.get_formulas(self.game_logs_table, season_year)
             select_formulas = [all_formulas[key] for key in insert_keys]
             logger.info(f"Computing league averages for {key} stats: {stats_list}")
             join_conditions = super().get_join_conditions()
-            
-            # Pass the position parameter to properly filter the data
-            super().compute_rolling_stats(self.LEAGUE_AVERAGE_TABLE, self.game_logs_table, insert_keys, select_formulas, join_conditions, '', position)
 
-    def compute_percentiles(self):
+            # Pass the position parameter to properly filter the data
+            super().compute_rolling_stats(self.LEAGUE_AVERAGE_TABLE, self.game_logs_table, insert_keys, select_formulas, join_conditions, '', position, season_year)
+
+    def compute_percentiles(self, season_year=None):
+        from datetime import datetime
+        if season_year is None:
+            season_year = datetime.now().year
         logger.info(f"Computing percentiles for advanced rolling stats")
-        self.purge_all_records_in_transaction(self.rolling_stats_table + '_percentiles')
-        
-        super().compute_percentiles(self.rolling_stats_table, self.STATS_KEYS, self.STATS_THRESHOLDS, self.CONDITIONS, self.ID_KEYS)
-        super().compute_percentiles(self.rolling_stats_table, self.ADVANCED_STATS_KEYS, self.STATS_THRESHOLDS, self.CONDITIONS, self.ID_KEYS)
+        self.purge_season_records_in_transaction(self.rolling_stats_table + '_percentiles', season_year)
+
+        super().compute_percentiles(self.rolling_stats_table, self.STATS_KEYS, self.STATS_THRESHOLDS, self.CONDITIONS, self.ID_KEYS, season_year=season_year)
+        super().compute_percentiles(self.rolling_stats_table, self.ADVANCED_STATS_KEYS, self.STATS_THRESHOLDS, self.CONDITIONS, self.ID_KEYS, season_year=season_year)

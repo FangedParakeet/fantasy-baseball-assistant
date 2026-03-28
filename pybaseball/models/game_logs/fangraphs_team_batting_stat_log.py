@@ -2,13 +2,13 @@ from models.game_logs.fangraphs_team_stat_log import FangraphsTeamStatLog
 
 class FangraphsTeamBattingStatLog(FangraphsTeamStatLog):
     KEYS = [
-        'team', 'last_updated', # ID
+        'team', 'season_year', 'last_updated', # ID
         'games_played', 'pa', 'ab', 'runs', 'hits', 'hr', 'rbi', 'sb', 'avg', 'obp', 'slg', 'ops', # Basic
         'bb_rate', 'k_rate', 'woba', 'wrc_plus', 'iso', 'babip', 'barrel_pct', 'hard_hit_pct', 'avg_ev', 'war' # Advanced
     ]
 
-    def __init__(self, team_info):
-        super().__init__(team_info)
+    def __init__(self, team_info, season_year=None):
+        super().__init__(team_info, season_year)
         self.team_info = team_info
         self.set_values()
 

@@ -7,6 +7,7 @@ from models.game_logs.fangraphs_team_batting_stat_log import FangraphsTeamBattin
 from models.game_logs.fangraphs_team_pitching_stat_log import FangraphsTeamPitchingStatLog
 from models.player_lookups import PlayerLookups
 from utils.logger import logger
+from datetime import datetime
 
 class FangraphsStats(SeasonStats):
     def __init__(self, conn, fangraphs_api: FangraphsApi, player_lookups: PlayerLookups):
@@ -14,8 +15,10 @@ class FangraphsStats(SeasonStats):
         self.api = fangraphs_api
         self.player_lookups = player_lookups
 
-    def update_all_player_stats(self):
-        logger.info("Updating all season player stats from Fangraphs")
+    def update_all_player_stats(self, season_year=None):
+        if season_year is None:
+            season_year = datetime.now().year
+        logger.info(f"Updating all season player stats from Fangraphs for {season_year}")
         all_pitcher_stats = LogsInserter(FangraphsPitcherStatLog.KEYS, FangraphsPitcherStatLog.ID_KEYS)
         all_batter_stats = LogsInserter(FangraphsBatterStatLog.KEYS, FangraphsBatterStatLog.ID_KEYS)
 
@@ -30,7 +33,7 @@ class FangraphsStats(SeasonStats):
             logger.info(f"Found {len(pitcher_data)} rows of pitcher stats")
             for data in pitcher_data:
                 pitcher_info = dict(zip(pitcher_columns, data))
-                all_pitcher_stats.add_row(FangraphsPitcherStatLog(pitcher_info))
+                all_pitcher_stats.add_row(FangraphsPitcherStatLog(pitcher_info, season_year))
 
             logger.info(f"Upserting {all_pitcher_stats.get_row_count()} pitcher stats")
             self.upsert_stats(self.PLAYER_STATS_TABLE, all_pitcher_stats)
@@ -43,13 +46,15 @@ class FangraphsStats(SeasonStats):
             logger.info(f"Found {len(batter_data)} rows of batter stats")
             for data in batter_data:
                 batter_info = dict(zip(batter_columns, data))
-                all_batter_stats.add_row(FangraphsBatterStatLog(batter_info))
+                all_batter_stats.add_row(FangraphsBatterStatLog(batter_info, season_year))
 
             logger.info(f"Upserting {all_batter_stats.get_row_count()} batter stats")
             self.upsert_stats(self.PLAYER_STATS_TABLE, all_batter_stats)
 
-    def update_all_team_stats(self):
-        logger.info("Updating all season team stats from Fangraphs")
+    def update_all_team_stats(self, season_year=None):
+        if season_year is None:
+            season_year = datetime.now().year
+        logger.info(f"Updating all season team stats from Fangraphs for {season_year}")
         all_team_pitching_stats = LogsInserter(FangraphsTeamPitchingStatLog.KEYS, FangraphsTeamPitchingStatLog.ID_KEYS)
         all_team_batting_stats = LogsInserter(FangraphsTeamBattingStatLog.KEYS, FangraphsTeamBattingStatLog.ID_KEYS)
 
@@ -62,7 +67,7 @@ class FangraphsStats(SeasonStats):
             team_pitching_data = team_pitching_data_response.get('data', [])
             logger.info(f"Found {len(team_pitching_data)} rows of team pitching stats")
             for data in team_pitching_data:
-                all_team_pitching_stats.add_row(FangraphsTeamPitchingStatLog(data))
+                all_team_pitching_stats.add_row(FangraphsTeamPitchingStatLog(data, season_year))
 
             logger.info(f"Upserting {all_team_pitching_stats.get_row_count()} team pitching stats")
             self.upsert_stats(self.TEAM_STATS_TABLE, all_team_pitching_stats)
@@ -73,7 +78,7 @@ class FangraphsStats(SeasonStats):
             team_batting_data = team_batting_data_response.get('data', [])
             logger.info(f"Found {len(team_batting_data)} rows of team batting stats")
             for data in team_batting_data:
-                all_team_batting_stats.add_row(FangraphsTeamBattingStatLog(data))
+                all_team_batting_stats.add_row(FangraphsTeamBattingStatLog(data, season_year))
 
             logger.info(f"Upserting {all_team_batting_stats.get_row_count()} team batting stats")
             self.upsert_stats(self.TEAM_STATS_TABLE, all_team_batting_stats)

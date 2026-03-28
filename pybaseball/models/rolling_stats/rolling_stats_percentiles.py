@@ -18,17 +18,19 @@ class RollingStatsPercentiles(DB_Recorder):
     def __init__(self, conn):
         super().__init__(conn)
 
-    def compute_percentiles(self, rolling_stats_table, stats_key, reliability_threshold, extra_condition=None, extra_stats_keys=None, split_type_key='split_type', custom_splits=None):
+    def compute_percentiles(self, rolling_stats_table, stats_key, reliability_threshold, extra_condition=None, extra_stats_keys=None, split_type_key='split_type', custom_splits=None, season_year=None):
+        if season_year is None:
+            season_year = datetime.now(timezone.utc).year
         extra_values = ''
         if extra_stats_keys:
             extra_values = ', ' + ', '.join(extra_stats_keys)
 
-        conditions = [f"span_days = %s", f"{split_type_key} = %s", f"""{stats_key} IS NOT NULL"""]
+        conditions = [f"season_year = {season_year}", f"span_days = %s", f"{split_type_key} = %s", f"""{stats_key} IS NOT NULL"""]
         if extra_condition:
             conditions.append(f"""{extra_condition['key']} {extra_condition['comp']} '{extra_condition['value']}'""")
 
-        insert_values = f"span_days, {split_type_key}, updated_at, {stats_key}_pct" + extra_values + ", reliability_score"
-        select_values = f"span_days, {split_type_key}, CURRENT_TIMESTAMP, ROUND(100 * PERCENT_RANK() OVER (ORDER BY {stats_key} ASC), 2) AS {stats_key}_pct" + extra_values
+        insert_values = f"season_year, span_days, {split_type_key}, updated_at, {stats_key}_pct" + extra_values + ", reliability_score"
+        select_values = f"{season_year} AS season_year, span_days, {split_type_key}, CURRENT_TIMESTAMP, ROUND(100 * PERCENT_RANK() OVER (ORDER BY {stats_key} ASC), 2) AS {stats_key}_pct" + extra_values
 
         for split in custom_splits if custom_splits else SPLITS:
             for window in ROLLING_WINDOWS:
