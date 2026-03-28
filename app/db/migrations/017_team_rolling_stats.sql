@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS team_rolling_stats (
   team VARCHAR(10),
+  season_year SMALLINT NOT NULL DEFAULT 2025,
   split_type VARCHAR(10),
   span_days INT,
   games_played INT,
@@ -49,5 +50,5 @@ CREATE TABLE IF NOT EXISTS team_rolling_stats (
   hr_per_9 DECIMAL(5,2),
   k_bb_ratio DECIMAL(5,2),
 
-  PRIMARY KEY (team, split_type, span_days)
+  PRIMARY KEY (team, split_type, span_days, season_year)
 );

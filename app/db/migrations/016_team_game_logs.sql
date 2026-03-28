@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS team_game_logs (
   team VARCHAR(10),
+  season_year SMALLINT NOT NULL DEFAULT 2025,
   game_date DATE,
   opponent VARCHAR(10),
   is_home BOOLEAN,

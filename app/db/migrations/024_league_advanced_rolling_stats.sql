@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS league_advanced_rolling_stats (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  season_year SMALLINT NOT NULL DEFAULT 2025,
   span_days INT NOT NULL,
   split_type VARCHAR(10) NOT NULL,
   start_date DATE NOT NULL,
@@ -11,6 +12,6 @@ CREATE TABLE IF NOT EXISTS league_advanced_rolling_stats (
   fip DECIMAL(5,2),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY unique_league_rolling (span_days, split_type),
+  UNIQUE KEY unique_league_rolling (span_days, split_type, season_year),
   INDEX idx_league_split_window (split_type, span_days)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

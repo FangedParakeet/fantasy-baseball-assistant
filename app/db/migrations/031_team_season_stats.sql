@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS team_season_stats (
-  team VARCHAR(10) PRIMARY KEY,
+  team VARCHAR(10),
+  season_year SMALLINT NOT NULL DEFAULT 2025,
 
   games_played INT,
   pa INT,
@@ -41,5 +42,6 @@ CREATE TABLE IF NOT EXISTS team_season_stats (
   avg_ev DECIMAL(5,2),
   war DECIMAL(5,2),
 
-  last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+  last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (team, season_year)
 );

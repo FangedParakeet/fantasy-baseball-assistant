@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS player_season_stats_percentiles (
   id INT AUTO_INCREMENT PRIMARY KEY,
   player_id INT,
+  season_year SMALLINT NOT NULL DEFAULT 2025,
   fangraphs_player_id INT,
   normalised_name VARCHAR(100),
   team VARCHAR(10),
@@ -61,8 +62,8 @@ CREATE TABLE IF NOT EXISTS player_season_stats_percentiles (
   reliability_score TINYINT UNSIGNED,
   is_reliable BOOLEAN GENERATED ALWAYS AS (reliability_score >= 70) STORED,
 
-  UNIQUE KEY unique_player_season_percentiles (player_id, position),
-  UNIQUE KEY unique_fangraphs_player_season_percentiles (fangraphs_player_id, position),
+  UNIQUE KEY unique_player_season_percentiles (player_id, position, season_year),
+  UNIQUE KEY unique_fangraphs_player_season_percentiles (fangraphs_player_id, position, season_year),
   INDEX idx_normalised_name_ps_percentiles (normalised_name),
   INDEX idx_player_id_percentiles (player_id)
 );

@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS player_rolling_stats (
   id INT AUTO_INCREMENT PRIMARY KEY,
   player_id INT NOT NULL,
+  season_year SMALLINT NOT NULL DEFAULT 2025,
   span_days INT NOT NULL,
   split_type VARCHAR(10) DEFAULT 'overall',
   start_date DATE NOT NULL,
@@ -27,6 +28,6 @@ CREATE TABLE IF NOT EXISTS player_rolling_stats (
   position VARCHAR(10),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY unique_player_span (player_id, position, span_days, split_type),
+  UNIQUE KEY unique_player_span (player_id, position, span_days, split_type, season_year),
   INDEX idx_normalised_name_ts (normalised_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

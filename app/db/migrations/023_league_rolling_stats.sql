@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS league_rolling_stats (
   entity_type ENUM('player', 'team', 'team_vs_batter', 'team_vs_pitcher') NOT NULL,
+  season_year SMALLINT NOT NULL DEFAULT 2025,
   split_type VARCHAR(10),
   span_days INT,
 
@@ -21,5 +22,5 @@ CREATE TABLE IF NOT EXISTS league_rolling_stats (
   qs_rate FLOAT,
 
   entity_count INT,
-  PRIMARY KEY (entity_type, split_type, span_days)
+  PRIMARY KEY (entity_type, split_type, span_days, season_year)
 );

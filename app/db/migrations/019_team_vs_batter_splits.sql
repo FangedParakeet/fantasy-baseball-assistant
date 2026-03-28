@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS team_vs_batter_splits (
   team VARCHAR(10),
+  season_year SMALLINT NOT NULL DEFAULT 2025,
   bats CHAR(1),
   span_days INT,
   start_date DATE,
@@ -27,5 +28,5 @@ CREATE TABLE IF NOT EXISTS team_vs_batter_splits (
   so_rate DECIMAL(5,2),
   bb_rate DECIMAL(5,2),
 
-  PRIMARY KEY (team, bats, span_days)
+  PRIMARY KEY (team, bats, span_days, season_year)
 );
