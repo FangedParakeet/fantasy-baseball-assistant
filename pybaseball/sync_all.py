@@ -11,6 +11,7 @@ SCRIPTS = [
     "sync_probable_pitchers.py",
     "sync_yahoo_player_data.py",
     "compute_player_value_snapshots.py",
+    "backfill_lookup_position_team.py",
 ]
 
 # Scripts that accept --season argument
