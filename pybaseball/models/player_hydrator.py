@@ -37,6 +37,7 @@ class PlayerHydrator(DB_Recorder):
             return
 
         self.player_lookups.insert_rows_into_lookup_table(all_rows)
+        self.player_lookups.consolidate_null_position_lookup_rows()
 
         self.set_sync_status(self.HYDRATE_PLAYER_LOOKUP_SYNC_NAME, "success", f"Hydrated {all_rows.get_row_count()} players")
         logger.info(f"Hydrated {all_rows.get_row_count()} players")
@@ -82,6 +83,7 @@ class PlayerHydrator(DB_Recorder):
                 logger.info(f"Upserting {all_players.get_row_count()} player records")
                 
                 self.player_lookups.insert_rows_into_lookup_table(all_players)
+                self.player_lookups.consolidate_null_position_lookup_rows()
                 self.set_sync_status(self.UPDATE_ACTIVE_TEAM_ROSTERS_SYNC_NAME, "success", f"Updated {all_players.get_row_count()} player records")
                 self.player_lookups.set_unrostered_players_to_inactive(all_player_ids)
                 logger.info("Player lookup table updated successfully")
