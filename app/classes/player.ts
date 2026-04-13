@@ -743,7 +743,7 @@ class Player {
             throw new Error('Missing required parameters');
         }
         return executeInTransaction(async (connection) => {
-            const outerPlayerFields = this.defaultPlayerFields.map(field => `ANY_VALUE(${field})`).join(', ');
+            const outerPlayerFields = this.defaultPlayerFields.map(field => `ANY_VALUE(${field}) AS ${field}`).join(', ');
             const innerPlayerFields = this.getDefaultPlayerFields();
             const teamVsPitcherWeight = 0.45;
             const fipWeight = 0.25;
