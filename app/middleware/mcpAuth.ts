@@ -4,6 +4,8 @@ import { db } from "../db/db";
 
 const mcpOAuth = new McpOAuth(db);
 
+const WWW_AUTHENTICATE = `Bearer resource_metadata="https://${process.env.SITE_DOMAIN}/.well-known/oauth-protected-resource"`;
+
 export async function mcpAuth(
 	req: Request,
 	res: Response,
@@ -11,6 +13,7 @@ export async function mcpAuth(
 ): Promise<void> {
 	const authHeader = req.headers.authorization;
 	if (!authHeader || !authHeader.startsWith("Bearer ")) {
+		res.set("WWW-Authenticate", WWW_AUTHENTICATE);
 		res.status(401).json({
 			error: "invalid_token",
 			error_description:
@@ -22,6 +25,7 @@ export async function mcpAuth(
 	const token = authHeader.slice(7);
 	const valid = await mcpOAuth.validateAccessToken(token);
 	if (!valid) {
+		res.set("WWW-Authenticate", WWW_AUTHENTICATE);
 		res.status(401).json({
 			error: "invalid_token",
 			error_description:

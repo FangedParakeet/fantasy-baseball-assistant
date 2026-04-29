@@ -113,7 +113,8 @@ router.post("/token", async (req: Request, res: Response) => {
 			});
 		}
 
-		const tokens = await mcpOAuth.exchangeAuthCode(code, client_id, redirect_uri, code_verifier, scope);
+		const normalizedRedirectUri = redirect_uri.replace(/^(https?:\/\/)localhost(:\d+)/, '$1127.0.0.1$2');
+		const tokens = await mcpOAuth.exchangeAuthCode(code, client_id, normalizedRedirectUri, code_verifier, scope);
 		if (!tokens) {
 			return res.status(400).json({
 				error: "invalid_grant",
