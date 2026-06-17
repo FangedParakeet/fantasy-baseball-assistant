@@ -3,7 +3,12 @@ from models.season_stats import SeasonStats
 from utils.logger import logger
 
 class PlayerSeasonStatsPercentiles(SeasonStatsPercentiles):
-    ID_KEYS = ['player_id', 'fangraphs_player_id', 'normalised_name', 'team', 'position']
+    ID_KEYS = ['player_id', 'fangraphs_player_id', 'normalised_name', 'team', 'position', 'season_year']
+    POSITION_FILTERS = {
+        'batting': 'B',
+        'pitching': 'P',
+        'meta': None,
+    }
     STATS_KEYS = {
         'batting': [
             'hits', 'hr', 'rbi', 'runs', 'sb', 'avg', 'obp', 'slg', 'ops', 'bb_rate', 'k_rate', # Basic stats
@@ -45,7 +50,7 @@ class PlayerSeasonStatsPercentiles(SeasonStatsPercentiles):
             self.purge_all_records_in_transaction(self.season_stats_percentiles_table)
 
             logger.info(f"Computing percentiles for player season stats")
-            super().compute_percentiles(self.season_stats_table, self.STATS_KEYS, self.STATS_THRESHOLDS, self.ID_KEYS)
+            super().compute_percentiles(self.season_stats_table, self.STATS_KEYS, self.STATS_THRESHOLDS, self.ID_KEYS, position_filters=self.POSITION_FILTERS)
         except Exception as e:
             logger.error(f"Error computing player season stats percentiles: {e}")
             self.rollback_transaction()

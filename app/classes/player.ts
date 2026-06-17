@@ -64,6 +64,10 @@ const PLAYER_VALUE_SNAPSHOTS_TABLE = 'player_value_snapshots';
 const PLAYER_VALUE_SNAPSHOT_COMPONENTS_TABLE = 'player_value_snapshot_components';
 const TEAM_VALUE_SNAPSHOT_CATEGORY_TOTALS_TABLE = 'team_value_snapshot_category_totals';
 const TEAM_VALUE_SNAPSHOT_POSITION_TOTALS_TABLE = 'team_value_snapshot_position_totals';
+const PLAYER_GAME_LOGS_TABLE = 'player_game_logs';
+const PLAYER_SEASON_STATS_TABLE = 'player_season_stats';
+const PLAYER_SEASON_STATS_PERCENTILES_TABLE = 'player_season_stats_percentiles';
+const ADVANCED_ROLLING_STATS_TABLE = 'player_advanced_rolling_stats';
 
 /** Percentile and reliability fields from getFields(); scoring keys use table aliases. */
 type TwoStartPitcherBase = {
@@ -283,6 +287,64 @@ export type SpanDays = 7 | 14 | 30;
 export type PitcherOrBatter = 'P' | 'B';
 export type Position = '1B' | '2B' | '3B' | 'SS' | 'C' | 'OF' | 'DH' | 'UTIL' | 'P' | 'SP' | 'RP';
 export type WatchlistType = 'speed' | 'contact' | 'power' | 'starter' | 'reliever';
+
+export type GameLogRow = {
+    players_id: number;
+    player_id: number;
+    game_date: string;
+    opponent: string | null;
+    is_home: boolean | null;
+    position: string | null;
+    ab: number | null; h: number | null; r: number | null; rbi: number | null;
+    hr: number | null; sb: number | null; bb: number | null; k: number | null;
+    singles: number | null; doubles: number | null; triples: number | null; total_bases: number | null;
+    ip: number | null; er: number | null; hits_allowed: number | null; walks_allowed: number | null;
+    strikeouts: number | null; qs: number | null; sv: number | null; hld: number | null;
+    nrfi: number | null; home_runs_allowed: number | null; batters_faced: number | null;
+    fantasy_points: number | null;
+};
+
+export type SavantProfileRow = Record<string, unknown>;
+export type AdvancedRollingRow = Record<string, unknown>;
+
+export type MatchupContext = {
+    game_date: string;
+    home_or_away: 'home' | 'away' | null;
+    opposing_starter: {
+        name: string | null;
+        season_era: number | null;
+        season_whip: number | null;
+        k_per_9: number | null;
+        throws: string | null;
+    } | null;
+    opposing_team_split: {
+        ops: number | null;
+        k_rate: number | null;
+        bb_rate: number | null;
+        ops_pct: number | null;
+        so_rate_pct: number | null;
+        bb_rate_pct: number | null;
+    } | null;
+};
+
+export type RecentSplits = {
+    last_7: Record<string, unknown> | null;
+    prior_7: Record<string, unknown> | null;
+    last_14: Record<string, unknown> | null;
+    last_30: Record<string, unknown> | null;
+    trend: 'heating_up' | 'cooling' | 'steady';
+};
+
+export type StreakStatus = {
+    hit_streak_games: number;
+    on_base_streak_games: number;
+    multi_hit_streak: number;
+    scoreless_innings_streak: number;
+    consecutive_quality_starts: number;
+    games_since_last_hr: number;
+    games_since_last_sb: number;
+    last_active_game_date: string | null;
+};
 
 class Player {
     private db: QueryableDB;
@@ -1601,7 +1663,8 @@ class Player {
         position: Position | false = false,
         orderBy: PlayerScoringFields | PlayerAdvancedScoringFields | false = false,
         teamId: number | false = false,
-        seasonYear: number = new Date().getFullYear()
+        seasonYear: number = new Date().getFullYear(),
+        playerIdFilter: number[] = [],
     ): Promise<PlayerFantasyRanking[]> {
         const playerFields: PlayerSelectScoringFields = this.getDefaultPlayerFields();
         const scoringFields: PlayerSelectScoringFields = batterOrPitcher === 'B' ? this.getHitterScoringFields() : this.getPitcherScoringFields();
@@ -1642,7 +1705,13 @@ class Player {
             filters.push(`${PLAYERS_TABLE_ALIAS}.team_id = ?`);
             params.push(teamId);
         }
-        
+
+        if ( playerIdFilter.length > 0 ) {
+            const placeholders = playerIdFilter.map(() => '?').join(', ');
+            filters.push(`${PLAYERS_TABLE_ALIAS}.id IN (${placeholders})`);
+            params.push(...playerIdFilter);
+        }
+
         const offset = (page - 1) * this.pageSize;
         params.push(this.pageSize, offset);
         
@@ -1782,6 +1851,377 @@ class Player {
         );
         console.log(`Query returned ${nrfiRankings ? nrfiRankings.length : 0} rows`);
         return nrfiRankings as NRFIRanking[];
+    }
+
+    async getPlayerGameLogs(
+        playerIds: number[],
+        lastN: number = 10,
+        seasonYear: number = new Date().getFullYear(),
+    ): Promise<GameLogRow[]> {
+        if (!playerIds.length) throw new Error('player_ids required');
+        const idPlaceholders = playerIds.map(() => '?').join(', ');
+        const [rows] = await this.db.query<GameLogRow[]>(`
+            SELECT * FROM (
+                SELECT
+                    p.id AS players_id,
+                    pgl.player_id,
+                    DATE_FORMAT(pgl.game_date, '%Y-%m-%d') AS game_date,
+                    pgl.opponent, pgl.is_home, pgl.position,
+                    pgl.ab, pgl.h, pgl.r, pgl.rbi, pgl.hr, pgl.sb, pgl.bb, pgl.k,
+                    pgl.singles, pgl.doubles, pgl.triples, pgl.total_bases,
+                    pgl.ip, pgl.er, pgl.hits_allowed, pgl.walks_allowed, pgl.strikeouts,
+                    pgl.qs, pgl.sv, pgl.hld, pgl.nrfi,
+                    pgl.home_runs_allowed, pgl.batters_faced, pgl.fantasy_points,
+                    ROW_NUMBER() OVER (PARTITION BY p.id ORDER BY pgl.game_date DESC, pgl.id DESC) AS rn
+                FROM ${PLAYER_GAME_LOGS_TABLE} pgl
+                INNER JOIN ${PLAYERS_TABLE} p ON p.player_id = pgl.player_id
+                WHERE p.id IN (${idPlaceholders}) AND pgl.season_year = ?
+            ) t
+            WHERE t.rn <= ?
+            ORDER BY t.players_id, t.game_date DESC
+        `, [...playerIds, seasonYear, lastN]);
+        return rows;
+    }
+
+    async getPlayerSavantProfile(
+        playerId: number,
+        seasonYear: number = new Date().getFullYear(),
+    ): Promise<SavantProfileRow[]> {
+        const [rows] = await this.db.query<SavantProfileRow[]>(`
+            SELECT
+                pss.player_id, pss.season_year, pss.position, pss.team, pss.age,
+                pss.games, pss.pa, pss.ab, pss.ip, pss.era, pss.whip, pss.qs, pss.sv, pss.hld,
+                pss.avg, pss.obp, pss.slg, pss.ops, pss.bb_rate, pss.k_rate,
+                pss.iso, pss.babip, pss.woba, pss.wrc_plus, pss.wraa, pss.sprint_speed,
+                pss.barrel_pct, pss.hard_hit_pct, pss.avg_ev, pss.max_ev, pss.sweet_spot_pct,
+                pss.chase_pct, pss.contact_pct, pss.zone_contact_pct, pss.whiff_pct,
+                pss.fip, pss.x_fip, pss.k_per_9, pss.bb_per_9, pss.hr_per_9,
+                pss.k_pct, pss.bb_pct, pss.lob_pct, pss.csw_pct, pss.swinging_strike_pct,
+                pss.ground_ball_pct, pss.fly_ball_pct,
+                pss_pct.hits_pct, pss_pct.hr_pct, pss_pct.rbi_pct, pss_pct.runs_pct, pss_pct.sb_pct,
+                pss_pct.avg_pct, pss_pct.obp_pct, pss_pct.slg_pct, pss_pct.ops_pct,
+                pss_pct.bb_rate_pct, pss_pct.k_rate_pct, pss_pct.iso_pct, pss_pct.babip_pct,
+                pss_pct.woba_pct, pss_pct.wrc_plus_pct, pss_pct.wraa_pct,
+                pss_pct.barrel_pct_pct, pss_pct.hard_hit_pct_pct, pss_pct.avg_ev_pct,
+                pss_pct.max_ev_pct, pss_pct.sweet_spot_pct_pct, pss_pct.chase_pct_pct,
+                pss_pct.contact_pct_pct, pss_pct.zone_contact_pct_pct, pss_pct.whiff_pct_pct,
+                pss_pct.era_pct, pss_pct.whip_pct, pss_pct.fip_pct, pss_pct.x_fip_pct,
+                pss_pct.k_per_9_pct, pss_pct.bb_per_9_pct, pss_pct.hr_per_9_pct,
+                pss_pct.k_pct_pct, pss_pct.bb_pct_pct, pss_pct.lob_pct_pct, pss_pct.csw_pct_pct,
+                pss_pct.swinging_strike_pct_pct, pss_pct.ground_ball_pct_pct, pss_pct.fly_ball_pct_pct,
+                pss_pct.qs_pct, pss_pct.sv_pct, pss_pct.hld_pct, pss_pct.sprint_speed_pct,
+                pss_pct.reliability_score
+            FROM ${PLAYER_SEASON_STATS_TABLE} pss
+            INNER JOIN ${PLAYERS_TABLE} p ON p.player_id = pss.player_id
+            LEFT JOIN ${PLAYER_SEASON_STATS_PERCENTILES_TABLE} pss_pct
+                ON pss_pct.player_id = pss.player_id
+                AND pss_pct.position = pss.position
+                AND pss_pct.season_year = pss.season_year
+            WHERE p.id = ? AND pss.season_year = ?
+            ORDER BY CASE WHEN pss.position != 'P' THEN 0 ELSE 1 END
+        `, [playerId, seasonYear]);
+        return rows;
+    }
+
+    async getPlayerAdvancedRolling(
+        playerId: number,
+        spanDays: SpanDays = 14,
+        seasonYear: number = new Date().getFullYear(),
+        position?: string,
+    ): Promise<AdvancedRollingRow[]> {
+        const params: (string | number)[] = [playerId, spanDays, seasonYear];
+        let positionClause = '';
+        if (position) {
+            positionClause = 'AND pars.position = ?';
+            params.push(position.toUpperCase());
+        }
+        const [rows] = await this.db.query<AdvancedRollingRow[]>(`
+            SELECT
+                pars.span_days, pars.split_type, pars.position,
+                DATE_FORMAT(pars.start_date, '%Y-%m-%d') AS start_date,
+                DATE_FORMAT(pars.end_date, '%Y-%m-%d') AS end_date,
+                pars.games, pars.abs, pars.ip,
+                pars.obp, pars.slg, pars.ops, pars.bb_rate, pars.k_rate,
+                pars.babip, pars.iso, pars.contact_pct, pars.gb_fb_ratio,
+                pars.lob_batting_pct, pars.woba, pars.woba_plus, pars.obp_plus,
+                pars.slg_plus, pars.ops_plus, pars.wraa,
+                pars.fip, pars.k_per_9, pars.bb_per_9, pars.hr_per_9,
+                pars.k_bb_ratio, pars.lob_pitching_pct, pars.fip_minus, pars.era_minus,
+                pars_pct.obp_pct, pars_pct.slg_pct, pars_pct.ops_pct,
+                pars_pct.bb_rate_pct, pars_pct.k_rate_pct, pars_pct.babip_pct,
+                pars_pct.iso_pct, pars_pct.contact_pct_pct, pars_pct.gb_fb_ratio_pct,
+                pars_pct.lob_batting_pct_pct, pars_pct.woba_pct, pars_pct.woba_plus_pct,
+                pars_pct.obp_plus_pct, pars_pct.slg_plus_pct, pars_pct.ops_plus_pct,
+                pars_pct.wraa_pct, pars_pct.fip_pct, pars_pct.k_per_9_pct,
+                pars_pct.bb_per_9_pct, pars_pct.hr_per_9_pct, pars_pct.k_bb_ratio_pct,
+                pars_pct.lob_pitching_pct_pct, pars_pct.fip_minus_pct, pars_pct.era_minus_pct,
+                pars_pct.reliability_score, pars_pct.is_reliable
+            FROM ${ADVANCED_ROLLING_STATS_TABLE} pars
+            INNER JOIN ${PLAYERS_TABLE} p ON p.player_id = pars.player_id
+            LEFT JOIN ${ADVANCED_ROLLING_STATS_PERCENTILES_TABLE} pars_pct
+                ON pars_pct.player_id = pars.player_id
+                AND pars_pct.position = pars.position
+                AND pars_pct.span_days = pars.span_days
+                AND pars_pct.split_type = pars.split_type
+                AND pars_pct.season_year = pars.season_year
+            WHERE p.id = ?
+                AND pars.span_days = ?
+                AND pars.split_type = 'overall'
+                AND pars.season_year = ?
+                ${positionClause}
+            ORDER BY CASE WHEN pars.position != 'P' THEN 0 ELSE 1 END
+        `, params);
+        return rows;
+    }
+
+    async getPlayerMatchupContext(
+        playerId: number,
+        gameDate: string,
+        seasonYear: number = new Date().getFullYear(),
+    ): Promise<MatchupContext | null> {
+        type PlayerRow = { id: number; player_id: number; name: string; mlb_team: string; position: string };
+        const [[player]] = await this.db.query<PlayerRow[]>(
+            `SELECT id, player_id, name, mlb_team, position FROM ${PLAYERS_TABLE} WHERE id = ? LIMIT 1`,
+            [playerId]
+        );
+        if (!player) return null;
+
+        const isPitcher = player.position === 'P';
+        type LookupRow = { bats: string | null; throws: string | null };
+        const [[lookup]] = await this.db.query<LookupRow[]>(
+            `SELECT bats, throws FROM ${PLAYER_LOOKUPS_TABLE} WHERE player_id = ? AND position = ? LIMIT 1`,
+            [player.player_id, isPitcher ? 'P' : 'B']
+        );
+
+        type GameRow = { team: string; opponent: string; home: number; game_id: string };
+        const [[myGame]] = await this.db.query<GameRow[]>(
+            `SELECT team, opponent, home, game_id FROM ${PROBABLE_PITCHERS_TABLE}
+             WHERE team = ? AND game_date = ? LIMIT 1`,
+            [player.mlb_team, gameDate]
+        );
+        if (!myGame) return null;
+
+        const homeOrAway = myGame.home ? 'home' : 'away';
+
+        type SplitRow = { ops: number | null; so_rate: number | null; bb_rate: number | null };
+        type SplitPctRow = { ops_pct: number | null; so_rate_pct: number | null; bb_rate_pct: number | null };
+        const spanDays = 30;
+
+        if (!isPitcher) {
+            type OppPitcherRow = { player_id: number; pitcher_name: string };
+            const [[oppPitcher]] = await this.db.query<OppPitcherRow[]>(
+                `SELECT player_id, pitcher_name FROM ${PROBABLE_PITCHERS_TABLE}
+                 WHERE team = ? AND game_date = ? LIMIT 1`,
+                [myGame.opponent, gameDate]
+            );
+
+            let opposingStarter: MatchupContext['opposing_starter'] = null;
+            let opposingTeamSplit: MatchupContext['opposing_team_split'] = null;
+
+            if (oppPitcher?.player_id) {
+                type OppStatsRow = { throws: string | null; era: number | null; whip: number | null; k_per_9: number | null; name: string | null };
+                const [[oppStats]] = await this.db.query<OppStatsRow[]>(`
+                    SELECT pl.throws, pss.era, pss.whip, pss.k_per_9, p2.name
+                    FROM ${PLAYER_LOOKUPS_TABLE} pl
+                    LEFT JOIN ${PLAYER_SEASON_STATS_TABLE} pss
+                        ON pss.player_id = pl.player_id AND pss.position = 'P' AND pss.season_year = ?
+                    LEFT JOIN ${PLAYERS_TABLE} p2
+                        ON p2.player_id = pl.player_id AND p2.position = 'P'
+                    WHERE pl.player_id = ? AND pl.position = 'P'
+                    LIMIT 1
+                `, [seasonYear, oppPitcher.player_id]);
+
+                if (oppStats) {
+                    opposingStarter = {
+                        name: oppStats.name || oppPitcher.pitcher_name,
+                        season_era: oppStats.era,
+                        season_whip: oppStats.whip,
+                        k_per_9: oppStats.k_per_9,
+                        throws: oppStats.throws,
+                    };
+
+                    if (oppStats.throws) {
+                        const [[split]] = await this.db.query<SplitRow[]>(
+                            `SELECT ops, so_rate, bb_rate FROM ${TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE.replace('_percentiles', '')}
+                             WHERE team = ? AND throws = ? AND span_days = ? AND season_year = ?`,
+                            [player.mlb_team, oppStats.throws, spanDays, seasonYear]
+                        );
+                        const [[splitPct]] = await this.db.query<SplitPctRow[]>(
+                            `SELECT ops_pct, so_rate_pct, bb_rate_pct FROM ${TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE}
+                             WHERE team = ? AND throws = ? AND span_days = ? AND season_year = ?`,
+                            [player.mlb_team, oppStats.throws, spanDays, seasonYear]
+                        );
+                        if (split) {
+                            opposingTeamSplit = {
+                                ops: split.ops, k_rate: split.so_rate, bb_rate: split.bb_rate,
+                                ops_pct: splitPct?.ops_pct ?? null,
+                                so_rate_pct: splitPct?.so_rate_pct ?? null,
+                                bb_rate_pct: splitPct?.bb_rate_pct ?? null,
+                            };
+                        }
+                    }
+                }
+            }
+            return { game_date: gameDate, home_or_away: homeOrAway, opposing_starter: opposingStarter, opposing_team_split: opposingTeamSplit };
+        } else {
+            const throws = lookup?.throws ?? null;
+            let opposingTeamSplit: MatchupContext['opposing_team_split'] = null;
+            if (throws) {
+                const [[split]] = await this.db.query<SplitRow[]>(
+                    `SELECT ops, so_rate, bb_rate FROM ${TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE.replace('_percentiles', '')}
+                     WHERE team = ? AND throws = ? AND span_days = ? AND season_year = ?`,
+                    [myGame.opponent, throws, spanDays, seasonYear]
+                );
+                const [[splitPct]] = await this.db.query<SplitPctRow[]>(
+                    `SELECT ops_pct, so_rate_pct, bb_rate_pct FROM ${TEAM_VS_PITCHER_SPLITS_PERCENTILES_TABLE}
+                     WHERE team = ? AND throws = ? AND span_days = ? AND season_year = ?`,
+                    [myGame.opponent, throws, spanDays, seasonYear]
+                );
+                if (split) {
+                    opposingTeamSplit = {
+                        ops: split.ops, k_rate: split.so_rate, bb_rate: split.bb_rate,
+                        ops_pct: splitPct?.ops_pct ?? null,
+                        so_rate_pct: splitPct?.so_rate_pct ?? null,
+                        bb_rate_pct: splitPct?.bb_rate_pct ?? null,
+                    };
+                }
+            }
+            return { game_date: gameDate, home_or_away: homeOrAway, opposing_starter: null, opposing_team_split: opposingTeamSplit };
+        }
+    }
+
+    async getPlayerRecentSplits(
+        playerId: number,
+        seasonYear: number = new Date().getFullYear(),
+    ): Promise<RecentSplits> {
+        type RollingRow = { span_days: number; position: string; games: number; rbi: number; runs: number; hr: number; sb: number; hits: number; abs: number; avg: number; k: number; strikeouts: number; ip: number; er: number; qs: number; sv: number; hld: number; nrfi: number; whip: number; era: number };
+        const [rollingRows] = await this.db.query<RollingRow[]>(`
+            SELECT prs.span_days, prs.position, prs.games, prs.rbi, prs.runs, prs.hr,
+                prs.sb, prs.hits, prs.abs, prs.avg, prs.k, prs.strikeouts,
+                prs.ip, prs.er, prs.qs, prs.sv, prs.hld, prs.nrfi, prs.whip, prs.era
+            FROM ${BASIC_ROLLING_STATS_TABLE} prs
+            INNER JOIN ${PLAYERS_TABLE} p ON p.player_id = prs.player_id
+            WHERE p.id = ? AND prs.split_type = 'overall' AND prs.season_year = ?
+                AND prs.span_days IN (7, 14, 30)
+            ORDER BY CASE WHEN prs.position != 'P' THEN 0 ELSE 1 END, prs.span_days
+        `, [playerId, seasonYear]);
+
+        type PriorRow = { total_fp: number | null; avg_fp: number | null; games: number };
+        const [[priorRow]] = await this.db.query<PriorRow[]>(`
+            SELECT
+                SUM(pgl.fantasy_points) AS total_fp,
+                AVG(pgl.fantasy_points) AS avg_fp,
+                COUNT(*) AS games
+            FROM ${PLAYER_GAME_LOGS_TABLE} pgl
+            INNER JOIN ${PLAYERS_TABLE} p ON p.player_id = pgl.player_id
+            WHERE p.id = ? AND pgl.season_year = ?
+                AND pgl.game_date BETWEEN DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+                                      AND DATE_SUB(CURDATE(), INTERVAL 8 DAY)
+        `, [playerId, seasonYear]);
+
+        type Last7Row = { total_fp: number | null; avg_fp: number | null };
+        const [[last7Row]] = await this.db.query<Last7Row[]>(`
+            SELECT SUM(pgl.fantasy_points) AS total_fp, AVG(pgl.fantasy_points) AS avg_fp
+            FROM ${PLAYER_GAME_LOGS_TABLE} pgl
+            INNER JOIN ${PLAYERS_TABLE} p ON p.player_id = pgl.player_id
+            WHERE p.id = ? AND pgl.season_year = ?
+                AND pgl.game_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        `, [playerId, seasonYear]);
+
+        const toMap = (row: RollingRow) => ({
+            span_days: row.span_days, position: row.position, games: row.games,
+            rbi: row.rbi, runs: row.runs, hr: row.hr, sb: row.sb,
+            hits: row.hits, abs: row.abs, avg: row.avg, k: row.k,
+            strikeouts: row.strikeouts, ip: row.ip, er: row.er,
+            qs: row.qs, sv: row.sv, hld: row.hld, nrfi: row.nrfi,
+            whip: row.whip, era: row.era,
+        });
+
+        const last7Stats = rollingRows.find(r => r.span_days === 7) ?? null;
+        const last14Stats = rollingRows.find(r => r.span_days === 14) ?? null;
+        const last30Stats = rollingRows.find(r => r.span_days === 30) ?? null;
+
+        const last7Fp = last7Row?.total_fp ?? 0;
+        const prior7Fp = priorRow?.total_fp ?? 0;
+        const delta = last7Fp - prior7Fp;
+        const trend: RecentSplits['trend'] = delta > 10 ? 'heating_up' : delta < -10 ? 'cooling' : 'steady';
+
+        return {
+            last_7: last7Stats ? toMap(last7Stats) : null,
+            prior_7: priorRow ? { total_fantasy_points: priorRow.total_fp, avg_fantasy_points: priorRow.avg_fp, games: priorRow.games } : null,
+            last_14: last14Stats ? toMap(last14Stats) : null,
+            last_30: last30Stats ? toMap(last30Stats) : null,
+            trend,
+        };
+    }
+
+    async getPlayersByIds(
+        playerIds: number[],
+        spanDays: SpanDays = 14,
+        seasonYear: number = new Date().getFullYear(),
+    ): Promise<PlayerFantasyRanking[]> {
+        if (!playerIds.length) throw new Error('player_ids required');
+        const [batters, pitchers] = await Promise.all([
+            this.getPlayerFantasyRankings(1, spanDays, 'B', true, false, false, false, seasonYear, playerIds),
+            this.getPlayerFantasyRankings(1, spanDays, 'P', true, false, false, false, seasonYear, playerIds),
+        ]);
+        return [...batters, ...pitchers];
+    }
+
+    async getPlayerStreakStatus(
+        playerId: number,
+        seasonYear: number = new Date().getFullYear(),
+    ): Promise<StreakStatus> {
+        type LogRow = { game_date: string; position: string | null; h: number | null; bb: number | null; hit_by_pitch: number | null; hr: number | null; sb: number | null; er: number | null; ip: number | null; qs: number | null };
+        const [rows] = await this.db.query<LogRow[]>(`
+            SELECT
+                DATE_FORMAT(pgl.game_date, '%Y-%m-%d') AS game_date,
+                pgl.position, pgl.h, pgl.bb, pgl.hit_by_pitch,
+                pgl.hr, pgl.sb, pgl.er, pgl.ip, pgl.qs
+            FROM ${PLAYER_GAME_LOGS_TABLE} pgl
+            INNER JOIN ${PLAYERS_TABLE} p ON p.player_id = pgl.player_id
+            WHERE p.id = ? AND pgl.season_year = ?
+            ORDER BY pgl.game_date DESC, pgl.id DESC
+        `, [playerId, seasonYear]);
+
+        let hitStreak = 0, hitBroken = false;
+        let obStreak = 0, obBroken = false;
+        let multiHit = 0, multiHitBroken = false;
+        let scoreless = 0, scorelessBroken = false;
+        let qs = 0, qsBroken = false;
+        let sinceHR = 0, hrFound = false;
+        let sinceSB = 0, sbFound = false;
+        const lastActiveGameDate = rows[0]?.game_date ?? null;
+
+        for (const row of rows) {
+            const h = row.h ?? 0;
+            const bb = row.bb ?? 0;
+            const hbp = row.hit_by_pitch ?? 0;
+            const hr = row.hr ?? 0;
+            const sb = row.sb ?? 0;
+            const er = row.er ?? 0;
+            const qsVal = row.qs ?? 0;
+            const isPitcherGame = row.position === 'SP' || row.position === 'RP' || row.position === 'P';
+
+            if (!hitBroken) { if (h > 0) hitStreak++; else hitBroken = true; }
+            if (!obBroken) { if (h > 0 || bb > 0 || hbp > 0) obStreak++; else obBroken = true; }
+            if (!multiHitBroken) { if (h >= 2) multiHit++; else multiHitBroken = true; }
+            if (isPitcherGame && !scorelessBroken) { if (er === 0) scoreless++; else scorelessBroken = true; }
+            if (isPitcherGame && !qsBroken) { if (qsVal === 1) qs++; else qsBroken = true; }
+            if (!hrFound) { if (hr > 0) hrFound = true; else sinceHR++; }
+            if (!sbFound) { if (sb > 0) sbFound = true; else sinceSB++; }
+        }
+
+        return {
+            hit_streak_games: hitStreak,
+            on_base_streak_games: obStreak,
+            multi_hit_streak: multiHit,
+            scoreless_innings_streak: scoreless,
+            consecutive_quality_starts: qs,
+            games_since_last_hr: sinceHR,
+            games_since_last_sb: sinceSB,
+            last_active_game_date: lastActiveGameDate,
+        };
     }
 }
 

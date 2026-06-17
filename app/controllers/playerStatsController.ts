@@ -1,5 +1,7 @@
 import type Player from "../classes/player";
 import type {
+	AdvancedRollingRow,
+	GameLogRow,
 	HitterAdvancedScoringFields,
 	HitterBasicScoringFields,
 	HitterContactOnBaseWatchlist,
@@ -8,6 +10,7 @@ import type {
 	HitterScoringCategoryStats,
 	HitterScoringWatchlist,
 	HitterSpeedWatchlist,
+	MatchupContext,
 	NRFIRanking,
 	PitcherAdvancedScoringFields,
 	PitcherBasicScoringFields,
@@ -23,7 +26,10 @@ import type {
 	PlayerScoringFields,
 	Position,
 	ProbablePitcher,
+	RecentSplits,
+	SavantProfileRow,
 	SpanDays,
+	StreakStatus,
 	TeamPositionValueStats,
 	TeamScoringCategoryStats,
 	TwoStartPitcher,
@@ -281,6 +287,83 @@ class PlayerStatsController {
         } else {
             throw new Error('Invalid type');
         }
+    }
+
+    async getPlayerGameLogs(
+        rawPlayerIds: number[] | number,
+        lastN: number = 10,
+        season?: number,
+    ): Promise<GameLogRow[]> {
+        const playerIds = Array.isArray(rawPlayerIds) ? rawPlayerIds : [rawPlayerIds];
+        const ids = playerIds.map(id => parseNumberRequired(id, 'player_id'));
+        if (!ids.length) throw new Error('player_id or player_ids required');
+        const n = Math.max(1, Math.min(Number(lastN) || 10, 50));
+        const seasonYear = this.resolveSeasonYear(season);
+        return this.player.getPlayerGameLogs(ids, n, seasonYear);
+    }
+
+    async getPlayerSavantProfile(
+        playerId: number,
+        season?: number,
+    ): Promise<SavantProfileRow[]> {
+        const id = parseNumberRequired(playerId, 'player_id');
+        const seasonYear = this.resolveSeasonYear(season);
+        return this.player.getPlayerSavantProfile(id, seasonYear);
+    }
+
+    async getPlayerAdvancedRolling(
+        playerId: number,
+        spanDays: number = 14,
+        season?: number,
+        position?: string,
+    ): Promise<AdvancedRollingRow[]> {
+        const id = parseNumberRequired(playerId, 'player_id');
+        const spanDaysNum = Number(spanDays);
+        if (!SPAN_DAYS_SET.has(spanDaysNum as SpanDays)) throw new Error('span_days must be 7, 14, or 30');
+        const seasonYear = this.resolveSeasonYear(season);
+        return this.player.getPlayerAdvancedRolling(id, spanDaysNum as SpanDays, seasonYear, position);
+    }
+
+    async getPlayerMatchupContext(
+        playerId: number,
+        gameDate?: string,
+        season?: number,
+    ): Promise<MatchupContext | null> {
+        const id = parseNumberRequired(playerId, 'player_id');
+        const date = gameDate || new Date().toISOString().split('T')[0];
+        const seasonYear = this.resolveSeasonYear(season);
+        return this.player.getPlayerMatchupContext(id, date, seasonYear);
+    }
+
+    async getPlayerRecentSplits(
+        playerId: number,
+        season?: number,
+    ): Promise<RecentSplits> {
+        const id = parseNumberRequired(playerId, 'player_id');
+        const seasonYear = this.resolveSeasonYear(season);
+        return this.player.getPlayerRecentSplits(id, seasonYear);
+    }
+
+    async getPlayersByIds(
+        rawPlayerIds: number[],
+        spanDays: number = 14,
+        season?: number,
+    ): Promise<PlayerFantasyRanking[]> {
+        const playerIds = rawPlayerIds.map(id => parseNumberRequired(id, 'player_id'));
+        if (playerIds.length < 2 || playerIds.length > 5) throw new Error('player_ids must have 2–5 items');
+        const spanDaysNum = Number(spanDays);
+        if (!SPAN_DAYS_SET.has(spanDaysNum as SpanDays)) throw new Error('span_days must be 7, 14, or 30');
+        const seasonYear = this.resolveSeasonYear(season);
+        return this.player.getPlayersByIds(playerIds, spanDaysNum as SpanDays, seasonYear);
+    }
+
+    async getPlayerStreakStatus(
+        playerId: number,
+        season?: number,
+    ): Promise<StreakStatus> {
+        const id = parseNumberRequired(playerId, 'player_id');
+        const seasonYear = this.resolveSeasonYear(season);
+        return this.player.getPlayerStreakStatus(id, seasonYear);
     }
 
     getDateRange(query: DateQuery): { startDate: string, endDate: string } {

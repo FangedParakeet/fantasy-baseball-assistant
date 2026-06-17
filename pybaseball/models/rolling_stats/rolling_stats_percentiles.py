@@ -50,7 +50,7 @@ class RollingStatsPercentiles(DB_Recorder):
                 params = [window, split]
                 self.execute_query_in_transaction(insert_query, params)
 
-    def compute_single_season_percentiles(self, stats_table, stats_key, reliability_threshold, extra_stats_keys=None):
+    def compute_single_season_percentiles(self, stats_table, stats_key, reliability_threshold, extra_stats_keys=None, position_filter=None):
         extra_values = ''
         if extra_stats_keys:
             extra_values = ', ' + ', '.join(extra_stats_keys)
@@ -58,6 +58,9 @@ class RollingStatsPercentiles(DB_Recorder):
         insert_values = f"last_updated, {stats_key}_pct" + extra_values
         select_values = f"%s, ROUND(100 * PERCENT_RANK() OVER (ORDER BY {stats_key} ASC), 2) AS {stats_key}_pct" + extra_values
 
+        where_clause = f"{stats_key} IS NOT NULL"
+        if position_filter:
+            where_clause += f" AND position = '{position_filter}'"
 
         if reliability_threshold:
             expected_threshold = reliability_threshold['value'] * self.THRESHOLD_MULTIPLIERS['overall']
@@ -73,7 +76,7 @@ class RollingStatsPercentiles(DB_Recorder):
             INSERT INTO {stats_table + '_percentiles'} ({insert_values})
             SELECT {select_values}
             FROM {stats_table}
-            WHERE {stats_key} IS NOT NULL
+            WHERE {where_clause}
             ON DUPLICATE KEY UPDATE
                 {stats_key}_pct = VALUES({stats_key}_pct),
                 {reliability_update}

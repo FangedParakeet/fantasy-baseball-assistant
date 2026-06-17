@@ -603,6 +603,112 @@ function registerPitchingTools(
 	);
 }
 
+function registerPlayerGameTools(
+	server: McpServer,
+	playerStatsController: PlayerStatsController,
+): void {
+	// biome-ignore lint/suspicious/noExplicitAny: MCP SDK complex generics cause TS2589/OOM
+	const s = server as any;
+
+	s.tool(
+		"get_player_game_logs",
+		"Returns recent game-by-game logs for one or more players. Each row includes all batting stats (ab, h, r, hr, rbi, sb, bb, k, singles, doubles, triples, total_bases) and pitching stats (ip, er, hits_allowed, walks_allowed, strikeouts, qs, sv, hld, nrfi, home_runs_allowed, batters_faced) plus fantasy_points. Pass player_ids for batch mode.",
+		{
+			player_id: z.number().int().positive().optional().describe("Single player ID (players.id). Use this or player_ids."),
+			player_ids: z.array(z.number().int().positive()).optional().describe("Batch mode: fetch last_n logs for each player."),
+			last_n: z.number().int().positive().default(10).describe("Number of most-recent games per player (max 50, default 10)."),
+			season_year: z.number().int().optional().describe("Season year. Defaults to current."),
+		},
+		async ({ player_id, player_ids, last_n, season_year }: { player_id?: number; player_ids?: number[]; last_n: number; season_year?: number }) => {
+			const ids = player_ids ?? (player_id ? [player_id] : []);
+			const results = await playerStatsController.getPlayerGameLogs(ids, last_n, season_year);
+			return toText(results);
+		},
+	);
+
+	s.tool(
+		"get_player_savant_profile",
+		"Returns the full Statcast/Savant season profile for a player including raw stats and percentile rankings. Batters: barrel%, hard-hit%, avg EV, sweet-spot%, chase%, contact%, wOBA, wRC+, sprint speed. Pitchers: FIP, xFIP, K/9, BB/9, CSW%, swinging-strike%, GB%. Shared: ERA, WHIP, QS, SV, HLD.",
+		{
+			player_id: z.number().int().positive().describe("Player ID (players.id)."),
+			season_year: z.number().int().optional().describe("Season year. Defaults to current."),
+		},
+		async ({ player_id, season_year }: { player_id: number; season_year?: number }) => {
+			const results = await playerStatsController.getPlayerSavantProfile(player_id, season_year);
+			return toText(results);
+		},
+	);
+
+	s.tool(
+		"get_player_advanced_rolling",
+		"Returns rolling advanced peripherals (wOBA, OPS+, ISO, contact%, K-rate, BB-rate, BABIP, FIP, FIP-, ERA-, K/9, BB/9, K-BB ratio, LOB%, HR/9, wRAA) with percentile rankings and reliability score for a configurable window. Use position to pin two-way players like Ohtani to one role.",
+		{
+			player_id: z.number().int().positive().describe("Player ID (players.id)."),
+			span_days: spanDaysSchema.describe("Rolling window: 7, 14, or 30 days."),
+			position: z.string().optional().describe("Pin to 'B' (batter) or 'P' (pitcher) for two-way players."),
+			season_year: z.number().int().optional().describe("Season year. Defaults to current."),
+		},
+		async ({ player_id, span_days, position, season_year }: { player_id: number; span_days: number; position?: string; season_year?: number }) => {
+			const results = await playerStatsController.getPlayerAdvancedRolling(player_id, span_days, season_year, position);
+			return toText(results);
+		},
+	);
+
+	s.tool(
+		"get_player_matchup_context",
+		"Returns today's (or a specific date's) matchup context for a player: opposing starter stats/hand, how the relevant team performs against that pitcher type, and home/away flag. For batters: opposing pitcher + team split vs that hand. For pitchers: opposing lineup split vs the pitcher's arm.",
+		{
+			player_id: z.number().int().positive().describe("Player ID (players.id)."),
+			game_date: z.string().optional().describe("YYYY-MM-DD. Defaults to today."),
+			season_year: z.number().int().optional().describe("Season year. Defaults to current."),
+		},
+		async ({ player_id, game_date, season_year }: { player_id: number; game_date?: string; season_year?: number }) => {
+			const result = await playerStatsController.getPlayerMatchupContext(player_id, game_date, season_year);
+			return toText(result);
+		},
+	);
+
+	s.tool(
+		"get_recent_splits",
+		"Returns last-7, prior-7, last-14, and last-30 rolling stat windows for a player, plus a trend label (heating_up / cooling / steady) based on comparing last-7 vs prior-7 fantasy points. Useful for identifying hot/cold streaks before add/drop decisions.",
+		{
+			player_id: z.number().int().positive().describe("Player ID (players.id)."),
+			season_year: z.number().int().optional().describe("Season year. Defaults to current."),
+		},
+		async ({ player_id, season_year }: { player_id: number; season_year?: number }) => {
+			const result = await playerStatsController.getPlayerRecentSplits(player_id, season_year);
+			return toText(result);
+		},
+	);
+
+	s.tool(
+		"compare_players",
+		"Returns rolling stats and percentile rankings for 2–5 players side-by-side in the same shape as search_players. Use for quick head-to-head comparison before a trade or add/drop decision.",
+		{
+			player_ids: z.array(z.number().int().positive()).min(2).max(5).describe("List of 2–5 player IDs (players.id)."),
+			span_days: spanDaysSchema.describe("Rolling window: 7, 14, or 30 days."),
+			season_year: z.number().int().optional().describe("Season year. Defaults to current."),
+		},
+		async ({ player_ids, span_days, season_year }: { player_ids: number[]; span_days: number; season_year?: number }) => {
+			const results = await playerStatsController.getPlayersByIds(player_ids, span_days, season_year);
+			return toText(results);
+		},
+	);
+
+	s.tool(
+		"get_player_streak_status",
+		"Returns active streak information for a player: hit streak, on-base streak, multi-hit streak, scoreless innings streak (pitchers), consecutive quality starts (pitchers), games since last HR, games since last SB, and last active game date.",
+		{
+			player_id: z.number().int().positive().describe("Player ID (players.id)."),
+			season_year: z.number().int().optional().describe("Season year. Defaults to current."),
+		},
+		async ({ player_id, season_year }: { player_id: number; season_year?: number }) => {
+			const result = await playerStatsController.getPlayerStreakStatus(player_id, season_year);
+			return toText(result);
+		},
+	);
+}
+
 export function createMcpServer(): McpServer {
 	const server = new McpServer({
 		name: "fantasy-baseball-assistant",
@@ -618,6 +724,7 @@ export function createMcpServer(): McpServer {
 	registerPlayerSearchTools(server, playerStatsController);
 	registerValueTools(server, league, playerStatsController);
 	registerPitchingTools(server, playerStatsController);
+	registerPlayerGameTools(server, playerStatsController);
 
 	return server;
 }
