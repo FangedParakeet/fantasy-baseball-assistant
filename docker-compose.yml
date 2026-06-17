@@ -1,6 +1,7 @@
 services:
   mysql:
     image: mysql:8.0
+    platform: linux/arm64
     container_name: fantasy_mysql
     restart: always
     environment:
@@ -72,6 +73,7 @@ services:
 
   nginx:
     image: nginx:alpine
+    platform: linux/arm64
     container_name: fantasy_nginx
     restart: always
     ports:
